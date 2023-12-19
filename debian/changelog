@@ -1,5 +1,333 @@
-template-repository (1.0-1) unstable; urgency=medium
+codeblocks (20.03+svn13046-0.2) unstable; urgency=medium
 
-  * Initial release
+  * Non-maintainer upload.
+  * Drop FileManager. (Closes: #1038807)
 
- -- Tsic404 <liuheng@deepin.org>  Sat, 28 Jan 2023 13:46:49 +0800
+ -- Bastian Germann <bage@debian.org>  Tue, 24 Oct 2023 17:47:28 +0000
+
+codeblocks (20.03+svn13046-0.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * New upstream version 20.03+svn13046. (Closes: #1019830)
+  * Upstream support riscv64. (Closes: #1011502)
+  * d/patch: add revision.m4
+  * adjust usr/share/appdata/codeblocks.appdata.xml
+    to usr/share/metainfo/codeblocks.appdata.xml
+  * add source/lintian-overrides
+  * rebase d/patch
+
+ -- Bo YU <tsu.yubo@gmail.com>  Sun, 20 Nov 2022 15:12:29 +0800
+
+codeblocks (20.03-3.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Build with -std=gnu++14 to workaround FTBFS with gcc 11.
+    (Closes: #984020)
+
+ -- Adrian Bunk <bunk@debian.org>  Mon, 08 Nov 2021 15:51:13 +0200
+
+codeblocks (20.03-3) unstable; urgency=medium
+
+  * Fix FTBFS on armel/armhf (Closes: #958085)
+
+ -- David Prévot <taffit@debian.org>  Sat, 18 Apr 2020 09:47:24 -1000
+
+codeblocks (20.03-2) unstable; urgency=medium
+
+  * Protect asm("int3") if defined(LOGGING).
+    This hopefully fixes FTBFS on non Intel arch.
+
+ -- David Prévot <taffit@debian.org>  Thu, 02 Apr 2020 16:52:55 -1000
+
+codeblocks (20.03-1) unstable; urgency=medium
+
+  New upstream release
+
+  * debian/watch: Drop uversionmangle
+  * debian/copyright:
+    + Revert "Exclude prebuilt Windows binaries and Java objects from source"
+    + Update copyright
+  * debian/*.install:
+    + Shorten a bit some install files
+    + Update installed files
+  * debian/codeblocks.lintian-override: Drop unused override
+  * debian/control:
+    + Build-Depend on libastyle-dev
+    + Depend on libastyle3
+    + Update Standards-Version to 4.5.0
+  * debian/rules: Add bindnow hardening flag
+
+ -- David Prévot <taffit@debian.org>  Thu, 02 Apr 2020 10:45:55 -1000
+
+codeblocks (17.12+dfsg-1) unstable; urgency=medium
+
+  New upstream release (Closes: #886062)
+
+  [ Vincent Cheng ]
+  * Remove Michael Casadevall from Uploaders in d/control. (Closes: #841466)
+
+  [ David Prévot ]
+  * Use secure copyright file specification URI.
+  * Transition to automatic debug package (from: codeblocks-dbg).
+  * Use secure URI in debian/watch.
+  * Bump debhelper from old 9 to 12.
+    + debian/rules: Call dh_missing rather than using dh_install --list-missing.
+  * debian/copyright: Use spaces rather than tabs in continuation lines.
+  * Update Vcs-* headers to use salsa repository.
+  * Upstream renamed (lib)astyle as (lib)Astyle
+  * d/control
+    + Build-Depends:
+      - Use libwxgtk3.0-gtk3-dev instead of libwxgtk3.0-dev (Closes: #933407)
+      - Use libgtk-3-dev instead of libgtk2.0-dev
+      - Add libboost-system-dev and libtinyxml-dev
+      - Drop dh-autoreconf
+    + Drop versioned dependency satisfied in (old)stable
+    + Add self to Uploaders
+    + Add Multi-Arch hints
+  * d/rules
+    + drop useless dh options (default since dh 10)
+    + include /usr/share/dpkg/default.mk
+    + Drop SOURCE_DATE_EPOCH assignment
+    + Drop /usr/share/dpkg/buildflags.mk inclusion
+  * Use debian/clean instead of override_dh_auto_clean
+  * Drop lintian-overrides about tinyxml since the system library is now used
+  * Install upstream appdata
+  * Move more architecture-independent files to codeblocks-common
+  * Remove unused files from debian/ directory
+  * Update Standards-Version to 4.4.1
+  * Update copyright
+
+ -- David Prévot <taffit@debian.org>  Tue, 29 Oct 2019 16:10:57 -1000
+
+codeblocks (16.01+dfsg-2.1) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Apply patch from upstream svn to fix FTBFS with GCC 7.1 (Closes: #853349)
+
+ -- Andreas Moog <andreas.moog@warperbbs.de>  Sat, 30 Sep 2017 20:21:54 +0200
+
+codeblocks (16.01+dfsg-2) unstable; urgency=medium
+
+  * Drop debian/patches/05-fix-boost-system-1.60.patch; obsolete.
+  * Add debian/patches/05-remove-rsa-md5-impl.patch to fix non-distributability
+    of codeblocks package due to GPL and RSA md5 license conflict. Thanks to
+    Alexander for the initial version of the patch! (Closes: #826379)
+  * Drop build-dep on libboost-system-dev.
+  * Drop obsolete dh_install files.
+  * Update debian/copyright.
+
+ -- Vincent Cheng <vcheng@debian.org>  Tue, 14 Jun 2016 23:57:50 -0700
+
+codeblocks (16.01+dfsg-1) unstable; urgency=medium
+
+  * New upstream release. (Closes: #803436, #813898)
+  * Add debian/patches/03-remove-fPIC-from-pkg-info.patch, thanks to Alexander
+    GQ Gerasiov <gq@debian.org>.
+  * Add debian/patches/04-reproducible_build.patch and d/rules changes to make
+    build reproducible. (Closes: #824182)
+  * Add debian/patches/05-fix-boost-system-1.60.patch to fix a FTBFS with
+    boost1.60; imported from Ubuntu. Thanks to Gianfranco Costamagna.
+  * Add build-depends on libboost-system-dev.
+  * Actually bump debhelper compatibility level to 9.
+  * Update debian/copyright. Most of the work done by Alexander, thanks!
+  * Update watch file.
+  * Standards-Version bump to 3.9.8.
+    - Drop obsolete debian/menu files.
+
+ -- Vincent Cheng <vcheng@debian.org>  Mon, 23 May 2016 17:08:23 -0700
+
+codeblocks (13.12+dfsg-4) unstable; urgency=medium
+
+  * Acknowledge NMU, thanks to Olly Betts!
+  * Repack tarball to fix license-problem-non-free-img-lenna. (Closes: #794852)
+    - Add debian/patches/02-remove_lena_references.patch.
+  * Update Vcs-Browser URL to use cgit.
+  * Update watch file.
+  * Standards-Version bump to 3.9.6, no changes needed.
+
+ -- Vincent Cheng <vcheng@debian.org>  Thu, 20 Aug 2015 02:44:11 -0700
+
+codeblocks (13.12-3.1) unstable; urgency=low
+
+  * Non-maintainer upload.
+  * Update to use wxWidgets 3.0. (Closes: #744115)
+
+ -- Olly Betts <olly@survex.com>  Wed, 13 May 2015 16:06:43 +1200
+
+codeblocks (13.12-3) unstable; urgency=medium
+
+  * Add depends on libgamin0 to codeblocks-contrib. (Closes: #726761)
+
+ -- Vincent Cheng <vcheng@debian.org>  Sun, 26 Jan 2014 20:30:28 -0800
+
+codeblocks (13.12-2) unstable; urgency=medium
+
+  * Build-dep only on libwxgtk2.8-dev to avoid wxgtk3.0-related crashes.
+    (Closes: #736368)
+
+ -- Vincent Cheng <vcheng@debian.org>  Wed, 22 Jan 2014 14:38:25 -0800
+
+codeblocks (13.12-1) unstable; urgency=medium
+
+  * New upstream release.
+    - Drop 01-codeblocks_plugin_path.patch, 05-support_-std=c99.patch;
+      obsolete.
+    - Drop 04-add_support_for_sh4.patch; applied upstream.
+    - Refresh (and reorder) remaining patches.
+  * Add libwxgtk3.0-dev as alternative build-dep (for libwxgtk2.8-dev).
+  * Add menu file.
+  * Standards-Version bump to 3.9.5, no changes needed.
+  * Update watch file.
+  * Update my email address.
+
+ -- Vincent Cheng <vcheng@debian.org>  Wed, 15 Jan 2014 13:18:05 -0800
+
+codeblocks (12.11-3) unstable; urgency=low
+
+  * Upload to unstable.
+  * Update watch file, thanks to Bart Martens.
+
+ -- Vincent Cheng <Vincentc1208@gmail.com>  Mon, 06 May 2013 00:20:02 -0700
+
+codeblocks (12.11-2) experimental; urgency=low
+
+  * Fix FTBFS by not overriding dh_fixperms and setting executable bit on a
+    file that does not exist when arch:all packages are not built.
+
+ -- Vincent Cheng <Vincentc1208@gmail.com>  Sat, 22 Dec 2012 13:02:26 -0800
+
+codeblocks (12.11-1) experimental; urgency=low
+
+  [ David Paleino ]
+  * Remove references to Microsoft Windows in the long descriptions
+    (Closes: #617684).
+  * Add support for "-std=c99" for GCC compilers (Closes: #651306).
+  * Standards-Version bump to 3.9.4, no changes needed.
+  * Updated debian/copyright.
+  * Updated debian/watch to catch new versions.
+  * Bump debhelper compatibility to 9.
+
+  [ Vincent Cheng ]
+  * Acknowledge NMU by Matthias Klose, thanks!
+  * New upstream release. (Closes: #696048)
+    - Remove 03-fix_libX11_linkage.patch, ftbfs-gcc-4.7.diff; applied upstream.
+    - Refresh remaining patches.
+  * Add myself to Uploaders.
+  * Add libhunspell-dev, libgamin-dev, libboost-dev to build dependencies.
+  * Mark codeblocks-contrib-dbg as a transitional package and install all
+    debugging symbols into codeblocks-dbg.
+  * Remove lintian override script-not-executable.
+
+ -- Vincent Cheng <Vincentc1208@gmail.com>  Sat, 22 Dec 2012 17:36:58 +0100
+
+codeblocks (10.05-2.1) unstable; urgency=low
+
+  * Non maintainer upload.
+  * Drop build dependency on libstdc++6-4.5-dev | libstdc++6-4.4-dev.
+  * Fix build failures with GCC 4.7, build with -fpermissive. Closes: #667138.
+
+ -- Matthias Klose <doko@debian.org>  Tue, 29 May 2012 05:03:19 +0000
+
+codeblocks (10.05-2) unstable; urgency=low
+
+  * Added Vcs-* fields to debian/control
+  * Added valgrind recommendation to codeblocks-contrib (Closes: #614590)
+  * Added support for the unofficial sh4 port, thanks to Nobuhiro Iwamatsu
+    for the patch -- 04-add_support_for_sh4.patch (Closes: #614508)
+  * Fix long descriptions to use a better wording (Closes: #615815)
+
+ -- David Paleino <dapal@debian.org>  Tue, 08 Mar 2011 10:13:15 +0100
+
+codeblocks (10.05-1) unstable; urgency=low
+
+  * Initial Debian release (Closes: #304570)
+  * Setting myself as Maintainer, original Ubuntu maintainer set as
+    Uploader
+  * Use debian/watch to get the original tarball, instead of an ad-hoc
+    script
+  * Wrap multivalue fields in debian/control
+  * Update debian/copyright with lots of missing info, and use DEP-5
+  * Add missing linkage to libX11 (03-fix_libX11_linkage.patch)
+  * Use dh7 for debian/rules
+  * Build-Depend on dh-autoreconf, since we need to re-generate autotools
+    machinery (libtool version mismatch)
+  * Migrate from libwxsmithlib0-dev to libwxsmithlib-dev, to ease
+    future SONAME bumps.
+
+ -- David Paleino <dapal@debian.org>  Sat, 22 Jan 2011 20:58:57 +0100
+
+codeblocks (10.05-0ubuntu1) maverick; urgency=low
+
+  * New upstream release. Closes (LP: #322350)
+   - Switch to dpkg-source 3.0 (quilt) format
+   - Remove unneeded README.source
+   - Add debian/get-source-orig script that removes all
+     Windows prebuilt binaries
+  * Bump Standards-Version to 3.9.1
+   - Stop shipping *.la files
+  * debian/control
+   - Add cdbs package as Build-Depend
+   - Add libbz2-dev and zlib1g-dev packages as
+     Build-Depends (needed by libhelp_plugin.so)
+   - Remove dpatch package of Build-Depends
+   - Add codeblocks-contrib-debug package
+   - Split architecture-independent files of codeblocks
+     package in codeblocks-common package
+  * debian/rules
+   - Switch to CDBS rules system
+   - Add parallel build support
+   - Add a call to debian/get-source-orig script
+   - Use lzma compression (saves 23,5 MB of free space)
+  * debian/patches
+   - Refresh 01_codeblocks_plugin_path
+   - Add 02_no_Makefiles_in_debian_dir to remove any link
+     in codeblocks build system to deleted Makefiles of debian directory
+   - Drop 02_ftbfs_gcc44 and 03_ftbfs_glib221 (merged in upstream)
+  * debian/watch
+   - Update to use the new host (berlios.de)
+
+ -- Cosme Domínguez Díaz <cosme.ddiaz@gmail.com>  Mon, 09 Aug 2010 04:38:38 +0200
+
+codeblocks (8.02-0ubuntu4) karmic; urgency=low
+
+  [ Felix Geyer ]
+  * Fix FTBFS with gcc 4.4 and glib 2.21 (LP: #428875)
+    - Add debian/patches/02_ftbfs_gcc44.dpatch
+    - Add debian/patches/03_ftbfs_glib221.dpatch
+
+  [ Andrew Starr-Bochicchio ]
+  * debian/rules: Drop depricated dh_desktop call.
+  * debian/control:
+   - Add ${misc:Depends} as we use debhelper.
+   - Bump Standards-Version to 3.8.3, no changes needed.
+   - Move codeblocks-dbg to Section: debug
+  * Add README.source pointing to dpatch documentation.
+
+ -- Felix Geyer <debfx-pkg@fobos.de>  Sun, 13 Sep 2009 14:18:13 -0400
+
+codeblocks (8.02-0ubuntu3) jaunty; urgency=low
+
+  * debian/control: Add recommends on xterm. Codeblocks seems to use xterm to
+    launch programs; this failed if xterm was not present. (LP: #355524)
+
+ -- David Cordero <david@corderoramirez.es>  Wed, 08 Apr 2009 17:51:47 +0200
+
+codeblocks (8.02-0ubuntu2) intrepid; urgency=low
+
+  * Expanded control file entries as per archive admin request.
+  * Corrected original maintainer which had accidently been left as
+    the maintainer set in the upstream Debian folder, and not as myself
+
+ -- Michael Casadevall <sonicmctails@gmail.com>  Thu, 24 Jul 2008 09:47:33 -0400
+
+codeblocks (8.02-0ubuntu1) intrepid; urgency=low
+
+  * Inital Release based off existing codeblocks debian folder (LP: #105428)
+  * Modify Maintainer from original debian folder to match
+    the DebianMaintainerField specification.
+  * Added 01_codeblocks_plugin_path.dpatch to move the plugins path
+  * Noted the LGPL licensing for some of the files in copyright, and
+    pinged upstream to please include a COPYING.LGPL file in the source
+    tarball
+
+ -- Michael Casadevall <sonicmctails@gmail.com>  Thu, 17 Jul 2008 04:39:23 +0000

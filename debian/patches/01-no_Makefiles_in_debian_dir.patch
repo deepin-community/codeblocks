@@ -1,0 +1,24 @@
+From: =?utf-8?q?Cosme_Dom=C3=ADnguez?= <cosme.ddiaz@gmail.com>
+Date: Mon, 28 Oct 2019 15:00:00 -1000
+Subject: we don't want Makefiles, in debian directory,
+ linked to build system of upstream tarball
+
+Forwarded: no
+---
+ Makefile.am | 3 +--
+ 1 file changed, 1 insertion(+), 2 deletions(-)
+
+diff --git a/Makefile.am b/Makefile.am
+index 0e2c886..c0da25c 100644
+--- a/Makefile.am
++++ b/Makefile.am
+@@ -26,8 +26,7 @@ EXTRA_DIST = bootstrap \
+ 		$(srcdir)/update* \
+ 		ChangeLog.xsl \
+ 		codeblocks.appdata.xml \
+-		codeblocks-contrib.metainfo.xml \
+-		debian
++		codeblocks-contrib.metainfo.xml
+ 
+ clean-zipfiles:
+ 	find . -name "*.zip" | xargs rm -f

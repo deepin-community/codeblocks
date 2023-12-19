@@ -1,0 +1,67 @@
+From: Fabian Wolff <fabi.wolff@arcor.de>
+Date: Mon, 28 Oct 2019 15:00:00 -1000
+Subject: Make the build reproducible (enforce reproducible timestamps)
+
+Forwarded: https://sourceforge.net/p/codeblocks/tickets/356/
+Last-Update: 2016-05-20
+---
+ src/plugins/contrib/wxSmithSTC/stedit/src/stedlgs.cpp | 2 +-
+ src/sdk/cbexception.cpp                               | 2 +-
+ src/sdk/configmanager.cpp                             | 2 +-
+ src/src/appglobals.cpp                                | 4 ++--
+ 4 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/src/plugins/contrib/wxSmithSTC/stedit/src/stedlgs.cpp b/src/plugins/contrib/wxSmithSTC/stedit/src/stedlgs.cpp
+index 4a9d1d5..90c5204 100644
+--- a/src/plugins/contrib/wxSmithSTC/stedit/src/stedlgs.cpp
++++ b/src/plugins/contrib/wxSmithSTC/stedit/src/stedlgs.cpp
+@@ -2854,7 +2854,7 @@ void wxSTEditorAboutDialog(wxWindow* parent)
+             #else
+                 wxT("Scintilla 1.70"),
+             #endif
+-                wxString::FromAscii(__DATE__).wx_str(), // no need to show time
++                wxString::FromAscii(BUILD_DATE).wx_str(), // no need to show time
+                 buildStr.wx_str()
+                 );
+ 
+diff --git a/src/sdk/cbexception.cpp b/src/sdk/cbexception.cpp
+index 40ac805..48a6db3 100644
+--- a/src/sdk/cbexception.cpp
++++ b/src/sdk/cbexception.cpp
+@@ -47,7 +47,7 @@ void cbException::ShowErrorMessage(bool safe)
+                  "build: %s %s)"),
+                File.c_str(), Line, Message.c_str(),
+                ConfigManager::GetRevisionNumber(), compilerVersion.c_str(),
+-               wxT(__DATE__), wxT(__TIME__));
++               wxT(BUILD_DATE), wxT(BUILD_TIME));
+     if (safe)
+         wxSafeShowMessage(title, err);
+     else
+diff --git a/src/sdk/configmanager.cpp b/src/sdk/configmanager.cpp
+index fb11c23..931fef7 100644
+--- a/src/sdk/configmanager.cpp
++++ b/src/sdk/configmanager.cpp
+@@ -272,7 +272,7 @@ void CfgMgrBldr::SwitchTo(const wxString& fileName)
+     wxString info;
+     info.Printf(_T(" application info:\n"
+                     "\t svn_revision:\t%u\n"
+-                    "\t build_date:\t%s, %s\n"), ConfigManager::GetRevisionNumber(), wxT(__DATE__), wxT(__TIME__));
++                    "\t build_date:\t%s, %s\n"), ConfigManager::GetRevisionNumber(), wxT(BUILD_DATE), wxT(BUILD_TIME));
+ #if defined(__clang__)
+     info += wxString::Format(wxT("\t compiler_version:\tclang %d.%d.%d\n"), __clang_major__,
+                              __clang_minor__, __clang_patchlevel__);
+diff --git a/src/src/appglobals.cpp b/src/src/appglobals.cpp
+index 4a02eff..1b32866 100644
+--- a/src/src/appglobals.cpp
++++ b/src/src/appglobals.cpp
+@@ -63,8 +63,8 @@ namespace appglobals
+     const wxString bit_type              = wxT(" - 32 bit");
+ #endif
+ 
+-    const wxString AppBuildTimestamp     = (  wxString(wxT(__DATE__)) + wxT(", ")
+-                                            + wxT(__TIME__) + wxT(" - wx")
++    const wxString AppBuildTimestamp     = (  wxString(wxT(BUILD_DATE)) + wxT(", ")
++                                            + wxT(BUILD_TIME) + wxT(" - wx")
+                                             + wxString(wxT(wxVERSION_NUM_DOT_STRING))
+ #if defined(__clang__)
+                                             + wxString::Format(wxT(" - clang %d.%d.%d"),

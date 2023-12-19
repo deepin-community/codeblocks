@@ -1,0 +1,14 @@
+Description: add revision.m4 file 
+ The file may be generated when a stable version is released.
+ Set it to the unreleased svn info so the file is available on build.
+Author: BO YU <tsu.yubo@gmail.com> 
+Forwarded: not-needed
+Last-Update: 2022-11-21 
+---
+This patch header follows DEP-3: http://dep.debian.net/deps/dep3/
+--- /dev/null
++++ b/revision.m4
+@@ -0,0 +1,3 @@
++m4_define([SVN_REV], 13046)
++m4_define([SVN_REVISION], 20.03)
++m4_define([SVN_DATE], 2022-11-18 13:56:24)
