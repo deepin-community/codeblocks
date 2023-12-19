@@ -1,4 +1,49 @@
 #!/usr/bin/make -f
 
+NUMJOBS = $(shell getconf _NPROCESSORS_ONLN 2>/dev/null || echo 1)
+ifneq (,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+	NUMJOBS = $(patsubst parallel=%,%,$(filter parallel=%,$(DEB_BUILD_OPTIONS)))
+	MAKEFLAGS += -j$(NUMJOBS)
+else
+	DEB_BUILD_OPTIONS += parallel=$(NUMJOBS)
+	export DEB_BUILD_OPTIONS
+endif
+
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+DPKG_EXPORT_BUILDFLAGS = 1
+include /usr/share/dpkg/default.mk
+
+export DEB_LDFLAGS_MAINT_APPEND=-Wl,--no-as-needed -ltinyxml
+# Disable WXDEBUG checks, which wx3.0 defaults to enabling but were off by
+# default in wx2.8, to address issues such as #736368.
+# Also enable reproducible builds by ensuring that timestamps are reproducible;
+# see #824182.
+export DEB_CPPFLAGS_MAINT_APPEND=-DNDEBUG \
+	-DBUILD_DATE="\"\\\"`date -u -d @$(SOURCE_DATE_EPOCH) +%Y-%m-%d`\\\"\"" \
+	-DBUILD_TIME="\"\\\"`date -u -d @$(SOURCE_DATE_EPOCH) +%T`\\\"\""
+
+export DEB_CXXFLAGS_MAINT_APPEND += -std=gnu++14
+
 %:
 	dh $@
+
+override_dh_auto_configure:
+	# prevents FTBFS
+	touch $(CURDIR)/debian/codeblocks-headers.install.wx30
+	
+	dh_auto_configure -- --with-contrib-plugins=all,-FileManager \
+	                     --disable-silent-rules \
+	                     --libdir=\$${exec_prefix}/lib
+
+override_dh_install:
+	find $(CURDIR)/debian/tmp -name "*.la" -delete
+	dh_install
+
+override_dh_strip:
+	dh_strip --dbgsym-migration='codeblocks-dbg (<< 17)'
+
+overide_dh_makeshlibs:
+	dh_makeshlibs -Xusr/lib/codeblocks/plugins -Xusr/lib/codeblocks/wxContribItems
+
+override_dh_shlibdeps:
+	dh_shlibdeps -Xusr/lib/codeblocks/plugins
