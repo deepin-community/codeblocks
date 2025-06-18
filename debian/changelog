@@ -1,3 +1,9 @@
+codeblocks (25.03+dfsg-2deepin1) unstable; urgency=medium
+
+  * revert t64
+
+ -- lhdjply <lhdjply@126.com>  Wed, 18 Jun 2025 10:27:56 +0800
+
 codeblocks (25.03+dfsg-2) unstable; urgency=medium
 
   [ Andreas B. Mundt ]
