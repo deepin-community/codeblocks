@@ -6,18 +6,21 @@
 #ifndef ParseManager_H
 #define ParseManager_H
 
-#include "parsemanager_base.h"
-#include "parser/parser_base.h"
-#include "parser/cclogger.h" //(ph 2021/07/27)
-#include "LSPEventCallbackHandler.h" //(ph 2021/10/22)
-//-#include "IdleCallbackHandler.h"     //(ph 2022/02/14)
-
-#include <queue>
-#include <map>
+//unused #include <queue>
+//unused #include <map>
 #include <memory>
+#include <mutex>  //(Christo 2024/03/30)
 #include <unordered_map>
-
 #include <wx/event.h>
+#include <wx/aui/aui.h>
+
+#include <cbstyledtextctrl.h>
+#include "parsemanager_base.h"
+//-#include "parser/parser_base.h"
+#include "parser/cclogger.h"
+#include "LSPEventCallbackHandler.h"
+//-#include "IdleCallbackHandler.h"
+
 
 /** debug only variable, used to print the AI match related log message*/
 extern bool s_DebugSmartSense;
@@ -33,8 +36,18 @@ class ClassBrowser;
 class Compiler;
 class Token;
 
-////// TODO (ollydbg#1#), this class is dirty, I'm going to change its name like CursorLocation
-/////** Search location combination, a pointer to cbStyledTextCtrl and a filename is enough */
+#include "parser/ParserCommon.h"
+class  Parser;
+class  ParserBase;
+struct ParserOptions;
+struct BrowserOptions;
+class  IdleCallbackHandler;
+class  ProjectFile;
+class  ProcessLanguageClient;
+class  ClgdCompletion;
+
+// TODO (ollydbg#1#), this class is dirty, I'm going to change its name like CursorLocation
+/* * Search location combination, a pointer to cbStyledTextCtrl and a filename is enough */
 struct ccSearchData
 {
     cbStyledTextCtrl* control;
@@ -51,7 +64,6 @@ enum BrowserViewMode
 /** @brief ParseManager class is just like a manager class to control Parser objects.
  *
  * Normally, Each C::B Project (cbp) will have an associated Parser object.
- * In another mode, all C::B projects belong to a C::B workspace share a single Parser object.
  * ParseManager will manage all the Parser objects.
  */
 // ----------------------------------------------------------------------------
@@ -71,26 +83,26 @@ public:
     ~ParseManager();
 
     /** return a reference to the current active Parser object */
-    ParserBase& GetParser() { return *m_Parser; }
+    Parser& GetParser() { return *m_ActiveParser; }
 
     /** return the Parser pointer corresponding to the input C::B project
      * @param project input C::B project pointer
      * @return a pointer to Parser object
      */
-    ParserBase* GetParserByProject(cbProject* project);
+    Parser* GetParserByProject(cbProject* project);
 
     /** return the Parser pointer associated with the input file
      * If a file belongs to several Parser objects, the first found Parser will be returned.
      * @param filename filename with full path.
      * @return a Parser pointer
      */
-    ParserBase* GetParserByFilename(const wxString& filename);
+    Parser* GetParserByFilename(const wxString& filename);
 
     /** return the C::B project associated with Parser pointer
      * @param parser Parser pointer
      * @return C::B Project pointer
      */
-    cbProject* GetProjectByParser(ParserBase* parser);
+    cbProject* GetProjectByParser(Parser* parser);
 
     /** return the C::B project containing the filename
      * The function first try to match the filename in the active project, next to match other
@@ -114,7 +126,7 @@ public:
      *   For Clangd, this is alway false
      */
     //-bool IsParserPerWorkspace() const { return m_ParserPerWorkspace; }
-    bool IsParserPerWorkspace() const { return false; } //(ph 2021/08/26)
+    bool IsParserPerWorkspace() const { return false; }
 
     /** Return true if all the Parser's batch-parse stages are finished, otherwise return false */
     bool Done();
@@ -127,6 +139,9 @@ public:
     /** Returns the image assigned to a specific token for a symbol browser */
     int GetTokenKindImage(const Token* token);
 
+    /** Returns the image assigned to a specific token from Clangd Semantic Token type */
+    int GetTokenImageFromSemanticTokenType(Token* token);
+
     /** Get the implementation file path if the input is a header file. or Get the header file path
      * if the input is an implementation file.
      * Both the implementation file and header file can be in different directories.
@@ -136,9 +151,9 @@ public:
      */
     wxArrayString GetAllPathsByFilename(const wxString& filename);
 
-    wxString GetHeaderForSourceFile(cbProject* pProject, wxString& filename);    //(ph 2021/05/19)
-    wxString GetSourceForHeaderFile(cbProject* pProject, wxString& filename);    //(ph 2021/05/19)
-    wxString GetSourceOrHeaderForFile(cbProject* pProject, wxString& filename);    //(ph 2021/05/19)
+    wxString GetHeaderForSourceFile(cbProject* pProject, wxString& filename);
+    wxString GetSourceForHeaderFile(cbProject* pProject, wxString& filename);
+    wxString GetSourceOrHeaderForFile(cbProject* pProject, wxString& filename);
 
     /** Add the paths to path array, and this will be used in GetAllPathsByFilename() function.
      *  internally, all the folder paths were recorded in UNIX format(path separator is '/').
@@ -157,7 +172,7 @@ public:
      * @param useSavedOptions ( previously saved by calling [Parser|ClassBrowser]OptionsSave() )
      * @return Parser pointer of the project.
      */
-    ParserBase* CreateParser(cbProject* project, bool useSavedOptions=false);
+    Parser* CreateParser(cbProject* project, bool useSavedOptions=false);
 
     /** delete the Parser object for the input project
      * @param project C::B project.
@@ -186,7 +201,7 @@ public:
      * @param project C::B project
      * @param filename filename with full path in the C::B project
      */
-    bool AddFileToParser(cbProject* project, const wxString& filename, ParserBase* parser = nullptr);
+    bool AddFileToParser(cbProject* project, const wxString& filename, Parser* parser = nullptr);
 
     /** remove a file from C::B project and Parser
      * @param project C::B project
@@ -197,6 +212,9 @@ public:
     /** when user changes the CC option, we should re-read the option */
     void RereadParserOptions();
 
+    /** Is Settings/Editor/Clangd_client/Symbols browser/ enabled/disabled */
+    bool IsClassBrowserEnabled();
+
     /** re-parse the active Parser (the project associated with m_Parser member variable) */
     void ReparseCurrentEditor();
 
@@ -205,48 +223,6 @@ public:
 
     /** Reparse the active project */
     void ReparseCurrentProject();
-
-////    /** collect tokens where a code suggestion list can be shown
-////     * @param[in] searchData search location, the place where the caret locates
-////     * @param[out] result containing all matching result token indexes
-////     * @param reallyUseAI true means the context scope information should be considered,
-////     *        false if only do a plain word match
-////     * @param isPrefix partially match which result all the Tokens' name with the same prefix,
-////              otherwise use full-text match
-////     * @param caseSensitive case sensitive or not
-////     * @param caretPos Where the current caret locates, -1 means we use the current caret position.
-////     * @return the matching Token count
-////     */
-////    size_t MarkItemsByAI(ccSearchData* searchData, TokenIdxSet& result, bool reallyUseAI = true,
-////                         bool isPrefix = true, bool caseSensitive = false, int caretPos = -1);
-////
-////    /** the same as before, but we don't specify the searchData information, so it will use the active
-////     *  editor and current caret information.
-////     */
-////    size_t MarkItemsByAI(TokenIdxSet& result, bool reallyUseAI = true, bool isPrefix = true,
-////                         bool caseSensitive = false, int caretPos = -1);
-
-////    /** Call tips are tips when you are typing function arguments
-////     * these tips information could be:
-////     * the prototypes information of the current function,
-////     * the type information of the argument.
-////     * Here are the basic algorithm
-////     *
-////     * if you have a function declaration like this: int fun(int a, float b, char c);
-////     * when user are typing code, the caret is located here
-////     * fun(arg1, arg2|
-////     *    ^end       ^ begin
-////     * we first do a backward search, should find the "fun" as the function name
-////     * and later return the string "int fun(int a, float b, char c)" as the call tip
-////     * typedCommas is 1, since one argument is already typed.
-////     *
-////     * @param[out] items array to store the tip results.
-////     * @param typedCommas how much comma characters the user has typed in the current line before the cursor.
-////     * @param ed the editor
-////     * @param pos the location of the caret, if not supplied, the current caret is used
-////     * @return The location in the editor of the beginning of the argument list
-////     */
-////    int GetCallTips(wxArrayString& items, int& typedCommas, cbEditor* ed, int pos = wxNOT_FOUND);
 
     /** project search path is used for auto completion for #include <>
      * there is an "code_completion" option for each cbp, where user can specify
@@ -268,18 +244,28 @@ public:
     void RemoveClassBrowser(bool appShutDown = false);
 
     /** update the class browser tree */
-    //void UpdateClassBrowser();
-    void UpdateClassBrowser();
+    void UpdateClassBrowser(bool force=false);
 
-    // save current options and BrowserOptions          //(ph 2021/05/25)
-    void ParserOptionsSave(ParserBase* pParser)  {m_OptionsSaved = pParser->Options();}
-    void BrowserOptionsSave(ParserBase* pParser) {m_BrowserOptionsSaved = pParser->ClassBrowserOptions();}
+    /** check if ok to update the ClassBrower Symbols window */
+    bool IsOkToUpdateClassBrowserView();
+    bool GetSymbolsWindowHasFocus(){return m_SymbolsWindowHasFocus;}
+    void SetSymbolsWindowHasFocus(bool torf){ m_SymbolsWindowHasFocus = torf; }
+    void SetUpdatingClassBrowserBusy(bool torf) {m_ClassBrowserUpdating = torf;};
+    bool GetUpdatingClassBrowserBusy(){return m_ClassBrowserUpdating;}
+
+    // save current options and BrowserOptions
+    void ParserOptionsSave(Parser* pParser);
+    void BrowserOptionsSave(Parser* pParser);
     ParserOptions&  GetSavedOptions()        {return m_OptionsSaved;}
     BrowserOptions& GetSavedBrowserOptions() {return m_BrowserOptionsSaved;}
 
     wxString m_RenameSymbolToChange;
     void SetRenameSymbolToChange(wxString sysmbolToChange){m_RenameSymbolToChange = sysmbolToChange;}
     wxString GetRenameSymbolToChange(){return m_RenameSymbolToChange;}
+
+    void RefreshSymbolsTab();
+    void OnAUIProjectPageChanging(wxAuiNotebookEvent& event);
+    void OnAUIProjectPageChanged(wxAuiNotebookEvent& event);
 
     // ----------------------------------------------------------------------------
     wxEvtHandler* FindEventHandler(wxEvtHandler* pEvtHdlr)
@@ -311,21 +297,17 @@ public:
         return nowMillis - startMillis;
     }
 
+    ProcessLanguageClient* CreateNewLanguageServiceProcess(cbProject* pcbProject, int LSPeventID);
+    bool DoLockClangd_CacheAccess(cbProject* pcbProject);
+
     LSPEventCallbackHandler* GetLSPEventSinkHandler(){return m_pLSPEventSinkHandler;}
 
     /** Set from CodeCompletion::OnCompiler{Started|Finished}() event */
     bool IsCompilerRunning(){return m_CompilerIsRunning;}
     void SetCompilerIsRunning(bool torf){m_CompilerIsRunning = torf;}
 
-    //(ph 2021/10/23)//(ph 2022/02/14)
     // Get pointer to Idle callbacks
-    IdleCallbackHandler* GetIdleCallbackHandler(cbProject* pProject) //(ph 2022/08/01)
-    {
-        cbAssert(pProject);
-        ParserBase* pParserBase = GetParserByProject(pProject);
-        cbAssert(pParserBase);
-        return pParserBase->GetIdleCallbackHandler();
-    }
+    IdleCallbackHandler* GetIdleCallbackHandler(cbProject* pProject);
 
     void ClearAllIdleCallbacks();
 
@@ -339,8 +321,8 @@ public:
     cbProject* GetProxyProject() {return m_pProxyProject;}
     bool IsProxyProject(cbProject* pProject){return pProject == m_pProxyProject;}
     // Fetch the ProxyParser used to parse non-project owned files
-    ParserBase* GetProxyParser() {return m_pProxyParser;}
-    bool IsProxyParser(ParserBase* pParser) {return pParser == m_pProxyParser;}
+    Parser* GetProxyParser() {return m_pProxyParser;}
+    bool IsProxyParser(Parser* pParser) {return pParser == m_pProxyParser;}
 
     bool GetPluginIsShuttingDown()
     {
@@ -348,36 +330,74 @@ public:
             return true;
         return false;
     }
-    void SetPluginIsShuttingDown()
+    void SetPluginIsShuttingDown();
+    // ----------------------------------------------------------------
+    ProcessLanguageClient* GetLSPclientAllocated(cbProject* pProject)
+    // ----------------------------------------------------------------
     {
-        m_PluginIsShuttingDown = true;
+        ProcessLanguageClient* pClient =  nullptr;
+        if (not pProject) return nullptr;
 
-        ParserList::iterator parserList_it = m_ParserList.begin();  //(ph 2022/08/01)
-        for (; parserList_it != m_ParserList.end(); ++parserList_it)
-        {
-            ParserBase* pParserBase = parserList_it->second;
-            if (pParserBase and pParserBase->GetIdleCallbackHandler())
-                pParserBase->GetIdleCallbackHandler()->SetPluginIsShuttingDown();
-        }
+        if (m_LSP_Clients.count(pProject))
+            pClient =  m_LSP_Clients[pProject];
+        if (pClient)
+            return pClient;
 
+        return nullptr;
     }
 
+    bool DoUnlockClangd_CacheAccess(cbProject* pcbProject);
+    ProcessLanguageClient* GetLSPclient(cbProject* pProject);
+    ProcessLanguageClient* GetLSPclient(cbEditor* pEd);
+    cbProject* GetProjectByClientAndFilename(ProcessLanguageClient* pClient, wxString& Filename);
+
+    bool IsDebuggerRunning() {return m_DebuggerIsRunning;}
+    void SetDebuggerIsRunning(bool torf) {m_DebuggerIsRunning = torf;}
+
+    // Get pointer to hidden cbStyledTextCtrl
+    cbStyledTextCtrl* GetHiddenEditor(){return m_pHiddenEditor.get();}
+
+    bool GetParsingIsBusy(){ return m_ParsingIsBusy;}
+    void SetParsingIsBusy(bool trueOrFalse){ m_ParsingIsBusy = trueOrFalse;}
+
+    bool GetUseCCIconsOption(); //option to use icons in completion popup
+
+    bool DoShowDiagnostics(wxString filename, int line);  //(Christo 2024/03/30)
+    void InsertDiagnostics(wxString filename, std::vector<std::pair<int, wxString>> diagnostics);  //(Christo 2024/03/30)
+    void ClearDiagnostics(wxString filename);  //(Christo 2024/03/30)
+    bool HasDiagnostics(wxString filename);
+
+    bool GetHoverRequestIsActive(){return m_HoverRequestIsActive;}
+    void SetHoverRequestIsActive(bool trueOrFalse)
+        { m_HoverRequestIsActive = trueOrFalse;}
+
+    // Functions to stop clobbering global settings on project close (svn 13612 bkport)
+    // Set or return Project that changed "Global setting" in workspace
+    cbProject* GetOptsChangedByProject(){ return m_pOptsChangedProject;}
+    void SetOptsChangedByProject(cbProject* pProject){m_pOptsChangedProject = pProject;}
+    // Set or return Parser that changed "Global setting" in Single File workspace
+    ParserBase* GetOptsChangedByParser(){ return m_pOptsChangedParser;}
+    void SetOptsChangedByParser(ParserBase* pParserBase){m_pOptsChangedParser = pParserBase;}
+    Parser*     GetTempParser(){return m_TempParser;}
+    ParserBase* GetClosingParser(){return m_pClosingParser;}                        //(ph 2025/02/12)
+    void        SetClosingParser(ParserBase* pParser){m_pClosingParser = pParser;}  //(ph 2025/02/12)
+    std::unordered_map<cbProject*,ParserBase*>* GetActiveParsers();                 //(ph 2025/02/14)
 
 protected:
     /** When a Parser is created, we need a full parsing stage including:
      * 1, parse the priority header files firstly.
      * 2, parse all the other project files.
      */
-    bool DoFullParsing(cbProject* project, ParserBase* parser);
-    void GetPriorityFilesForParsing(StringList& localSourcesList, cbProject* pProject); //(ph 2021/08/7)
+    bool DoFullParsing(cbProject* project, Parser* parser);
+    void GetPriorityFilesForParsing(StringList& localSourcesList, cbProject* pProject);
 
-    bool AddCompilerAndIncludeDirs(cbProject* project, ParserBase* parser); //(ph 2021/11/4)
+    bool AddCompilerAndIncludeDirs(cbProject* project, Parser* parser);
 
   /** Add compiler include directories (from search paths) to a parser */
-    void AddCompilerIncludeDirsToParser(const Compiler* compiler, ParserBase* parser);
+    void AddCompilerIncludeDirsToParser(const Compiler* compiler, Parser* parser);
 
     /** Switch parser object according the current active editor and filename */
-    bool SwitchParser(cbProject* project, ParserBase* parser);
+    bool SwitchParser(cbProject* project, Parser* parser);
 
     /** Set a new Parser as the active Parser
      * Set the active parser pointer (m_Parser member variable)
@@ -385,52 +405,19 @@ protected:
      * re-fresh the symbol browser tree.
      * if we did switch the parser, we also need to remove the temporary tokens of the old parser.
      */
-    void SetParser(ParserBase* parser);
+    void SetParser(Parser* parser);
 
     /** Clear all Parser object */
     void ClearParsers();
 
-////    /** Remove all the obsolete Parser objects
-////     * if the number exceeds the limited number (can be set in the CC's option), then all the
-////     * obsolete parsers will be removed.
-////     */
-////    void RemoveObsoleteParsers();
-
     /** Get cbProject and Parser pointer, according to the current active editor */
-    std::pair<cbProject*, ParserBase*> GetParserInfoByCurrentEditor();
+    std::pair<cbProject*, Parser*> GetParserInfoByCurrentEditor();
 
     /** set the class browser view mode */
     void SetCBViewMode(const BrowserViewMode& mode);
 
 private:
     friend class ClgdCompletion;
-
-////    /** Start an Artificial Intelligence search algorithm to gather all the matching tokens.
-////     * The actual AI is in FindAIMatches() below.
-////     * @param result output parameter.
-////     * @param searchData cbEditor information.
-////     * @param lineText current statement.
-////     * @param isPrefix if true, then the result contains all the tokens whose name is a prefix of current lineText.
-////     * @param caseSensitive true is case sensitive is enabled on the match.
-////     * @param search_scope it is the "parent token" where we match the "search-key".
-////     * @param caretPos use current caret position if it is -1.
-////     * @return matched token number
-////     */
-////    size_t AI(TokenIdxSet& result,
-////              ccSearchData* searchData,
-////              const wxString& lineText = wxEmptyString,
-////              bool isPrefix = false,
-////              bool caseSensitive = false,
-////              TokenIdxSet* search_scope = 0,
-////              int caretPos = -1);
-
-////    /** return all the tokens matching the current function(hopefully, just one)
-////     * @param editor editor pointer
-////     * @param result output result containing all the Token index
-////     * @param caretPos -1 if the current caret position is used.
-////     * @return number of result Tokens
-////     */
-////    size_t FindCurrentFunctionToken(ccSearchData* searchData, TokenIdxSet& result, int caretPos = -1);
 
     /** returns the position where the current function scope starts.
      * optionally, returns the function's namespace (ends in double-colon ::), name and token
@@ -448,76 +435,6 @@ private:
                                  int*          functionIndex = 0L,
                                  int           caretPos = -1);
 
-////    /** used in CodeCompletion suggestion list to boost the performance, we use a cache */
-////    bool LastAISearchWasGlobal() const { return m_LastAISearchWasGlobal; }
-
-////    /** The same as above */
-////    const wxString& LastAIGlobalSearch() const { return m_LastAIGlobalSearch; }
-
-////    /** collect the using namespace directive in the editor specified by searchData
-////     * @param searchData search location
-////     * @param search_scope resulting tokens collection
-////     * @param caretPos caret position, if not specified, we use the current caret position
-////     */
-////    bool ParseUsingNamespace(ccSearchData* searchData, TokenIdxSet& search_scope, int caretPos = -1);
-
-////    /** collect the using namespace directive in the buffer specified by searchData
-////     * @param buffer code snippet to be parsed
-////     * @param search_scope resulting tokens collection
-////     * @param bufferSkipBlocks skip brace sets { }
-////     */
-////    bool ParseBufferForUsingNamespace(const wxString& buffer, TokenIdxSet& search_scope, bool bufferSkipBlocks = true);
-
-////    /** collect function argument, add them to the token tree (as temporary tokens)
-////     * @param searchData search location
-////     * @param caretPos caret position, if not specified, we use the current caret position
-////     */
-////    bool ParseFunctionArguments(ccSearchData* searchData, int caretPos = -1);
-
-////    /** parse the contents from the start of function body to the cursor, this is used to collect local variables.
-////     * @param searchData search location
-////     * @param search_scope resulting tokens collection of local using namespace
-////     * @param caretPos caret position, if not specified, we use the current caret position
-////     */
-////    bool ParseLocalBlock(ccSearchData* searchData, TokenIdxSet& search_scope, int caretPos = -1);
-
-////    /** collect the header file search directories, those dirs include:
-////     * todo: a better name could be: AddHeaderFileSearchDirs
-////     *  1, project's base dir, e.g. if you cbp file was c:/bbb/aaa.cbp, then c:/bbb is added.
-////     *  2, project's setting search dirs, for a wx project, then c:/wxWidgets2.8.12/include is added.
-////     *  3, a project may has some targets, so add search dirs for those targets
-////     *  4, compiler's own search path(system include search paths), like: c:/mingw/include
-////     */
-////    bool AddCompilerDirs(cbProject* project, ParserBase* parser);
-
-////    /** collect compiler specific predefined preprocessor definition, this is usually run a special
-////     * compiler command, like GCC -dM for gcc.
-////     * @return true if there are some macro definition added, else it is false
-////     */
-////    bool AddCompilerPredefinedMacros(cbProject* project, ParserBase* parser);
-
-////    /** collect GCC compiler predefined preprocessor definition */
-////    bool AddCompilerPredefinedMacrosGCC(const wxString& compilerId, cbProject* project, wxString& defs, ParserBase* parser);
-
-////    /** lookup GCC compiler -std=XXX option
-////     * return a string such as "c++11" or "c++17" or "gnu++17"
-////     */
-////    wxString GetCompilerStandardGCC(Compiler* compiler, cbProject* project);
-
-////    /** lookup GCC compiler -std=XXX option for specific GCC options*/
-////    wxString GetCompilerUsingStandardGCC(const wxArrayString& compilerOptions);
-
-////    /** collect VC compiler predefined preprocessor definition */
-////    bool AddCompilerPredefinedMacrosVC(const wxString& compilerId, wxString& defs, ParserBase* parser);
-
-////    /** collect project (user) defined preprocessor definition, such as for wxWidgets project, the
-////     * macro may have "#define wxUSE_UNICODE" defined in its project file.
-////    * @return true if there are some macro definition added, return false if nothing added
-////     */
-////    bool AddProjectDefinedMacros(cbProject* project, ParserBase* parser);
-
-////    /** Add compiler include directories (from search paths) to a parser */
-////    void AddCompilerIncludeDirsToParser(const Compiler* compiler, ParserBase* parser);
 
     /** Collect the default compiler include file search paths. called by AddCompilerDirs() function
      * @return compiler's own search path(system include search paths), like: c:/mingw/include
@@ -527,7 +444,7 @@ private:
     /** Add the collected default GCC compiler include search paths to a parser
      * todo: document this
      */
-     void AddGCCCompilerDirs(const wxString& masterPath, const wxString& compilerCpp, ParserBase* parser);
+     void AddGCCCompilerDirs(const wxString& masterPath, const wxString& compilerCpp, Parser* parser);
 
     /** Add a list of directories to the parser's search directories, normalise to "base" path, if
      * "base" is not empty. Replaces macros.
@@ -535,28 +452,10 @@ private:
      * @param base the base folder of the "dirs", for example, if base is "d:/abc", then the search
      * path "d:/abc/inc" is added to the parser
      */
-    void AddIncludeDirsToParser(const wxArrayString& dirs, const wxString& base, ParserBase* parser);
+    void AddIncludeDirsToParser(const wxArrayString& dirs, const wxString& base, Parser* parser);
 
     /** Runs an app safely (protected against re-entry) and returns output and error */
     bool SafeExecute(const wxString& app_path, const wxString& app, const wxString& args, wxArrayString &output, wxArrayString &error);
-
-////    /** Event handler when the batch parse starts, print some log information */
-////    void OnParserStart(wxCommandEvent& event);
-
-////    /** Event handler when the batch parse finishes, print some log information, check whether the active editor
-////     * belong to the current parser, if not, do a parser switch
-////     */
-////    void OnParserEnd(wxCommandEvent& event);
-
-////    /** If use one parser per whole workspace, we need parse all project one by one, E.g.
-////     * If a workspace contains A.cbp, B.cbp and C.cbp, and we are in the mode of one parser for
-////     * the whole workspace, we first parse A.cbp, after that we should continue to parse B.cbp. When
-////     * finishing parsing B.cbp, we need the timer again to parse the C.cbp.
-////     * If we are in the mode of one parser for one project, then after parsing A.cbp, the timer is
-////     * kicked, so there is a chance to parse the B.cbp or C.cbp, but only when user opened some files
-////     * of B.cbp or C.cbp when the timer event arrived.
-////     */
-////    void OnParsingOneByOneTimer(wxTimerEvent& event);
 
     /** Event handler when an editor activate, *NONE* project is handled here */
     void OnEditorActivated(EditorBase* editor);
@@ -569,35 +468,22 @@ private:
     /** Init cc search member variables */
     void InitCCSearchVariables();
 
-////    /** Add one project to the common parser in one parser for the whole workspace mode
-////     * @return true means there are some thing (macro and files) need to parse, otherwise it is false
-////     */
-////    bool AddProjectToParser(cbProject* project);
-
-////    /** Remove cbp from the common parser, this only happens in one parser for whole workspace mode
-////     * when a parser is removed from the workspace, we should remove the project from the parser
-////     */
-////    bool RemoveProjectFromParser(cbProject* project);
-
-
 private:
-    typedef std::pair<cbProject*, ParserBase*> ProjectParserPair;
+    typedef std::pair<cbProject*, Parser*> ProjectParserPair;
     typedef std::list<ProjectParserPair>       ParserList;
 
     /** a list holding all the cbp->parser pairs, if in one parser per project mode, there are many
      * many pairs in this list. In one parser per workspace mode, there is only one pair, and the
      * m_ParserList.begin()->second is the common parser for all the projects in workspace.
      */
-    ParserList                   m_ParserList;
-    /** a temp Parser object pointer */
-    ParserBase*                  m_TempParser = nullptr;
+    ParserList               m_ParserList;
+    /** a temp Parser object pointer used when there's no available parser */
+    Parser*                  m_TempParser = nullptr;
     /** active Parser object pointer */
-    ParserBase*                  m_Parser;
+    Parser*                  m_ActiveParser;
     /** Proxy Parser object pointer used to parse non-project owned files*/
-    ParserBase*                  m_pProxyParser;
+    Parser*                  m_pProxyParser = nullptr;
 
-////    /** a delay timer to parser every project in sequence */
-////    wxTimer                      m_TimerParsingOneByOne;
     /** symbol browser window */
     ClassBrowser*                m_ClassBrowser;
     /** if true, which means m_ClassBrowser is floating (not docked) */
@@ -613,14 +499,12 @@ private:
     /** if true, which means the parser holds tokens of the entire workspace's project, if false
      * then one parser per a cbp
      */
-    bool                         m_ParserPerWorkspace; //m_ParserPerWorkspace always false for clangd
+    bool                         m_ParserPerWorkspace = false; //m_ParserPerWorkspace always false for clangd
 
     /** only used when m_ParserPerWorkspace is true, and holds all the cbps for the common parser */
     std::set<cbProject*>         m_ParsedProjects; //m_ParserPerWorkspace always false for clangd
 
     /* CC Search Member Variables => START */
-////    wxString          m_LastAIGlobalSearch;    //!< same case like above, it holds the search string
-////    bool              m_LastAISearchWasGlobal; //!< true if the phrase for code-completion is empty or partial text (i.e. no . -> or :: operators)
     cbStyledTextCtrl* m_LastControl;
     wxString          m_LastFile;
     int               m_LastFunctionIndex;
@@ -631,23 +515,59 @@ private:
     int               m_LastResult;
     /* CC Search Member Variables => END */
 
-    //(ph 2021/05/25)
+
     ParserOptions   m_OptionsSaved;
     BrowserOptions  m_BrowserOptionsSaved;
-    //(ph 2021/10/23)
-    LSPEventCallbackHandler* m_pLSPEventSinkHandler;
 
-    // Idle callback Handler pointer //(ph 2022/02/14) moved to parser_base.h //(ph 2022/08/01)
+    // project pointers and their associated LSP client pointers
+    typedef std::map<cbProject*, ProcessLanguageClient*> LSPClientsMapType;
+    LSPClientsMapType m_LSP_Clients; //map of all LSP clients by project*
+    void CloseAllClients();          //shutdown
+
+
+    LSPEventCallbackHandler* m_pLSPEventSinkHandler;
+    ClgdCompletion* m_pClientEventHandler;
+    void SetClientEventHandler(ClgdCompletion* pClientEventHandler)
+            {m_pClientEventHandler = (ClgdCompletion*)pClientEventHandler;}
+
+    // Idle callback Handler pointer  moved to parser_base.h
     //- 2022/08/1 std::unique_ptr<IdleCallbackHandler> pIdleCallbacks;
 
     bool m_CompilerIsRunning = false;
 
-    cbProject* m_pProxyProject = nullptr; //(ph 2022/04/13)
+    cbProject* m_pProxyProject = nullptr;
 
     // List of ProjectFiles* added to the ProxyProject
     std::vector<ProjectFile*> ProxyProjectFiles;
 
     bool m_PluginIsShuttingDown = false;
+    bool m_DebuggerIsRunning = false;
+    bool m_SymbolsWindowHasFocus = false;
+    bool m_ClassBrowserUpdating = false;
+    bool m_ParsingIsBusy = false;
+
+    // a global hidden temp cbStyledTextCtrl for symbol/src/line searches
+    // to avoid constantly allocating wxIDs.
+    std::unique_ptr<cbStyledTextCtrl> m_pHiddenEditor = nullptr;
+
+    typedef std::unordered_map<wxString, std::vector<std::pair<int, wxString>>> DiagnosticsCache_t;
+    //std::unordered_map<wxString, std::vector<std::pair<int, wxString>>> m_diagnosticsCache;  //(Christo 2024/03/30)
+    DiagnosticsCache_t m_diagnosticsCache;  //(Christo 2024/03/30)
+    //typedef std::vector<std::pair<int, wxString>> InnerMap_t;
+
+    std::mutex m_diagnosticsCacheMutex;
+    bool m_HoverRequestIsActive = false;
+    // data to stop clobbering global settings on project close (svn 13612 bkport)
+    //The latest project to change the .conf file
+    cbProject* m_pOptsChangedProject = nullptr;
+    //The latest parser to change the .conf file
+    ParserBase* m_pOptsChangedParser = nullptr;
+    // the currently closing parser
+    ParserBase* m_pClosingParser     = nullptr;
+
+    // copy of m_ParserList used in WriteOptions() (svn 13612 bkport)
+    std::unordered_map<cbProject*,ParserBase*> m_ActiveParserList;
+
 };
 
 #endif // ParseManager_H

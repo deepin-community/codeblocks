@@ -8,10 +8,18 @@ AM_CPPFLAGS = \
 			-I$(top_srcdir)/src/include \
 			-I$(top_srcdir)/src/sdk/wxscintilla/include \
 			-I$(top_srcdir)/src/include/tinyxml \
-			-Isrc \
-			-Isrc/LSPclient \
-			-Isrc/codecompletion \
-			-Isrc/unixprocess
+			-I$(srcdir)/src \
+			-I$(srcdir)/src/LSPclient \
+			-I$(srcdir)/src/codecompletion
+
+if CODEBLOCKS_NT
+AM_CPPFLAGS += \
+			-I$(srcdir)/src/winprocess \
+			-I$(srcdir)/src/winprocess/asyncprocess \
+			-I$(srcdir)/src/winprocess/misc
+else
+AM_CPPFLAGS += -I$(srcdir)/src/unixprocess
+endif
 
 pluginlibdir = $(pkglibdir)/plugins
 
@@ -24,9 +32,12 @@ libclangd_client_la_LDFLAGS = \
 			-avoid-version
 
 libclangd_client_la_LIBADD = \
-			$(top_srcdir)/src/sdk/libcodeblocks.la \
-			-lutil \
+			../../../sdk/libcodeblocks.la \
 			$(WX_LIBS)
+
+if ! CODEBLOCKS_NT
+libclangd_client_la_LIBADD += -lutil
+endif
 
 libclangd_client_la_SOURCES = \
 			src/ClangLocator.cpp \
@@ -54,15 +65,30 @@ libclangd_client_la_SOURCES = \
 			src/codecompletion/parser/token.cpp \
 			src/codecompletion/parser/tokenizer.cpp \
 			src/codecompletion/parser/tokentree.cpp \
+			src/codecompletion/parser/ParserCommon.h \
 			src/codecompletion/selectincludefile.cpp \
 			src/codecompletion/wxsmith/CCTestFrame.wxs \
 			src/LSPclient/client.cpp \
-			src/LSPclient/lspdiagresultslog.cpp \
+			src/LSPclient/lspdiagresultslog.cpp
+
+if CODEBLOCKS_NT
+libclangd_client_la_SOURCES += \
+			src/winprocess/asyncprocess/StringUtils.cpp \
+			src/winprocess/asyncprocess/asyncprocess.cpp \
+			src/winprocess/asyncprocess/processreaderthread.cpp \
+			src/winprocess/asyncprocess/procutils.cpp \
+			src/winprocess/asyncprocess/winprocess.cpp \
+			src/winprocess/asyncprocess/winprocess_impl.cpp \
+			src/winprocess/misc/fileutils.cpp
+else
+libclangd_client_la_SOURCES += \
 			src/unixprocess/asyncprocess/UnixProcess.cpp \
 			src/unixprocess/asyncThreadTypes.cpp \
 			src/unixprocess/fileutils.cpp \
 			src/unixprocess/procutils.cpp \
 			src/unixprocess/StringUtils.cpp
+endif
+
 noinst_HEADERS = \
 			src/ClangLocator.h \
 			src/ClgdCCToken.h \
@@ -100,10 +126,25 @@ noinst_HEADERS = \
 			src/LSPclient/uri.h \
 			src/LSPclient/lspdiagresultslog.h \
 			src/LSP_SymbolKind.h \
-			src/Version.h \
+			src/Version.h
+
+if CODEBLOCKS_NT
+noinst_HEADERS += \
+			src/winprocess/asyncprocess/StringUtils.h \
+			src/winprocess/asyncprocess/asyncprocess.h \
+			src/winprocess/asyncprocess/processreaderthread.h \
+			src/winprocess/asyncprocess/procutils.h \
+			src/winprocess/asyncprocess/smart_ptr.h \
+			src/winprocess/asyncprocess/winprocess.h \
+			src/winprocess/asyncprocess/winprocess_impl.h \
+			src/winprocess/misc/fileutils.h \
+			src/winprocess/misc/wxStringHash.h
+else
+noinst_HEADERS += \
 			src/unixprocess/asyncprocess/UnixProcess.h \
 			src/unixprocess/asyncThreadTypes.h \
 			src/unixprocess/fileutils.h \
 			src/unixprocess/procutils.h \
 			src/unixprocess/StringUtils.h \
 			src/unixprocess/wxStringHash.h
+endif

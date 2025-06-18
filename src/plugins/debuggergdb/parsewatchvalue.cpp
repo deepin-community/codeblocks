@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12608 $
- * $Id: parsewatchvalue.cpp 12608 2021-12-23 09:13:18Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/debuggergdb/parsewatchvalue.cpp $
+ * $Revision: 13106 $
+ * $Id: parsewatchvalue.cpp 13106 2022-12-10 08:21:40Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/debuggergdb/parsewatchvalue.cpp $
  */
 
 #include <sdk.h>
@@ -1008,11 +1008,11 @@ void TokenizeGDBLocals(std::vector<GDBLocalVariable> &results, wxString const &v
             break;
         case wxT('"'):
             if (!inChar && !escaped)
-                inString=!inString;
+                inString = !inString;
             break;
         case wxT('\''):
             if (!inString && !escaped)
-                inChar=!inChar;
+                inChar = !inChar;
             break;
         default:
             break;

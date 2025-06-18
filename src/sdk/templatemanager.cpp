@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12999 $
- * $Id: templatemanager.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/templatemanager.cpp $
+ * $Revision: 13437 $
+ * $Id: templatemanager.cpp 13437 2024-01-31 11:51:59Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/templatemanager.cpp $
  */
 
 #include "sdk_precomp.h"
@@ -32,8 +32,8 @@
 #include "filefilters.h"
 #include "newfromtemplatedlg.h"
 
-template<> TemplateManager* Mgr<TemplateManager>::instance = nullptr;
-template<> bool  Mgr<TemplateManager>::isShutdown = false;
+template<> TemplateManager* DLLIMPORT Mgr<TemplateManager>::instance = nullptr;
+template<> bool DLLIMPORT Mgr<TemplateManager>::isShutdown = false;
 
 TemplateManager::TemplateManager()
 {

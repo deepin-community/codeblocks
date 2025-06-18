@@ -14,47 +14,12 @@
 #include <stack>
 #include <list>
 
-#include "json.hpp" //nlohmann json lib //(ph 2021/03/20)
+#include "json.hpp" //nlohmann json lib
 using json = nlohmann::json;
 
-#include "tokenizer.h"          //(ph 2021/03/19) to get
-#include "cbeditor.h"           //(ph 2021/03/19)
-#include <cbstyledtextctrl.h>   //(ph 2021/03/19)
-
-// These comment out because they're define in and conflict with tokenizer.h //(ph 2021/03/20)
-///// Enum defines the skip state of the Tokenizer //(ph 2021/03/19)
-//enum TokenizerState
-//{
-//    /** read parentheses as a single token */
-//    tsNormal        = 0x0000,
-//    /** read parentheses as token lists, so it return several tokens like '(' ... ')' */
-//    tsRawExpression = 0x0001
-//};
-
-///// Enum categorizing C-preprocessor directives //(ph 2021/03/19)
-//enum PreprocessorType
-//{
-//    ptIf                = 0x0001,   //!< #if
-//    ptIfdef             = 0x0002,   //!< #ifdef
-//    ptIfndef            = 0x0003,   //!< #ifndef
-//    ptElif              = 0x0004,   //!< #elif
-//    ptElifdef           = 0x0005,   //!< #elifdef
-//    ptElifndef          = 0x0006,   //!< #elifndef
-//    ptElse              = 0x0007,   //!< #else
-//    ptEndif             = 0x0008,   //!< #endif
-//    ptDefine            = 0x0009,   //!< #define
-//    ptUndef             = 0x000A,   //!< #undef
-//    ptOthers            = 0x000B    //!< #include #warning and other #xxx
-//};
-
-///// Whether we need to handle C-preprocessor directives //(ph 2021/03/19)
-//struct TokenizerOptions
-//{
-//    /** do we expand the macros in #if like conditional preprocessor directives */
-//    bool wantPreprocessor;
-//    /** do we store the doxygen like document */
-//    bool storeDocumentation;
-//};
+#include "tokenizer.h"
+//#include "cbeditor.h"
+#include <cbstyledtextctrl.h>
 
 /** @brief This is just a simple lexer class
  *
@@ -76,7 +41,7 @@ public:
     /** Tokenizer constructor.
      * @param filename the file to be opened.
      */
-    LSP_Tokenizer(TokenTree* tokenTree, const wxString& filename = wxEmptyString);
+    LSP_Tokenizer(TokenTree* tokenTree, cbStyledTextCtrl* pHiddenEditor, const wxString& filename = wxEmptyString);
 
     /** Tokenizer destructor.*/
     ~LSP_Tokenizer();
@@ -96,8 +61,8 @@ public:
     bool InitFromBuffer(const wxString& buffer, const wxString& fileOfBuffer = wxEmptyString,
                         size_t initLineNumber = 0);
 
-    cbStyledTextCtrl* CreateEditor(); //hidden cbEditor to access scintilla support
-    cbStyledTextCtrl* m_pControl;
+    cbStyledTextCtrl* GetParsersHiddenEditor(); //hidden cbEditor to access scintilla support
+    cbStyledTextCtrl* m_pControl = nullptr;     // Set in ctor, do not delete
 
     /** Consume and return the current token string. */
     wxString GetToken();
@@ -140,7 +105,7 @@ public:
     {
         return m_LineNumber;
     };
-    /** Set the line number of the current token string */ //(ph 2021/05/15)
+    /** Set the line number of the current token string */
     void SetLineNumber(int lineNum)
     {
         m_LineNumber = lineNum;
@@ -276,10 +241,10 @@ public:
     /** a Token is added, associate doxygen style documents(comments before the variables) to the Token */
     void SetLastTokenIdx(int tokenIdx);
     // set position to end of last token
-    void SetTokenIndex(int position){ m_TokenIndex = position; }            // LSP //(ph 2021/05/27)
-    void SetPeekTokenIndex(int position){ m_PeekTokenIndex = position; }    // LSP //(ph 2021/06/12)
-    void SetPeekAvailable(bool torf){m_PeekAvailable = torf;}               //(ph 2021/06/12)
-    wxString& GetBufferData(){ return m_Buffer; }  //(ph 2021/03/19)
+    void SetTokenIndex(int position){ m_TokenIndex = position; }            // LSP
+    void SetPeekTokenIndex(int position){ m_PeekTokenIndex = position; }    // LSP
+    void SetPeekAvailable(bool torf){m_PeekAvailable = torf;}
+    wxString& GetBufferData(){ return m_Buffer; }
 
     // ----------------------------------------------------------------------------
     //  LSP
@@ -304,12 +269,12 @@ public:
 
      size_t m_SemanticTokensIdx;    //current semantic token being examined
     // LSP semantic token info
-    unsigned int         m_SemanticTokenIndex      ;    // offset into LSP semantic tokens //(ph 2021/03/19)
-    unsigned int         m_SemanticTokenLineNumber ;    //(ph 2021/03/19)
-    unsigned int         m_SemanticTokenColumn     ;    //(ph 2021/03/19)
-    unsigned int         m_SemanticTokenLength     ;    //(ph 2021/03/19)
-    unsigned int         m_SemanticTokenType       ;    //(ph 2021/03/19)
-    unsigned int         m_SemanticTokenModifier;  ;    //(ph 2021/03/19)
+    unsigned int         m_SemanticTokenIndex      ;    // offset into LSP semantic tokens
+    unsigned int         m_SemanticTokenLineNumber ;
+    unsigned int         m_SemanticTokenColumn     ;
+    unsigned int         m_SemanticTokenLength     ;
+    unsigned int         m_SemanticTokenType       ;
+    unsigned int         m_SemanticTokenModifier;  ;
 
 protected:
     /** Initialize some member variables */
@@ -577,7 +542,7 @@ private:
      */
     unsigned int         m_TokenIndex;
     /** line offset in buffer, please note that it is 1 based, not 0 based
-        ^^Not true for me!, debugger shows line number zero based. One less than editor line number. //(ph 2021/03/19)
+        ^^Not true for me!, debugger shows line number zero based. One less than editor line number.
     */
     unsigned int         m_LineNumber;
     /** keep track of block nesting { } */

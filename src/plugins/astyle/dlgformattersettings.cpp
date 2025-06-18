@@ -4,7 +4,7 @@
  *
  * $Revision: 12490 $
  * $Id: dlgformattersettings.cpp 12490 2021-08-05 23:50:23Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/astyle/dlgformattersettings.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/astyle/dlgformattersettings.cpp $
  */
 
 #include "dlgformattersettings.h"

@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 81 $
- * $Id: insertclassmethoddlg.cpp 81 2022-09-26 18:47:50Z pecanh $
- * $HeadURL: https://svn.code.sf.net/p/cb-clangd-client/code/trunk/clangd_client/src/codecompletion/insertclassmethoddlg.cpp $
+ * $Revision: 13292 $
+ * $Id: insertclassmethoddlg.cpp 13292 2023-05-30 15:50:46Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/clangd_client/src/codecompletion/insertclassmethoddlg.cpp $
  */
 
 #include "sdk.h"
@@ -52,7 +52,7 @@ namespace InsertClassMethodDlgHelper
                 continue;
 
             const bool valid =    token->m_TokenKind & (tkFunction | tkConstructor | tkDestructor)
-                            // FIXME (ph#): Clangd "textDocument/documentSymbol" response does not report scope //(ph 2022/09/21)
+                            // FIXME (ph#): Clangd "textDocument/documentSymbol" response does not report scope
                             //           && (   (includePrivate && token->m_Scope == tsPrivate)
                             //               || (includeProtected && token->m_Scope == tsProtected)
                             //               || (includePublic && token->m_Scope == tsPublic) );
@@ -113,7 +113,7 @@ InsertClassMethodDlg::InsertClassMethodDlg(wxWindow* parent, ParserBase* parser,
     FillClasses();
 
     // FIXME (ph#): clangd "textdocument/documentSymbol" does not report scope
-    // Hide chkPrivate, chkProtected, chkPublic check boxes for now //(ph 2022/09/21)
+    // Hide chkPrivate, chkProtected, chkPublic check boxes for now
     XRCCTRL(*this, "chkPrivate", wxCheckBox)->Hide();
     XRCCTRL(*this, "chkProtected", wxCheckBox)->Hide();
     XRCCTRL(*this, "chkPublic", wxCheckBox)->Hide();
@@ -190,8 +190,8 @@ void InsertClassMethodDlg::FillMethods()
     bool includePrivate = XRCCTRL(*this, "chkPrivate", wxCheckBox)->IsChecked();
     bool includeProtected = XRCCTRL(*this, "chkProtected", wxCheckBox)->IsChecked();
     bool includePublic = XRCCTRL(*this, "chkPublic", wxCheckBox)->IsChecked();
-    // FIXME (ph#): clangd does not report scope //(ph 2022/09/24)
-    //Set all true until we can find a way to get scope from clangd //(ph 2022/09/24)
+    // FIXME (ph#): clangd does not report scope
+    //Set all true until we can find a way to get scope from clangd
     includePrivate = includeProtected = includePublic = true;
 
     Token* parentToken = reinterpret_cast<Token*>(lb->GetClientData(lb->GetSelection()));

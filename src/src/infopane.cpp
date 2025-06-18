@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12935 $
- * $Id: infopane.cpp 12935 2022-10-02 10:40:25Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/infopane.cpp $
+ * $Revision: 13293 $
+ * $Id: infopane.cpp 13293 2023-05-30 15:53:23Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/infopane.cpp $
  */
 
 #include <sdk.h>

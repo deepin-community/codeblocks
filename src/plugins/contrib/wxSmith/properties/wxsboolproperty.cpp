@@ -17,7 +17,7 @@
 *
 * $Revision: 12298 $
 * $Id: wxsboolproperty.cpp 12298 2021-03-06 15:47:09Z fuscated $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/properties/wxsboolproperty.cpp $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/properties/wxsboolproperty.cpp $
 */
 
 #include "wxsboolproperty.h"

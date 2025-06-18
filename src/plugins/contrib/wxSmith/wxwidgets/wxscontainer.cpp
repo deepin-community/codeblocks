@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12297 $
-* $Id: wxscontainer.cpp 12297 2021-03-06 15:47:05Z fuscated $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/wxscontainer.cpp $
+* $Revision: 13547 $
+* $Id: wxscontainer.cpp 13547 2024-09-14 04:35:04Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/wxscontainer.cpp $
 */
 
 #include "wxscontainer.h"
@@ -86,22 +86,12 @@ bool wxsContainer::OnCanAddChild(wxsItem* Item,bool ShowMessage)
     return true;
 }
 
-void wxsContainer::OnEnumItemProperties(long Flags)
-{
-    OnEnumContainerProperties(Flags);
-}
-
-void wxsContainer::OnAddItemQPP(wxsAdvQPP* QPP)
-{
-    OnAddContainerQPP(QPP);
-}
-
-void wxsContainer::AddChildrenPreview(wxWindow* This,long Flags)
+void wxsContainer::AddChildrenPreview(wxWindow* This,long _Flags)
 {
     for ( int i=0; i<GetChildCount(); i++ )
     {
         wxsItem* Child = GetChild(i);
-        wxObject* ChildPreviewAsObject = Child->BuildPreview(This,Flags);
+        wxObject* ChildPreviewAsObject = Child->BuildPreview(This,_Flags);
         if ( Child->GetType() == wxsTSizer )
         {
             wxSizer* ChildPreviewAsSizer = wxDynamicCast(ChildPreviewAsObject,wxSizer);
@@ -121,7 +111,7 @@ void wxsContainer::AddChildrenPreview(wxWindow* This,long Flags)
         {
             for ( int i=0; i<Data->GetToolsCount(); i++ )
             {
-                Data->GetTool(i)->BuildPreview(This,Flags);
+                Data->GetTool(i)->BuildPreview(This,_Flags);
             }
         }
 
@@ -160,7 +150,6 @@ void wxsContainer::AddChildrenPreview(wxWindow* This,long Flags)
                 {
                     IndirectSizer->Fit(This);
                 }
-
                 IndirectSizer->SetSizeHints(This);
             }
         }
@@ -203,22 +192,26 @@ void wxsContainer::AddChildrenCode()
                     }
                 }
 
-                wxsBaseProperties* Props = GetBaseProps();
-                if ((GetPropertiesFlags() & flTopLevel) &&  Props->m_UseLayout)
+                wxsBaseProperties* Props      = GetBaseProps();
+                bool               IsTopLevel = GetPropertiesFlags() & flTopLevel;
+                if (Props && Props->m_UseLayout && IsTopLevel)
                 {
-                    for ( int i=0; i<GetChildCount(); i++ ) //See if item contains a sizer
+                    for ( int i=0; i<GetChildCount(); i++ ) // See if item contains a sizer
                     {
                         wxsItem* Child = GetChild(i);
                         if ( Child->GetType() == wxsTSizer )
                         {
-                            if ( Props->m_Size.IsDefault && Props->m_MinSize.IsDefault && Props->m_MaxSize.IsDefault)
+                            if ( Props->m_Size.IsDefault )
                             {
-                                wxString ChildAccessPrefix = Child->GetAccessPrefix(GetLanguage());
-                                Codef(_T("%sSetSizeHints(%O);\n"),ChildAccessPrefix.wx_str());
-                            }
-                            else if ( Props->m_Size.IsDefault )
-                            {
-                                Codef(_T("Fit();\n"));
+                                if ( Props->m_MinSize.IsDefault && Props->m_MaxSize.IsDefault )
+                                {
+                                    wxString ChildAccessPrefix = Child->GetAccessPrefix(GetLanguage());
+                                    Codef(_T("%sSetSizeHints(%O);\n"),ChildAccessPrefix.wx_str());
+                                }
+                                else
+                                {
+                                    Codef(_T("Fit();\n"));
+                                }
                             }
                             else
                             {
@@ -240,3 +233,14 @@ void wxsContainer::AddChildrenCode()
         }
     }
 }
+
+void wxsContainer::OnEnumItemProperties(long _Flags)
+{
+    OnEnumContainerProperties(_Flags);
+}
+
+void wxsContainer::OnAddItemQPP(wxsAdvQPP* QPP)
+{
+    OnAddContainerQPP(QPP);
+}
+

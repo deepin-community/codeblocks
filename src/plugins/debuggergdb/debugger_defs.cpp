@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12795 $
- * $Id: debugger_defs.cpp 12795 2022-04-16 03:47:18Z ollydbg $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/debuggergdb/debugger_defs.cpp $
+ * $Revision: 13404 $
+ * $Id: debugger_defs.cpp 13404 2023-12-09 19:02:13Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/debuggergdb/debugger_defs.cpp $
  */
 
 #include "sdk.h"
@@ -247,7 +247,10 @@ void GDBWatch::GetFullWatchString(wxString &full_watch) const
     if (parent)
     {
         parent->GetFullWatchString(full_watch);
-        full_watch += wxT(".") + m_symbol;
+        if (full_watch.StartsWith("*"))
+            full_watch = "(" + full_watch + ")";
+
+        full_watch += "." + m_symbol;
     }
     else
         full_watch = m_symbol;

@@ -17,7 +17,7 @@
 	along with this program; if not, write to the Free Software
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
-// $Id: codesnippets.cpp 12282 2021-01-01 06:41:09Z mortenmacfly $
+// $Id: codesnippets.cpp 13158 2023-01-21 19:43:46Z pecanh $
 
 #include <cstring>
 #include "sdk.h"
@@ -108,11 +108,12 @@ CodeSnippets::~CodeSnippets()
 void CodeSnippets::OnAttach()
 // ----------------------------------------------------------------------------
 {
-
     // Do not allow a secondary plugin enable
-    //if (g_pConfig){
-    if (GetConfig()){
-        wxMessageBox(_("CodeSnippets will enable on CodeBlocks restart."));
+    if (GetConfig())
+    {
+        // Don't allow msg window to hide behind current top window
+        wxWindow* pTopWindow = GetTopWxWindow();
+        cbMessageBox(_("CodeSnippets will enable on CodeBlocks restart."), _("Warning"), wxOK, pTopWindow);
         return;
     }
 
@@ -132,9 +133,9 @@ void CodeSnippets::OnAttach()
 
     AppVersion pgmVersion;
 
-    #if LOGGING
+    #ifdef LOGGING
      wxLog::EnableLogging(true);
-     m_pLog = new wxLogWindow( m_pAppWin, _T(" CodeSnippets Plugin"),true,false);
+     m_pLog = new wxLogWindow( m_pAppWin, _T("CodeSnippets Plugin"),true,false);
      wxLog::SetActiveTarget( m_pLog);
      m_pLog->Flush();
      m_pLog->GetFrame()->SetSize(20,30,600,300);
@@ -430,7 +431,7 @@ void CodeSnippets::CreateSnippetWindow()
 	SetSnippetsWindow( new CodeSnippetsWindow(GetConfig()->pMainFrame));
 
     // Floating windows must be set by their parent
-   if ( GetConfig()->IsApplication() )
+   if ( GetConfig()->IsApplication() ) //**Deprecated**
    {     // We can position an application window
         GetSnippetsWindow()->SetSize(GetConfig()->windowXpos, GetConfig()->windowYpos,
             GetConfig()->windowWidth, GetConfig()->windowHeight);
@@ -438,7 +439,7 @@ void CodeSnippets::CreateSnippetWindow()
 
 	CodeBlocksDockEvent evt(cbEVT_ADD_DOCK_WINDOW);
 	evt.name = _T("CodeSnippetsPane");
-	evt.title = _(" CodeSnippets");
+	evt.title = _("CodeSnippets");
 	evt.pWindow = GetSnippetsWindow();
 	evt.desiredSize.Set(300, 400);
 	evt.floatingSize.Set(300, 400);
@@ -1263,7 +1264,7 @@ void CodeSnippets::SendMouseLeftUp(const wxWindow* pWin, const int mouseX, const
         // move mouse into the window
         MSW_MouseMove( fullScreen.x, fullScreen.y );
         // send mouse LeftKeyUp
-        INPUT Input         = {0,0,0,0,0,0,0};
+        INPUT Input         = {0,{{0}}};
         Input.type          = INPUT_MOUSE;
         Input.mi.dwFlags    = MOUSEEVENTF_LEFTUP;
         ::SendInput(1,&Input,sizeof(INPUT));
@@ -1282,7 +1283,7 @@ void CodeSnippets::MSW_MouseMove(int x, int y )
       double fScreenHeight  = ::GetSystemMetrics( SM_CYSCREEN )-1;
       double fx = x*(65535.0f/fScreenWidth);
       double fy = y*(65535.0f/fScreenHeight);
-      INPUT  Input={0,0,0,0,0,0,0};
+      INPUT Input = {0,{{0}}};
       Input.type      = INPUT_MOUSE;
       Input.mi.dwFlags  = MOUSEEVENTF_MOVE|MOUSEEVENTF_ABSOLUTE;
       Input.mi.dx = (LONG)fx;
@@ -1427,9 +1428,10 @@ wxWindow* CodeSnippets::FindOpenFilesListWindow()
 {
     //Find "Open files list" menu item.
     wxFrame* pFrame = Manager::Get()->GetAppFrame();
-    int idMenuOpenFilesList = ::wxFindMenuItemId( pFrame, _T("View"), _T("Open files list"));
     #if defined(__WXGTK__)
-      idMenuOpenFilesList = ::wxFindMenuItemId( pFrame, _T("View"), _T("_Open files list"));
+      int idMenuOpenFilesList = ::wxFindMenuItemId( pFrame, _("View"), _("_Open files list"));
+    #else
+      int idMenuOpenFilesList = ::wxFindMenuItemId( pFrame, _("View"), _("Open files list"));
     #endif
     int idWindowOpenFilesList = 0;
     if (idMenuOpenFilesList != wxNOT_FOUND)

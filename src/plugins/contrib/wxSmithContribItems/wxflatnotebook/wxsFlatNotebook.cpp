@@ -18,7 +18,7 @@
 *
 * $Revision: 12680 $
 * $Id: wxsFlatNotebook.cpp 12680 2022-01-26 08:45:23Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmithContribItems/wxflatnotebook/wxsFlatNotebook.cpp $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmithContribItems/wxflatnotebook/wxsFlatNotebook.cpp $
 */
 
 #include "wxsFlatNotebook.h"

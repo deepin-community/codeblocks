@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12999 $
-* $Id: wxsitemresdata.cpp 12999 2022-11-01 13:12:28Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/wxsitemresdata.cpp $
+* $Revision: 13541 $
+* $Id: wxsitemresdata.cpp 13541 2024-08-11 18:01:17Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/wxsitemresdata.cpp $
 */
 
 #include "wxsitemresdata.h"
@@ -73,9 +73,9 @@ wxsItemResData::wxsItemResData(
         m_ToolsNodeIsExpanded(false),
         m_Editor(Editor),
         m_Functions(Functions),
-        m_RootItem(0),
-        m_RootSelection(0),
-        m_Preview(0),
+        m_RootItem(nullptr),
+        m_RootSelection(nullptr),
+        m_Preview(nullptr),
         m_Corrector(this),
         m_IsOK(false),
         m_LockCount(0),
@@ -133,8 +133,8 @@ wxsItemResData::~wxsItemResData()
         RebuildFiles();
     }
     delete m_RootItem;
-    m_RootItem = 0;
-    m_RootSelection = 0;
+    m_RootItem = nullptr;
+    m_RootSelection = nullptr;
     for ( int i=0; i<GetToolsCount(); i++ )
     {
         delete m_Tools[i];
@@ -724,6 +724,7 @@ void wxsItemResData::RebuildSourceCode()
 /// Turn a string set into a sorted list and then generate a string from it in the form of prefix+item+suffix.
 /// The sorting is needed to prevent reshuffling of items when the hash function of the set changes, thus the generated
 /// code is always the same.
+wxString GenerateCodeFromSet(const wxsCoderContext::wxStringSet &,    const wxString &,       const wxString &      );
 wxString GenerateCodeFromSet(const wxsCoderContext::wxStringSet &set, const wxString &prefix, const wxString &suffix)
 {
     std::vector<wxString> array;
@@ -994,7 +995,7 @@ void wxsItemResData::MarkExtraDataChanged()
 
 bool wxsItemResData::ValidateRootSelection()
 {
-    wxsItem* NewSelection = 0;
+    wxsItem* NewSelection = nullptr;
     if ( ValidateRootSelectionReq(m_RootItem,NewSelection) )
     {
         return true;
@@ -1096,7 +1097,7 @@ void wxsItemResData::Paste(wxsParent* Parent,int Position)
         {
             BeginChange();
             m_RootItem->ClearSelection();
-            m_RootSelection = 0;
+            m_RootSelection = nullptr;
             for ( int i=0; i<Cnt; i++ )
             {
                 wxsItem* Insert = Data.BuildItem(this,i);
@@ -1490,7 +1491,7 @@ bool wxsItemResData::HidePreview()
         return false;
     }
     m_Preview->Destroy();
-    m_Preview = 0;
+    m_Preview = nullptr;
     return true;
 }
 

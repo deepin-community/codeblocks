@@ -4,7 +4,7 @@
  *
  * $Revision: 11963 $
  * $Id: editpathdlg.cpp 11963 2020-02-19 09:57:04Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/editpathdlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/editpathdlg.cpp $
  */
 
 #include "sdk_precomp.h"

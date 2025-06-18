@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12722 $
-* $Id: wxspositionsizeproperty.h 12722 2022-02-23 09:31:26Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/properties/wxspositionsizeproperty.h $
+* $Revision: 13112 $
+* $Id: wxspositionsizeproperty.h 13112 2022-12-13 20:13:35Z wh11204 $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/properties/wxspositionsizeproperty.h $
 */
 
 #ifndef WXSPOSITIONSIZEPROPERTY_H
@@ -190,7 +190,7 @@ typedef wxsPositionSizeProperty wxsSizeProperty;
 /** \brief Macro automatically declaring position property
  *  \param ClassName name of class holding this property
  *  \param VarName name of wxsPositionData structure inside container
- *  \param PGDefName name of "default vlaue" property used in property grid
+ *  \param PGDefName name of "default value" property used in property grid
  *  \param PGXName name of X coordinate used in property grid
  *  \param PGYName name of Y coordinate used in property grid
  *  \param PGDUName name of "dialog units" switch used in property grid
@@ -203,7 +203,7 @@ typedef wxsPositionSizeProperty wxsSizeProperty;
 /** \brief Macro automatically declaring position property with custom priority
  *  \param ClassName name of class holding this property
  *  \param VarName name of wxsPositionData structure inside container
- *  \param PGDefName name of "default vlaue" property used in property grid
+ *  \param PGDefName name of "default value" property used in property grid
  *  \param PGXName name of X coordinate used in property grid
  *  \param PGYName name of Y coordinate used in property grid
  *  \param PGDUName name of "dialog units" switch used in property grid
@@ -217,7 +217,7 @@ typedef wxsPositionSizeProperty wxsSizeProperty;
 /** \brief Macro automatically declaring size property
  *  \param ClassName name of class holding this property
  *  \param VarName name of wxsSizeData structure inside container
- *  \param PGDefName name of "default vlaue" property used in property grid
+ *  \param PGDefName name of "default value" property used in property grid
  *  \param PGWidthName name of Width used in property grid
  *  \param PGHeightName name of Height coordinate used in property grid
  *  \param PGDUName name of "dialog units" switch used in property grid
@@ -231,7 +231,7 @@ typedef wxsPositionSizeProperty wxsSizeProperty;
 /** \brief Macro automatically declaring size property with custom priority
  *  \param ClassName name of class holding this property
  *  \param VarName name of wxsSizeData structure inside container
- *  \param PGDefName name of "default vlaue" property used in property grid
+ *  \param PGDefName name of "default value" property used in property grid
  *  \param PGWidthName name of Width used in property grid
  *  \param PGHeightName name of Height coordinate used in property grid
  *  \param PGDUName name of "dialog units" switch used in property grid

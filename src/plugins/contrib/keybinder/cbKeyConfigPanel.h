@@ -10,6 +10,10 @@
 #ifndef CBKEYCONFIGPANEL_H
 #define CBKEYCONFIGPANEL_H
 
+#include <configurationpanel.h> //
+#include "keybinder.h"          //(2022/12/20)
+#include "clKeyboardManager.h"  //
+
 // Modified Keybinder for CodeBlocks KeyBnder v2.0
 
 // ----------------------------------------------------------------------------
@@ -39,7 +43,7 @@ class UsrConfigPanel : public cbConfigurationPanel
     wxKeyProfileArray*  m_pKeyProfileArray;
     wxKeyProfile*       m_pPrimaryProfile;
     wxKeyConfigPanel*   m_pwxKeyConfigPanel;
-    MenuItemDataMap_t   m_cachedGlobalAccelMap;
+    MenuItemDataVec_t   m_cachedGlobalAccelMap;
     int                 m_mode;
 
     void CreateGlobalAccel(wxCmd* pCmd);

@@ -4,7 +4,7 @@
  *
  * $Revision: 12839 $
  * $Id: infowindow.cpp 12839 2022-06-17 12:18:29Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/infowindow.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/infowindow.cpp $
  */
 
 #include "sdk_precomp.h"

@@ -17,7 +17,7 @@
 *
 * $Revision: 12828 $
 * $Id: wxscoder.cpp 12828 2022-06-03 14:28:11Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxscoder.cpp $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxscoder.cpp $
 */
 
 #include "wxscoder.h"

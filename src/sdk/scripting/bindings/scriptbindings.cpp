@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12823 $
- * $Id: scriptbindings.cpp 12823 2022-05-29 22:53:27Z bluehazzard $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/scripting/bindings/scriptbindings.cpp $
+ * $Revision: 13193 $
+ * $Id: scriptbindings.cpp 13193 2023-02-04 06:50:14Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/scripting/bindings/scriptbindings.cpp $
  */
 
 #include <sdk_precomp.h>
@@ -736,6 +736,19 @@ namespace ScriptBindings
 
         sq_pushinteger(v, extractor.p0->GetBuildTargetsCount());
         return 1;
+    }
+
+    SQInteger cbProject_AddGlob(HSQUIRRELVM v)
+    {
+
+        ExtractParams4<cbProject*, const wxString*, const wxString*, bool>  extractor(v);
+        if (!extractor.Process("cbProject::AddGlob"))
+            return extractor.ErrorMessage();
+
+        ProjectGlob gl = ProjectGlob(*extractor.p1, *extractor.p2, extractor.p3);
+        extractor.p0->AddGlob(gl);
+
+        return SQ_OK;
     }
 
     SQInteger cbProject_GetBuildTarget(HSQUIRRELVM v)

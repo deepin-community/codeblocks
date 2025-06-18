@@ -4,7 +4,7 @@
  *
  * $Revision: 12643 $
  * $Id: threadsdlg.cpp 12643 2022-01-12 19:40:38Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/threadsdlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/threadsdlg.cpp $
  */
 
 #include "sdk.h"

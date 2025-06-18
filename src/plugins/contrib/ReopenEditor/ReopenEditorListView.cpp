@@ -4,7 +4,7 @@
  *
  * $Revision: 12461 $
  * $Id: ReopenEditorListView.cpp 12461 2021-06-19 19:44:42Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/ReopenEditor/ReopenEditorListView.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/ReopenEditor/ReopenEditorListView.cpp $
  */
 
 #include "sdk.h"

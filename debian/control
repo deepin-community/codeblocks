@@ -3,19 +3,21 @@ Section: x11
 Priority: optional
 Maintainer: David Paleino <dapal@debian.org>
 Uploaders: Vincent Cheng <vcheng@debian.org>, David Prévot <taffit@debian.org>
-Build-Depends: debhelper-compat (= 12),
+Build-Depends: debhelper-compat (= 13),
+               dpkg-dev (>= 1.22.5),
                libastyle-dev,
                libboost-dev,
                libboost-system-dev,
                libbz2-dev,
                libgtk-3-dev,
                libhunspell-dev,
+               libsquirrel-dev,
                libtinyxml-dev,
                libwxgtk3.2-dev,
                zip,
                zlib1g-dev
-Standards-Version: 4.5.0
-Homepage: http://codeblocks.org
+Standards-Version: 4.7.2
+Homepage: https://codeblocks.org
 Vcs-Git: https://salsa.debian.org/debian/codeblocks.git
 Vcs-Browser: https://salsa.debian.org/debian/codeblocks
 
@@ -24,7 +26,7 @@ Architecture: any
 Section: devel
 Depends: codeblocks-common (= ${source:Version}),
          libastyle3,
-         libcodeblocks0,
+         libcodeblocks0t64,
          ${misc:Depends},
          ${shlibs:Depends}
 Recommends: gcc | g++, gdb, xterm
@@ -58,7 +60,10 @@ Description: common files for Code::Blocks IDE
  .
  This package contains the architecture-independent files of Code::Blocks.
 
-Package: libcodeblocks0
+Package: libcodeblocks0t64
+Provides: ${t64:Provides}
+Replaces: libcodeblocks0
+Breaks: libcodeblocks0 (<< ${source:Version})
 Architecture: any
 Section: libs
 Depends: binutils, file, ${misc:Depends}, ${shlibs:Depends}
@@ -84,7 +89,7 @@ Description: Code::Blocks shared library
 Package: codeblocks-contrib
 Architecture: any
 Depends: codeblocks (= ${binary:Version}),
-         libwxsmithlib0 (= ${binary:Version}),
+         libwxsmithlib0t64 (= ${binary:Version}),
          ${misc:Depends},
          ${shlibs:Depends}
 Recommends: valgrind
@@ -120,7 +125,7 @@ Description: contrib plugins for Code::Blocks IDE
 Package: codeblocks-dev
 Architecture: any
 Section: libdevel
-Depends: libcodeblocks0 (= ${binary:Version}), ${misc:Depends}
+Depends: libcodeblocks0t64 (= ${binary:Version}), ${misc:Depends}
 Multi-Arch: same
 Description: Code::Blocks development files (SDK)
  Code::Blocks is a cross-platform Integrated Development Environment (IDE).
@@ -141,10 +146,13 @@ Description: Code::Blocks development files (SDK)
  This package contains the development files (headers and libraries) for
  creating Code::Blocks plugins.
 
-Package: libwxsmithlib0
+Package: libwxsmithlib0t64
+Provides: ${t64:Provides}
+Replaces: libwxsmithlib0
+Breaks: libwxsmithlib0 (<< ${source:Version})
 Architecture: any
 Section: libs
-Depends: libcodeblocks0 (= ${binary:Version}),
+Depends: libcodeblocks0t64 (= ${binary:Version}),
          ${misc:Depends},
          ${shlibs:Depends}
 Recommends: codeblocks-contrib (= ${binary:Version})
@@ -169,7 +177,7 @@ Description: wxSmith shared library (Code::Blocks plugin for RAD GUI editing)
 Package: libwxsmithlib-dev
 Architecture: any
 Section: libdevel
-Depends: libwxsmithlib0 (= ${binary:Version}), ${misc:Depends}
+Depends: libwxsmithlib0t64 (= ${binary:Version}), ${misc:Depends}
 Multi-Arch: same
 Description: wxSmith development files (Code::Blocks plugin for RAD GUI editing)
  Code::Blocks is a cross-platform Integrated Development Environment (IDE).

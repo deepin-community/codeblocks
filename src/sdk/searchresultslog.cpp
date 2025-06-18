@@ -4,7 +4,7 @@
  *
  * $Revision: 12822 $
  * $Id: searchresultslog.cpp 12822 2022-05-29 19:10:32Z bluehazzard $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/searchresultslog.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/searchresultslog.cpp $
  */
 
 #include "sdk_precomp.h"

@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12537 $
- * $Id: envvars_common.cpp 12537 2021-10-24 22:27:25Z bluehazzard $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/envvars/envvars_common.cpp $
+ * $Revision: 13338 $
+ * $Id: envvars_common.cpp 13338 2023-08-17 11:41:41Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/envvars/envvars_common.cpp $
  */
 
 // ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
@@ -212,8 +212,8 @@ wxArrayString nsEnvVars::GetEnvvarsBySetPath(const wxString& set_path)
       return envvars;
 
     const wxArrayString envvars_keys(cfg->EnumerateKeys(set_path));
-    const unsigned long num_envvars = envvars_keys.GetCount();
-    for (unsigned long i = 0; i < num_envvars; ++i)
+    const size_t num_envvars = envvars_keys.GetCount();
+    for (size_t i = 0; i < num_envvars; ++i)
     {
         const wxString envvar(cfg->Read(set_path+'/'+envvars_keys[i]));
         if (!envvar.empty())
@@ -222,9 +222,7 @@ wxArrayString nsEnvVars::GetEnvvarsBySetPath(const wxString& set_path)
             EV_DBGLOG("Warning: empty envvar '%s' detected and skipped.", envvars_keys[i]);
     }
 
-    EV_DBGLOG("Read %lu/%u envvars in path '%s'.",
-              static_cast <unsigned long> (envvars.GetCount()),
-              num_envvars, set_path);
+    EV_DBGLOG("Read %zu/%zu envvars in path '%s'.", envvars.GetCount(), num_envvars, set_path);
 
     return envvars;
 }// GetEnvvarsBySetPath

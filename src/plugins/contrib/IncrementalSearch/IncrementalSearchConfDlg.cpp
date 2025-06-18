@@ -6,7 +6,7 @@
  *
  * $Revision: 12697 $
  * $Id: IncrementalSearchConfDlg.cpp 12697 2022-02-03 16:00:38Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/IncrementalSearch/IncrementalSearchConfDlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/IncrementalSearch/IncrementalSearchConfDlg.cpp $
  */
 
 #include "sdk.h"

@@ -23,6 +23,7 @@ usr/lib/codeblocks/plugins/libValgrind.so
 usr/lib/codeblocks/plugins/libabbreviations.so
 usr/lib/codeblocks/plugins/libbyogames.so
 usr/lib/codeblocks/plugins/libcb_koders.so
+usr/lib/codeblocks/plugins/libclangd_client.so
 usr/lib/codeblocks/plugins/libcodesnippets.so
 usr/lib/codeblocks/plugins/libcodestat.so
 usr/lib/codeblocks/plugins/libcopystrings.so
@@ -37,10 +38,9 @@ usr/lib/codeblocks/plugins/liboccurrenceshighlighting.so
 usr/lib/codeblocks/plugins/librndgen.so
 usr/lib/codeblocks/plugins/libwx*
 usr/lib/codeblocks/wxContribItems
-usr/lib/pkgconfig/cb_*.pc
-usr/lib/pkgconfig/wxsmith-contrib.pc
-usr/lib/pkgconfig/wxsmithaui.pc
-usr/share/metainfo/codeblocks-contrib.metainfo.xml	usr/share/metainfo
+usr/lib/pkgconfig/cb_*.pc 				usr/lib/${DEB_HOST_MULTIARCH}/pkgconfig
+usr/lib/pkgconfig/wxsmith-contrib.pc			usr/lib/${DEB_HOST_MULTIARCH}/pkgconfig
+usr/lib/pkgconfig/wxsmithaui.pc				usr/lib/${DEB_HOST_MULTIARCH}/pkgconfig
 usr/share/codeblocks/AutoVersioning.zip
 usr/share/codeblocks/BrowseTracker.zip
 usr/share/codeblocks/Cccc.zip
@@ -67,6 +67,7 @@ usr/share/codeblocks/Valgrind.zip
 usr/share/codeblocks/abbreviations.zip
 usr/share/codeblocks/byogames.zip
 usr/share/codeblocks/cb_koders.zip
+usr/share/codeblocks/clangd_client.zip
 usr/share/codeblocks/codesnippets.zip
 usr/share/codeblocks/codestat.zip
 usr/share/codeblocks/copystrings.zip
@@ -75,7 +76,7 @@ usr/share/codeblocks/envvars.zip
 usr/share/codeblocks/exporter.zip
 usr/share/codeblocks/headerfixup.zip
 usr/share/codeblocks/help_plugin.zip
-usr/share/codeblocks/images/codesnippets
+#usr/share/codeblocks/images/codesnippets
 usr/share/codeblocks/images/wxsmith
 usr/share/codeblocks/keybinder.zip
 usr/share/codeblocks/lib_finder*
@@ -83,3 +84,4 @@ usr/share/codeblocks/occurrenceshighlighting.zip
 usr/share/codeblocks/rndgen.zip
 usr/share/codeblocks/wx*
 usr/share/man/man1/codesnippets.1
+usr/share/metainfo/codeblocks-contrib.metainfo.xml	usr/share/metainfo

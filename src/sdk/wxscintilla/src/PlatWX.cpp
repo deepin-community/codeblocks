@@ -7,9 +7,6 @@
 // For compilers that support precompilation, includes "wx.h".
 #include "wx/wxprec.h"
 
-#ifdef __BORLANDC__
-    #pragma hdrstop
-#endif
 #ifndef WX_PRECOMP
     #include <wx/menu.h>
     #include <wx/menu.h>
@@ -2122,6 +2119,9 @@ private:
     wxListView*         lv;
     CallBackAction      doubleClickAction;
     void*               doubleClickActionData;
+    int iconHeight = 0; int iconWidth = 0; // Cached from IconWidth() See ticket #1458
+public:
+
 public:
     wxSCIListBoxWin(wxWindow* parent, wxWindowID id, Point WXUNUSED(location)) :
         wxPopupWindow(parent, wxBORDER_SIMPLE)
@@ -2187,11 +2187,18 @@ public:
     }
 
 
+    // Starting with gtk 3.2, an extra OnSize() is being issued that calls
+    // IconWidth(), but with an invalid lv pointer. So now, we cache iconWidth
+    // while the pointer is still valid. This solves the crash. See ticket #1458.
     int IconWidth() {
+        if (iconWidth)
+            return iconWidth;
         wxImageList* il = lv->GetImageList(wxIMAGE_LIST_SMALL);
         if (il != NULL) {
             int w, h;
             il->GetSize(0, w, h);
+            iconWidth = w;
+            iconHeight = h;
             return w;
         }
         return 0;
@@ -2432,19 +2439,23 @@ void ListBoxImpl::SetFont(Font &font) {
 /* C::B begin */
     // GETLB(wid)->SetFont(*((wxFont*)font.GetID()));
     wxFont *NewFont = (wxFont*)font.GetID();
-    if (technology == wxSCI_TECHNOLOGY_DIRECTWRITE)
-    {
 #if wxCHECK_VERSION(3, 1, 4)
-        const double scale = GETLB(wid)->GetDPIScaleFactor();
-#else
-        const double scale = GETLB(wid)->GetContentScaleFactor();
-#endif
+         const double scale = GETLB(wid)->GetDPIScaleFactor();
+ #else
+         const double scale = GETLB(wid)->GetContentScaleFactor();
+ #endif
+
+    if (technology == wxSCI_TECHNOLOGY_DIRECTWRITE)
         GETLB(wid)->SetFont(NewFont->Scaled(72.0/(96.0*scale)));
-    }
-    else
+    else // non direct write mode (wxSCI_TECHNOLOGY_DEFAULT)
+        #if wxCHECK_VERSION(3, 1, 4) && defined(__WXMSW__)
+        //scale by desiredDPI/rawDPI (72.0/(72.0*scale)) Simplified below
+        GETLB(wid)->SetFont(NewFont->Scaled(1.0/scale));
+        #else
         GETLB(wid)->SetFont(*NewFont);
-/* C::B end */
+        #endif
 }
+/* C::B end */
 
 
 void ListBoxImpl::Create(Window &parent, int ctrlID, Point location_, int lineHeight_, bool unicodeMode_, int technology_) {
@@ -2935,7 +2946,34 @@ double ElapsedTime::Duration(bool reset) {
     result /= 1000.0;
     return result;
 }
+#if wxCHECK_VERSION(3, 1, 4) && defined(__WXMSW__)
+// #include <windows.h> already included at top of file
+double Platform::GetActiveWindowDPIScaleFactor()
+{
+    // Get the handle of the active window
+    HWND activeWindow = GetForegroundWindow();
+    if (NULL == activeWindow)
+        return 1; //unlikely, but can happen during deactivation
 
+    //GetDC() returns a handle to the window whose DC is to be retrieved.
+    // If this value is NULL, GetDC retrieves the DC for the entire screen.
+    HDC hdc = GetDC(activeWindow);
+    int dpiX = GetDeviceCaps(hdc, LOGPIXELSX);
+    int dpiY = GetDeviceCaps(hdc, LOGPIXELSY);
+    wxUnusedVar(dpiY);
+
+    ReleaseDC(activeWindow, hdc);
+
+    double dpi96ScaleFactor = dpiX/96.0;
+    double dpi72ScaleFactor = dpiX/72.0;
+
+    int stdPPI = wxDisplay::GetStdPPIValue();
+    if ( stdPPI == 96)
+        return dpi96ScaleFactor;
+    else
+        return dpi72ScaleFactor;
+}
+#endif // Version 3.1.4 && __WXMSW__
 
 //----------------------------------------------------------------------
 

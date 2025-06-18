@@ -17,7 +17,7 @@
 *
 * $Revision: 12447 $
 * $Id: wxsevents.h 12447 2021-05-16 22:52:16Z bluehazzard $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/wxsevents.h $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/wxsevents.h $
 */
 
 #ifndef WXSEVENTS_H

@@ -7,6 +7,7 @@
 #define CODEREFACTORING_H
 
 #include "parsemanager.h"
+#include "parser/token.h"
 
 struct crSearchData
 {
@@ -29,7 +30,6 @@ public:
     CodeRefactoring(ParseManager* pParseManager);
     virtual ~CodeRefactoring();
 
-////    void FindReferences();
     void RenameSymbols();
     wxString GetSymbolUnderCursor();
 

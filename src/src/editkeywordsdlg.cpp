@@ -4,7 +4,7 @@
  *
  * $Revision: 12632 $
  * $Id: editkeywordsdlg.cpp 12632 2022-01-03 12:00:22Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/editkeywordsdlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/editkeywordsdlg.cpp $
  */
 
 #include <sdk.h>

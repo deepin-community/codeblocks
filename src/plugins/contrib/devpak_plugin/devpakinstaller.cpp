@@ -4,7 +4,7 @@
  *
  * $Revision: 12648 $
  * $Id: devpakinstaller.cpp 12648 2022-01-13 20:06:39Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/devpak_plugin/devpakinstaller.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/devpak_plugin/devpakinstaller.cpp $
  */
 
 #include "devpakinstaller.h"

@@ -17,7 +17,7 @@
 *
 * $Revision: 8251 $
 * $Id: wxstoolspace.h 8251 2012-08-28 02:31:00Z ollydbg $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/wxstoolspace.h $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/wxstoolspace.h $
 */
 
 #ifndef WXSTOOLSPACE_H

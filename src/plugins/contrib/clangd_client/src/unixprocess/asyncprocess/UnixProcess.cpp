@@ -101,22 +101,36 @@ UnixProcess::~UnixProcess()
 }
 
 // --------------------------------------------------------------
-bool UnixProcess::ReadAll(int fd, std::string& content, int timeoutMilliseconds)
-// --------------------------------------------------------------
+bool UnixProcess::ReadAll(int fdOut, int fdErr, std::string& content, int timeoutMilliseconds, bool& isReadFromFdOut)
 {
     fd_set rset;
     char buff[1024];
+    int max_fd = std::max(fdOut, fdErr);
+
     FD_ZERO(&rset);
-    FD_SET(fd, &rset);
+    FD_SET(fdOut, &rset);
+    FD_SET(fdErr, &rset);
 
     int seconds = timeoutMilliseconds / 1000;
     int ms = timeoutMilliseconds % 1000;
 
     struct timeval tv = { seconds, ms * 1000 }; //  10 milliseconds timeout
-    int rc = ::select(fd + 1, &rset, nullptr, nullptr, &tv);
+    int rc = ::select(max_fd + 1, &rset, nullptr, nullptr, &tv);
     if(rc > 0) {
-        memset(buff, 0, sizeof(buff));
-        if(read(fd, buff, (sizeof(buff) - 1)) > 0) {
+        int fd;
+        if (FD_ISSET(fdOut, &rset))
+        {
+            fd = fdOut;
+            isReadFromFdOut = true;
+        }
+        else
+        {
+            fd = fdErr;
+            isReadFromFdOut = false;
+        }
+        ssize_t readBytes = read(fd, buff, (sizeof(buff) - 1));
+        if (readBytes > 0) {
+            buff[readBytes] = 0;
             content.append(buff);
             return true;
         }
@@ -187,7 +201,9 @@ void UnixProcess::StartWriterThread()
         [](UnixProcess* process, int fd) {
             while(!process->m_goingDown.load()) {
                 std::string buffer;
-                if(process->m_outgoingQueue.ReceiveTimeout(10, buffer) == wxMSGQUEUE_NO_ERROR) {
+                //-if(process->m_outgoingQueue.ReceiveTimeout(10, buffer) == wxMSGQUEUE_NO_ERROR) { //(christo patch 1503)
+                if(process->m_outgoingQueue.Receive( buffer) == wxMSGQUEUE_NO_ERROR) {              //(christo patch 1503)
+
                     UnixProcess::Write(fd, buffer, std::ref(process->m_goingDown));
                 }
             }
@@ -202,26 +218,18 @@ void UnixProcess::StartReaderThread()
 {
     m_readerThread = new std::thread(
         [](UnixProcess* process, int stdoutFd, int stderrFd) {
+            bool isReadFromFdOut;
+            std::string content;
             while(not process->m_goingDown.load()) {
-                std::string content;
-                if(not ReadAll(stdoutFd, content, 10)) {
+                if(not ReadAll(stdoutFd, stderrFd, content, 100, isReadFromFdOut)) {
                     wxThreadEvent evt(wxEVT_ASYNC_PROCESS_TERMINATED);
                     process->m_owner->ProcessEvent(evt);
                     break;
                 } else if(not content.empty()) {
-                    wxThreadEvent evt(wxEVT_ASYNC_PROCESS_OUTPUT);
+                    wxThreadEvent evt(isReadFromFdOut ? wxEVT_ASYNC_PROCESS_OUTPUT : wxEVT_ASYNC_PROCESS_STDERR);
                     evt.SetPayload<std::string*>(&content);
                     process->m_owner->ProcessEvent(evt);
-                }
-                content.clear();
-                if(not ReadAll(stderrFd, content, 10)) {
-                    wxThreadEvent evt(wxEVT_ASYNC_PROCESS_TERMINATED);
-                    process->m_owner->ProcessEvent(evt);
-                    break;
-                } else if(not content.empty()) {
-                    wxThreadEvent evt(wxEVT_ASYNC_PROCESS_STDERR);
-                    evt.SetPayload<std::string*>(&content);
-                    process->m_owner->ProcessEvent(evt);
+                    content.clear();
                 }
             }
             //clDEBUG() << "UnixProcess reader thread: going down";
@@ -235,6 +243,7 @@ void UnixProcess::Detach()
 {
     m_goingDown.store(true);
     if(m_writerThread) {
+        m_outgoingQueue.Post(std::string());    //(christo patch 1503)
         m_writerThread->join();
         wxDELETE(m_writerThread);
     }

@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12649 $
-* $Id: wxscolourproperty.cpp 12649 2022-01-14 08:40:00Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/properties/wxscolourproperty.cpp $
+* $Revision: 13627 $
+* $Id: wxscolourproperty.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/properties/wxscolourproperty.cpp $
 */
 
 #include "wxscolourproperty.h"
@@ -480,8 +480,13 @@ namespace
         wxASSERT( propgrid );
 
         // Must only occur when user triggers event
+#if wxCHECK_VERSION(3, 3, 0)
+        if ( !(propgrid->GetInternalFlags() & wxPropertyGrid::wxPG_FL_IN_HANDLECUSTOMEDITOREVENT) )
+            return res;
+#else
         if ( !(propgrid->GetInternalFlags() & wxPG_FL_IN_HANDLECUSTOMEDITOREVENT) )
             return res;
+#endif
 
         wxColourPropertyValue val = GetVal();
 
@@ -578,7 +583,7 @@ namespace
             int index = paintdata.m_choiceItem;
             value = wxsColourValues[index];
         }
-        else if ( !(m_flags & wxPG_PROP_UNSPECIFIED) )
+        else if ( !(m_flags & (wxPGPropertyFlags)wxPG_PROP_UNSPECIFIED) )
         {
             value = GetVal().m_type;
         }
@@ -829,7 +834,7 @@ void wxsColourProperty::PGCreate(wxsPropertyContainer* Object,wxPropertyGridMana
     PGRegister(Object,Grid,Grid->AppendIn(Parent,new wxsMyColourPropertyClass(GetPGName(),wxPG_LABEL,VALUE)));
 }
 
-bool wxsColourProperty::PGRead(wxsPropertyContainer* Object,wxPropertyGridManager* Grid,wxPGId Id,cb_unused long Index)
+bool wxsColourProperty::PGRead(wxsPropertyContainer* Object,cb_unused wxPropertyGridManager* Grid,wxPGId Id,cb_unused long Index)
 {
     VALUE.m_type = wxsColourValues[Id->GetChoiceSelection()];
 

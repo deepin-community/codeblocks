@@ -5,7 +5,7 @@
  * Copyright: (c) Pecan Heber etal.
  * License:   GPL
  **************************************************************/
-// RCS-ID:      $Id: cbkeybinder.cpp 12250 2020-12-22 14:39:11Z fuscated $
+// RCS-ID:      $Id: cbkeybinder.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
 
 // The majority of this code was lifted from wxKeyBinder and
 // its "minimal.cpp" sample program
@@ -37,7 +37,9 @@
     #include <wx/msw/private/keyboard.h>
 #endif
 #include <wx/listbook.h>
+#include <wx/clipbrd.h>
 
+#include "globals.h"
 #include "logmanager.h"
 #if defined(LOGGING)
     #include "debugging.h"
@@ -66,6 +68,8 @@ namespace
 BEGIN_EVENT_TABLE(cbKeyBinder, cbPlugin)
     // add events here...
 
+    // This event issued from another plugin to request KeyBinder to refresh its key shortcuts database.
+    // It happens at CB startup and plugin enable/disable/install/uninstall if the menus change.
     EVT_MENU (idKeyBinderRefresh, cbKeyBinder::OnKeyBinderRefreshRequested)
 
 END_EVENT_TABLE()
@@ -151,6 +155,12 @@ void cbKeyBinder::OnRelease(bool /*appShutDown*/)
     // which means you must not use any of the SDK Managers
     // NB: after this function, the inherited member variable
     // IsAttached() will be FALSE...
+    if (m_pKBMgr)   //(ph 2023/03/04)
+    {
+        // Release() will invoke pKBMgr->Save() to write final KeyBinder.conf file data;
+        m_pKBMgr->Release();
+    }
+
 }
 // ----------------------------------------------------------------------------
 //  cbKeyBinder GetConfigurationPanel()  //phaseI
@@ -159,7 +169,7 @@ cbConfigurationPanel* cbKeyBinder::GetConfigurationPanel(wxWindow* parent)
 {
     // This routine will create a minimal configuration panel for
     // the Editor configuration 'Keyboard shortcuts' dialog. The actual work
-    // for this panel will be done in GetConfigurationPanePhaseII() when the user
+    // for this panel will be done in GetKeyConfigPanelPhaseII() when the user
     // clicks on MainMenu\Settings\Editor\Keyboard shortcuts.
     // See OnPageChanging().
 
@@ -305,7 +315,16 @@ void cbKeyBinder::OnAppStartupDone(CodeBlocksEvent& event)
 
     // Create default keybindings file keyMnuAccels.conf by scanning the app menus.
     bool created = CreateKeyBindDefaultFile(isRefreshRequest);
-    wxUnusedVar(created);
+    //-wxUnusedVar(created);
+    if (not created)
+    {
+        // failure to create Menu scan file. // **Debugging**
+        //SetCallingFunction(__FUNCTION__, __LINE__);
+        //wxString msg= wxString::Format("Failure to create menu scan file at '%s Line:%d'", __PRETTY_FUNCTION__, __LINE__);
+        //-ReportThisFailure("msg"); **Debugging**
+        //ClearCallingFunction();
+        return;
+    }
 
     // Load the menu structure accerators + the user defined accelerators.
     // if no existing cbKeyBinder??.conf, ignore the refresh request to do full keybindings.conf creation.
@@ -342,7 +361,7 @@ void cbKeyBinder::OnKeyBinderRefreshRequested(wxCommandEvent& event)
 // ----------------------------------------------------------------------------
 {
     // a process has issued: wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED, XRCID("idKeyBinderRefresh"))
-
+    // or another plugin (eg. keymacs) needs us to refresh our database of key assignments.
     if (m_KeyBinderRefreshRequested)
         return; //already doing the job
 
@@ -351,7 +370,7 @@ void cbKeyBinder::OnKeyBinderRefreshRequested(wxCommandEvent& event)
     if (m_AppStartupDone)
     {
         CodeBlocksEvent cbevt(event.GetEventType(), event.GetId());
-        OnAppStartupDone(cbevt);
+        OnAppStartupDone(cbevt); // this is a local call, not a real event
         m_KeyBinderRefreshRequested = false;
     }
 }
@@ -372,7 +391,7 @@ wxString cbKeyBinder::GetPluginVersion()
 bool cbKeyBinder::CreateKeyBindDefaultFile(bool refresh)
 // ----------------------------------------------------------------------------
 {
-    // FIXME (ph#): Do we really need to used the old KeyBinder scan to create the new
+    // FIXME (ph#): Do we really need to use the old KeyBinder scan to create the new
     // default keybindings or can we just use the routines like clKeyboardManager::DoUpdateMenu()
     // to create the menuMap directly.
 
@@ -464,18 +483,21 @@ bool cbKeyBinder::CreateKeyBindDefaultFile(bool refresh)
             wxDELETE( pKeyProfileArray);
     }
 
-    // If %appdata%\<personality>.cbKeybinder??.conf does not exist
-    // try to convert the previous keybinder plugin versions' keybindings file if available,
+    // If %appdata%\<personality>.cbKeybinder??.conf does not exist, this is first CB installation.
+    // Try to convert the previous keybinder plugin versions' keybindings file if available,
     // currently (as of 2019/05/22) at %appdata%\<appName>\userPersonality.cbKeyBinder10.ini
+    // Note that the previsous version was cbKeyBinder10, not 20.
+    // Note that the file extension is '.ini', not '.conf'
     // The 'refresh' parm refers to a request from external processes to capture new key bindings
     int missingMenuItems = 0;
     if ( (not fnNewcbKeyBinderConf.FileExists()) and (not refresh) )
     {
         wxString plgnVersionString = GetPluginVersion();
-        long plgnVersionNum; plgnVersionString.ToLong(&plgnVersionNum);
-        int oldPlgnVersionNum = plgnVersionNum - 10;
+        long plgnVersionNum;
+        plgnVersionString.ToLong(&plgnVersionNum);
 
-        wxString oldVersionFile = wxString::Format(_T("cbKeyBinder%d.ini"), oldPlgnVersionNum);
+        // long oldPlgnVersionNum = plgnVersionNum - 10;
+        // wxString oldVersionFile = wxString::Format("cbKeyBinder%ld.ini", oldPlgnVersionNum);
         wxFileName fnOldVersionKeyBindings(ConfigManager::GetConfigFolder(), _T("cbKeyBinder10.ini"));
         fnOldVersionKeyBindings.SetName(GetUserPersonality() +_T(".") + fnOldVersionKeyBindings.GetName());
 
@@ -508,7 +530,12 @@ bool cbKeyBinder::CreateKeyBindDefaultFile(bool refresh)
     if (fnTempOldFmtMnuScan.FileExists())
     {
         //Convert menu structure scan into codelite format file keyMnuAccers.conf
-        ConvertMenuScanToKeyMnuAcceratorsConf(fnTempOldFmtMnuScan.GetFullPath(), fnTempKeyMnuAccels.GetFullPath());
+        // returns number of non-matching menu items between menu structure and keybinder file
+        // return -1 if files do not argument files cannot be opened.
+        int unMatched = ConvertMenuScanToKeyMnuAcceratorsConf(fnTempOldFmtMnuScan.GetFullPath(), fnTempKeyMnuAccels.GetFullPath());
+        //-wxUnusedVar(unMatched);
+        if (unMatched == -1) //(ph 2023/07/04)
+            return false;
     }
 
     return true;
@@ -543,15 +570,15 @@ bool cbKeyBinder::OnSaveKbOldFormatCfgFile(wxKeyProfileArray* pKeyProfArr, wxStr
     if ((ok = pKeyProfArr->Save(cfg, wxEmptyString, TRUE)))
      {
         // get the cmd count
+        #if defined(LOGGING)
         int total = 0;
         for (int i=0; i<pKeyProfArr->GetCount(); i++)
             total += pKeyProfArr->Item(i)->GetCmdCount();
-        cfg->Flush();
-        #if defined(LOGGING)
-            LOGIT(wxString::Format(wxT("All the [%d] keyprofiles ([%d] commands ")
+        LOGIT(wxString::Format(wxT("All the [%d] keyprofiles ([%d] commands ")
             wxT("in total) have been saved in \n") + fnKeyBinderCfg.GetFullPath(),
-              pKeyProfArr->GetCount(), total) );
+            pKeyProfArr->GetCount(), total) );
         #endif
+        cfg->Flush();
 
     }//endif Save
     else
@@ -583,7 +610,7 @@ int cbKeyBinder::ConvertMenuScanToKeyMnuAcceratorsConf(wxString keybinderFile, w
     if (not fncbkbini.FileExists())
     {
         wxASSERT_MSG(0, wxT("ConvertMenuScanToKeyMnuAcceratorsConf() called, but file does not exist."));
-        return false;
+        return -1;
     }
     // remove old KeyMnuAccels.conf
     if (fnclaccconf.FileExists())
@@ -651,15 +678,16 @@ int cbKeyBinder::ConvertMenuScanToKeyMnuAcceratorsConf(wxString keybinderFile, w
 
     if (missingMenuItems)
     {
-        wxString msg = wxString::Format(_("Convert found %u unmatched menu items."), (unsigned)missingMenuItems);
         #if defined(LOGGING)
+            //wxString msg = wxString::Format(_("Convert found %u unmatched menu items."), (unsigned)missingMenuItems);
             //cbMessageBox(msg, _("Converter"), wxOK, Manager::Get()->GetAppWindow());
         #endif
-        return missingMenuItems;
     }
 
     // Merge the CodeBlocks accerator table into the keyMnuAccels file.
+    SetCallingFunction(__FUNCTION__, __LINE__);
     MergeAcceleratorTable(txtacc );
+    ClearCallingFunction();
 
     return 0;
 
@@ -826,15 +854,16 @@ int cbKeyBinder::ConvertOldKeybinderIniToAcceratorsConf(wxString oldKeybinderFil
 
     if (missingMenuItems)
     {
-        wxString msg = wxString::Format(_T("KeyBinder Convert found %u unmatched menu items."), (unsigned)missingMenuItems);
         #if defined(LOGGING)
+            wxString msg = wxString::Format(_T("KeyBinder Convert found %u unmatched menu items."), (unsigned)missingMenuItems);
             LOGIT( _T("[%s]"), msg.wx_str());
         #endif
-        //-return missingMenuItems; deprecated; ok if some items missing
     }
 
     // Merge CodeBlocks global AcceratorTable into the new keyMnuAccels.conf file.
+    SetCallingFunction(__FUNCTION__, __LINE__);
     MergeAcceleratorTable(txtacc );
+    ClearCallingFunction();
 
     return 0;
 
@@ -845,10 +874,23 @@ bool cbKeyBinder::MergeAcceleratorTable(wxTextFile& textOutFile)
 {
     // Get Codeblocks main.cpp Accelerator entries.
 
+    /// Deprecated for now 2023/07/5
+    // It's causing key binding errors because the globals have duplicate id's
+    // that also match menu items, thus overriding them.
+
+    return false; //(ph 2023/07/05)
+
     // Verify output file exists.
     if (not textOutFile.IsOpened())
+    {
         if (not textOutFile.Open())
+        {
+            // **Debugging**
+            //wxString msg= wxString::Format("Global shorcut Failure at '%s Line:%d'", __PRETTY_FUNCTION__, __LINE__);
+            //ReportThisFailure(msg);
             return false;
+        }
+    }
 
     std::vector<wxAcceleratorEntry> globalAccels; //To be filled by main.cpp
 
@@ -862,7 +904,13 @@ bool cbKeyBinder::MergeAcceleratorTable(wxTextFile& textOutFile)
     LOGIT( _T("MergeAcceleratorTable() found %d global accelerators."), accelCount);
     #endif
 
-    if (not accelCount) return false;
+    if (not accelCount)
+    {
+        // **Debugging**
+        //wxString msg= wxString::Format("Global shorcut Failure at %s:%d", __PRETTY_FUNCTION__, __LINE__);
+        //ReportThisFailure(msg);
+        return false;
+    }
 
     // Format each global accelerator to be acceptable by clKeyboardManager.
     for (int ii = 0; ii<accelCount; ++ii)
@@ -1136,8 +1184,29 @@ wxArrayString cbKeyBinder::GetArrayFromStrings(const wxString& text, const wxStr
             part.Trim(false);
             part.Trim(true);
         }
-        //-if (!part.IsEmpty()) keybinder needs the empty strings
             out.Add(part);
     }
     return out;
+}
+// ----------------------------------------------------------------------------
+void cbKeyBinder::ReportThisFailure(const wxString& text)
+// ----------------------------------------------------------------------------
+{
+    wxString clipBrdText = text;
+    clipBrdText << "\nCaller: " << callingFunction;
+
+    wxString msg = "The following message has been placed in the clipBoard." ;
+    msg << "\n Please report this message by pasting it to a CodeBlocks forum message" ;
+    msg << "\n at https://forums.codeblocks.org/";
+    msg << "\n\n" << clipBrdText;
+
+
+    if (wxTheClipboard->Open())
+    {
+        wxTheClipboard->SetData(new wxTextDataObject(clipBrdText));
+        wxTheClipboard->Close();
+    }
+
+    cbMessageBox(msg, "Keybinder Failure", wxOK, Manager::Get()->GetAppWindow());
+    return ;
 }

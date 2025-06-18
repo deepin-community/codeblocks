@@ -4,7 +4,7 @@
  *
  * $Revision: 7754 $
  * $Id: app.cpp 7754 2012-02-01 09:59:56Z mortenmacfly $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/tools/cb_share_config/app.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/tools/cb_share_config/app.cpp $
  */
 
 #include "app.h"

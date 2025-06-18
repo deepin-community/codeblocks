@@ -16,7 +16,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
-// RCS-ID: $Id: BrowseSelector.cpp 12959 2022-10-06 18:43:15Z wh11204 $
+// RCS-ID: $Id: BrowseSelector.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
 
 
 #include <wx/listctrl.h>
@@ -42,6 +42,7 @@
 #include "BrowseSelector.h"
 #include "Version.h"
 #include "BrowseTrackerDefs.h"
+#include "helpers.h"
 
 wxBitmap BrowseSelector::m_bmp;
 namespace
@@ -312,12 +313,14 @@ int BrowseSelector::PopulateListControl(EditorBase* /*pEditor*/)
     wxString editorFilename;
 
     // memorize current selection
-    int selection = m_pBrowseTracker->GetCurrentEditorIndex();
-    int maxCount  = MaxEntries;
+    EditorBase* pCurrEditor = m_pBrowseTracker->GetCurrentEditor();
+    int selection = m_pBrowseTracker->GetCurrentEditorIndex((pCurrEditor));
+    if (selection == wxNOT_FOUND) selection = 0;
+    int maxCount  = Helpers::GetMaxAllocEntries();
     int maxWidth  = 0;
     int itemIdx   = 0;
 
-    for (int c = 0; c < maxCount; c++)
+    for (int c = 0; c<maxCount; c++)
     {
         editorFilename = m_pBrowseTracker->GetPageFilename(c);
         if (not editorFilename.IsEmpty())
@@ -350,12 +353,12 @@ void BrowseSelector::CloseDialog()
 {
     m_selectedItem = m_listBox->GetSelection();
 
-    if ((m_selectedItem > -1) && (m_selectedItem < MaxEntries))
+    if ((m_selectedItem > -1) && (m_selectedItem < Helpers::GetMaxAllocEntries()))
     {
         std::map<int, int>::iterator iter = m_indexMap.find(m_selectedItem);
         LOGIT("ListBox[%ld] Map[%d]", m_selectedItem, iter->second);
         // we have to end the dlg before activating the editor or else
-        // the old editor get re-activated.
+        // the old editor gets re-activated.
         //-m_pBrowseTracker->SetSelection( iter->second ); logic error
         m_pBrowseTracker->m_UpdateUIEditorIndex = iter->second;
     }

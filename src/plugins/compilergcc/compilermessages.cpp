@@ -4,7 +4,7 @@
  *
  * $Revision: 11115 $
  * $Id: compilermessages.cpp 11115 2017-07-22 15:52:09Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/compilergcc/compilermessages.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/compilergcc/compilermessages.cpp $
  */
 
 #include "sdk.h"

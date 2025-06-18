@@ -17,7 +17,7 @@
     along with this program; if not, write to the Free Software
     Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
-// RCS-ID: $Id: codesnippetswindow.cpp 13018 2022-11-12 12:58:45Z wh11204 $
+// RCS-ID: $Id: codesnippetswindow.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
 
 #ifdef WX_PRECOMP //
     #include "wx_pch.h"
@@ -38,10 +38,6 @@
 
 // wxWidget headers not include in wx_pch.h
     #include <wx/clipbrd.h>
-
-#ifdef __BORLANDC__
-#pragma hdrstop
-#endif //__BORLANDC__
 
 //-#if defined(BUILDING_PLUGIN)
     #include "sdk.h"
@@ -332,7 +328,7 @@ void CodeSnippetsWindow::InitDlg()
 // ----------------------------------------------------------------------------
 {
     // Color which we're going to use as mask
-    wxColor maskColor(255, 0, 255);
+    // wxColor maskColor(255, 0, 255);
 
     wxBoxSizer* parentSizer = new wxBoxSizer(wxVERTICAL);
 

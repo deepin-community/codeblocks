@@ -1,4 +1,3 @@
-usr/share/metainfo/codeblocks.appdata.xml	usr/share/metainfo
 usr/share/applications
 usr/share/codeblocks/Astyle.zip
 usr/share/codeblocks/autosave.zip
@@ -25,5 +24,6 @@ usr/share/codeblocks/todo.zip
 usr/share/icons
 usr/share/man/man1/cb_*
 usr/share/man/man1/codeblocks.1
+usr/share/metainfo/codeblocks.appdata.xml	usr/share/metainfo
 usr/share/mime
 usr/share/pixmaps

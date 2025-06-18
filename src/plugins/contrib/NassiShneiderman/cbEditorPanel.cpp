@@ -17,7 +17,7 @@
 *
 * $Revision: 12524 $
 * $Id: cbEditorPanel.cpp 12524 2021-09-04 11:32:54Z fuscated $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/NassiShneiderman/cbEditorPanel.cpp $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/NassiShneiderman/cbEditorPanel.cpp $
 */
 
 #include <wx/cmdproc.h>

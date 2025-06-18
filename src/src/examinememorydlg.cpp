@@ -4,7 +4,7 @@
  *
  * $Revision: 12285 $
  * $Id: examinememorydlg.cpp 12285 2021-01-02 14:06:28Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/examinememorydlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/examinememorydlg.cpp $
  */
 
 #include "sdk.h"

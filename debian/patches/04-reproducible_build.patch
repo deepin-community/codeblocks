@@ -25,7 +25,7 @@ index 4a9d1d5..90c5204 100644
                  );
  
 diff --git a/src/sdk/cbexception.cpp b/src/sdk/cbexception.cpp
-index 40ac805..48a6db3 100644
+index da1c3e6..06e76ec 100644
 --- a/src/sdk/cbexception.cpp
 +++ b/src/sdk/cbexception.cpp
 @@ -47,7 +47,7 @@ void cbException::ShowErrorMessage(bool safe)
@@ -38,10 +38,10 @@ index 40ac805..48a6db3 100644
          wxSafeShowMessage(title, err);
      else
 diff --git a/src/sdk/configmanager.cpp b/src/sdk/configmanager.cpp
-index fb11c23..931fef7 100644
+index 78ab5f9..aa26d8c 100644
 --- a/src/sdk/configmanager.cpp
 +++ b/src/sdk/configmanager.cpp
-@@ -272,7 +272,7 @@ void CfgMgrBldr::SwitchTo(const wxString& fileName)
+@@ -265,7 +265,7 @@ void CfgMgrBldr::SwitchTo(const wxString& fileName)
      wxString info;
      info.Printf(_T(" application info:\n"
                      "\t svn_revision:\t%u\n"
@@ -51,7 +51,7 @@ index fb11c23..931fef7 100644
      info += wxString::Format(wxT("\t compiler_version:\tclang %d.%d.%d\n"), __clang_major__,
                               __clang_minor__, __clang_patchlevel__);
 diff --git a/src/src/appglobals.cpp b/src/src/appglobals.cpp
-index 4a02eff..1b32866 100644
+index dbff4c0..b339de1 100644
 --- a/src/src/appglobals.cpp
 +++ b/src/src/appglobals.cpp
 @@ -63,8 +63,8 @@ namespace appglobals
@@ -59,9 +59,9 @@ index 4a02eff..1b32866 100644
  #endif
  
 -    const wxString AppBuildTimestamp     = (  wxString(wxT(__DATE__)) + wxT(", ")
--                                            + wxT(__TIME__) + wxT(" - wx")
+-                                            + wxT(__TIME__) + wxT(" - ")
 +    const wxString AppBuildTimestamp     = (  wxString(wxT(BUILD_DATE)) + wxT(", ")
-+                                            + wxT(BUILD_TIME) + wxT(" - wx")
-                                             + wxString(wxT(wxVERSION_NUM_DOT_STRING))
++                                            + wxT(BUILD_TIME) + wxT(" - ")
+                                             + wxVERSION_STRING
  #if defined(__clang__)
                                              + wxString::Format(wxT(" - clang %d.%d.%d"),

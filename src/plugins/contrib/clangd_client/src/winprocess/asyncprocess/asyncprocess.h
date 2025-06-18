@@ -1,17 +1,14 @@
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
+// ----------------------------------------------------------------------------
 //
 // copyright            : (C) 2009 by Eran Ifrah
 // file name            : asyncprocess.h
 //
-// -------------------------------------------------------------------------
 //    This program is free software; you can redistribute it and/or modify
 //    it under the terms of the GNU General Public License as published by
 //    the Free Software Foundation; either version 2 of the License, or
 //    (at your option) any later version.
 //
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
+// ----------------------------------------------------------------------------
 
 #ifndef I_PROCESS_H
 #define I_PROCESS_H
@@ -28,7 +25,7 @@
 #include <wx/string.h>
 #include <wx/utils.h>
 
-// ----------------------------- usefule typedefs -----from macros.h-----//(ph 2021/12/12)
+// ----------------------------- useful typedefs -----from macros.h-----
 //-typedef std::unordered_map<wxString, bool> wxStringBoolMap_t;
 typedef std::map<wxString, wxString> wxStringTable_t;
 //-typedef std::unordered_set<wxString> wxStringSet_t;

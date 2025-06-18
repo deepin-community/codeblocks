@@ -6,7 +6,7 @@
  *
  * $Revision: 12887 $
  * $Id: ReopenEditor.h 12887 2022-09-10 10:32:25Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/ReopenEditor/ReopenEditor.h $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/ReopenEditor/ReopenEditor.h $
  */
 
 #ifndef REOPEN_EDITOR_H_INCLUDED

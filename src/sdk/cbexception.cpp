@@ -4,7 +4,7 @@
  *
  * $Revision: 11901 $
  * $Id: cbexception.cpp 11901 2019-11-04 19:35:26Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/cbexception.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/cbexception.cpp $
  */
 
 #include "sdk_precomp.h"

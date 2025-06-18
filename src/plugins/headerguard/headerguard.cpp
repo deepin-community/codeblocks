@@ -4,7 +4,7 @@
  *
  * $Revision: 12250 $
  * $Id: headerguard.cpp 12250 2020-12-22 14:39:11Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/headerguard/headerguard.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/headerguard/headerguard.cpp $
  */
 
 #include "sdk.h"

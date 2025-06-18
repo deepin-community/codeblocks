@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 13028 $
- * $Id: dlgabout.cpp 13028 2022-11-14 08:26:33Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/dlgabout.cpp $
+ * $Revision: 13628 $
+ * $Id: dlgabout.cpp 13628 2025-03-02 18:35:53Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/dlgabout.cpp $
  */
 
 #include "sdk.h"
@@ -13,7 +13,7 @@
     #ifdef __WXMAC__
         #include <wx/font.h>
     #endif //__WXMAC__
-    #include <wx/button.h>    // wxImage
+    #include <wx/button.h>   // wxImage
     #include <wx/image.h>    // wxImage
     #include <wx/intl.h>
     #include <wx/stattext.h>
@@ -115,7 +115,7 @@ dlgAbout::dlgAbout(wxWindow* parent)
     // Thanks tab
     wxTextCtrl *txtThanksTo = XRCCTRL(*this, "txtThanksTo", wxTextCtrl);
     // Note: Keep this is sync with the AUTHORS file in SVN.
-    txtThanksTo->SetValue(_(
+    const wxString developers(_(
         "Developers:\n"
         "--------------\n"
         "Yiannis Mandravellos: Developer - Project leader\n"
@@ -139,7 +139,7 @@ dlgAbout::dlgAbout(wxWindow* parent)
         "Bartlomiej Swiecki  : wxSmith RAD plugin\n"
         "Jerome Antoine      : ThreadSearch plugin\n"
         "Pecan Heber         : Keybinder, BrowseTracker, DragScroll\n"
-        "                      CodeSnippets plugins\n"
+        "                      CodeSnippets, clangd-client plugins\n"
         "Arto Jonsson        : CodeSnippets plugin (passed on to Pecan)\n"
         "Darius Markauskas   : Fortran support\n"
         "Mario Cupelli       : Compiler support for embedded systems\n"
@@ -147,7 +147,9 @@ dlgAbout::dlgAbout(wxWindow* parent)
         "Jonas Zinn          : Misc. wxSmith AddOns and plugins\n"
         "Mirai Computing     : cbp2make tool\n"
         "Anders F Bjoerklund : wxMac compatibility\n"
-        "\n"
+        "\n"));
+
+    const wxString contributors(_(
         "Contributors (in no special order):\n"
         "-----------------------------------\n"
         "Daniel Orb          : RPM spec file and packages\n"
@@ -164,14 +166,19 @@ dlgAbout::dlgAbout(wxWindow* parent)
         "Alexandr Efremo     : Providing OpenSuSe packages\n"
         "Huki                : Misc. Code-Completion improvements\n"
         "stahta01            : Misc. patches for several enhancements\n"
-        "\n"
+        "Gerard Durand       : Translation infrastructure, documentation writer\n"
+        "\n"));
+
+    const wxString others(_(
         "All contributors that provided patches.\n"
         "The wxWidgets project (https://www.wxwidgets.org).\n"
         "wxScintilla (https://sourceforge.net/projects/wxscintilla).\n"
-        "TinyXML parser (http://www.grinninglizard.com/tinyxml).\n"
+        "TinyXML parser (https://www.grinninglizard.com/tinyxml).\n"
         "Squirrel scripting language (http://www.squirrel-lang.org).\n"
         "The GNU Software Foundation (https://www.gnu.org).\n"
         "Last, but not least, the open-source community."));
+
+    txtThanksTo->SetValue(developers + contributors + others);
 
     // License tab
     wxTextCtrl *txtLicense = XRCCTRL(*this, "txtLicense", wxTextCtrl);
@@ -246,7 +253,7 @@ dlgAbout::dlgAbout(wxWindow* parent)
             const wxString name(pluginlist[i]->info.name);
             const bool active = Manager::Get()->GetConfigManager("plugins")->ReadBool("/"+name, true);
             if (active)
-                plugins.push_back({_(pluginlist[i]->info.title), pluginlist[i]->info.version});
+                plugins.push_back({wxGetTranslation(pluginlist[i]->info.title), pluginlist[i]->info.version});
         }
 
         wxTextCtrl *txtPlugins = XRCCTRL(*this, "txtPlugins", wxTextCtrl);

@@ -17,7 +17,7 @@
 *
 * $Revision: 12557 $
 * $Id: wxsstringproperty.cpp 12557 2021-12-07 19:39:34Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/properties/wxsstringproperty.cpp $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/properties/wxsstringproperty.cpp $
 */
 
 #include "wxsstringproperty.h"

@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12957 $
- * $Id: help_plugin.cpp 12957 2022-10-06 07:13:43Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/help_plugin/help_plugin.cpp $
+ * $Revision: 13201 $
+ * $Id: help_plugin.cpp 13201 2023-02-08 14:39:53Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/help_plugin/help_plugin.cpp $
  */
 
 #include "sdk.h"
@@ -480,7 +480,7 @@ void HelpPlugin::LaunchHelp(const wxString &c_helpfile, bool isExecutable, bool 
   {
     wxString msg;
     msg << _("Couldn't find the help file:\n")
-        << the_helpfile.GetFullPath() << _("\n")
+        << the_helpfile.GetFullPath() << '\n'
         << _("Do you want to run the associated program anyway?");
     if (!(cbMessageBox(msg, _("Warning"), wxICON_WARNING | wxYES_NO | wxNO_DEFAULT) == wxID_YES))
         return;

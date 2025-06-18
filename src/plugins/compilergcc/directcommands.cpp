@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12999 $
- * $Id: directcommands.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/compilergcc/directcommands.cpp $
+ * $Revision: 13627 $
+ * $Id: directcommands.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/compilergcc/directcommands.cpp $
  */
 
 #include <sdk.h>
@@ -233,7 +233,8 @@ void DirectCommands::CheckForToLongCommandLine(wxString& executableCmd, wxArrayS
 
         // Begin from the back of the command line and search for a position to split it. A suitable position is a white space
         // so that the resulting command line inclusive response file is shorter than the length limit
-        const int responseFileLength = responseFilePath.length();
+        // we have to subtract the ' @""' characters from the response file length and the ' ' from the rfind, so totally 5 characters
+        const int responseFileLength = responseFilePath.length() + 5;
         size_t startPos = executableCmd.rfind(' ', maxLength - responseFileLength);
         if (startPos == 0 || startPos == wxString::npos)   // Try to find the first command again...
             startPos = executableCmd.find(' ');
@@ -593,7 +594,7 @@ wxArrayString DirectCommands::GetPreBuildCommands(ProjectBuildTarget* target) co
     wxArrayString buildcmds = target ? target->GetCommandsBeforeBuild() : m_pProject->GetCommandsBeforeBuild();
     if (!buildcmds.IsEmpty())
     {
-        wxString title = target ? target->GetTitle() : m_pProject->GetTitle();
+        // wxString title = target ? target->GetTitle() : m_pProject->GetTitle();
         wxArrayString tmp;
         for (size_t i = 0; i < buildcmds.GetCount(); ++i)
         {
@@ -634,7 +635,7 @@ wxArrayString DirectCommands::GetPostBuildCommands(ProjectBuildTarget* target) c
     wxArrayString buildcmds = target ? target->GetCommandsAfterBuild() : m_pProject->GetCommandsAfterBuild();
     if (!buildcmds.IsEmpty())
     {
-        wxString title = target ? target->GetTitle() : m_pProject->GetTitle();
+        // wxString title = target ? target->GetTitle() : m_pProject->GetTitle();
         wxArrayString tmp;
         for (size_t i = 0; i < buildcmds.GetCount(); ++i)
         {
@@ -707,11 +708,11 @@ wxArrayString DirectCommands::GetTargetLinkCommands(ProjectBuildTarget* target, 
     {
         wxString warn;
 #ifdef NO_TRANSLATION
-        warn.Printf(wxT("WARNING: Target '%s': Unable to resolve %lu external dependenc%s:"),
-                    target->GetFullTitle().wx_str(), static_cast<unsigned long>(fileMissing.Count()), wxString(fileMissing.Count() == 1 ? wxT("y") : wxT("ies")).wx_str());
+        warn.Printf("WARNING: Target '%s': Unable to resolve %zu external dependenc%s:",
+                    target->GetFullTitle(), fileMissing.Count(), wxString(fileMissing.Count() == 1 ? "y" : "ies"));
 #else
-        warn.Printf(_("WARNING: Target '%s': Unable to resolve %lu external dependency/ies:"),
-                    target->GetFullTitle().wx_str(), static_cast<unsigned long>(fileMissing.Count()));
+        warn.Printf(_("WARNING: Target '%s': Unable to resolve %zu external dependency/ies:"),
+                    target->GetFullTitle(), fileMissing.Count());
 #endif // NO_TRANSLATION
         ret.Add(COMPILER_WARNING_LOG + warn);
         for (size_t i = 0; i < fileMissing.Count(); ++i)

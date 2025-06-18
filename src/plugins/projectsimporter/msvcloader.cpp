@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12999 $
- * $Id: msvcloader.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/projectsimporter/msvcloader.cpp $
+ * $Revision: 13627 $
+ * $Id: msvcloader.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/projectsimporter/msvcloader.cpp $
  */
 
 #include "sdk.h"
@@ -116,7 +116,6 @@ bool MSVCLoader::ReadConfigurations()
     if (!file.Ok())
         return false; // error opening file???
 
-    wxArrayString comps;
     wxTextInputStream input(file);
 
     int currentLine = 0;

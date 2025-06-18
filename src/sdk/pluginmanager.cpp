@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12994 $
- * $Id: pluginmanager.cpp 12994 2022-10-27 17:31:12Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/pluginmanager.cpp $
+ * $Revision: 13627 $
+ * $Id: pluginmanager.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/pluginmanager.cpp $
  */
 
 #include "sdk_precomp.h"
@@ -757,6 +757,13 @@ void PluginManager::RegisterPlugin(const wxString& name,
     m_RegisteredPlugins.push_back(pr);
 }
 
+static wxString RemoveCRAndTranslate(const wxString& value)
+{
+    wxString Result(value);
+    Result.Replace("\r\n", "\n");
+    return wxGetTranslation(Result);
+}
+
 bool PluginManager::ReadManifestFile(const wxString& pluginFilename,
                                      const wxString& pluginName,
                                      PluginInfo* infoOut)
@@ -770,7 +777,11 @@ bool PluginManager::ReadManifestFile(const wxString& pluginFilename,
         wxString actual = fname.GetFullName();
 
         // remove 'lib' prefix from plugin name (if any)
+#ifdef CB_AUTOCONF
+        if (actual.StartsWith("lib"))
+#else
         if (!platform::windows && actual.StartsWith("lib"))
+#endif
             actual.Remove(0, 3);
 
         actual = ConfigManager::LocateDataFile(actual, sdPluginsUser | sdDataUser | sdPluginsGlobal | sdDataGlobal);
@@ -875,30 +886,31 @@ bool PluginManager::ReadManifestFile(const wxString& pluginFilename,
                 TiXmlElement* value = plugin->FirstChildElement("Value");
                 while (value)
                 {
+                    // Most manifest*.xml files contain items formatted for Windows (with \r\n)
+                    // Remove all \r from the translatable ones so poedit works without complaining
                     if (value->Attribute("title"))
-                        infoOut->title = cbC2U(value->Attribute("title"));
+                        infoOut->title = RemoveCRAndTranslate(cbC2U(value->Attribute("title")));
+
                     if (value->Attribute("version"))
                         infoOut->version = cbC2U(value->Attribute("version"));
+
                     if (value->Attribute("description"))
-                    {
-                        wxString tmp = cbC2U(value->Attribute("description"));
-                        // Most manifest*.xml files contain a description item formatted for Windows (with \r\n)
-                        // Remove all \r so that poedit works without complaining
-                        tmp.Replace("\r", "");
-                        // Use the _() macro to be able to translate the tmp string
-                        infoOut->description = _(tmp);
-                    }
+                        infoOut->description = RemoveCRAndTranslate(cbC2U(value->Attribute("description")));
 
                     if (value->Attribute("author"))
-                        infoOut->author = cbC2U(value->Attribute("author"));
+                        infoOut->author = RemoveCRAndTranslate(cbC2U(value->Attribute("author")));
+
                     if (value->Attribute("authorEmail"))
                         infoOut->authorEmail = cbC2U(value->Attribute("authorEmail"));
+
                     if (value->Attribute("authorWebsite"))
                         infoOut->authorWebsite = cbC2U(value->Attribute("authorWebsite"));
+
                     if (value->Attribute("thanksTo"))
-                        infoOut->thanksTo = cbC2U(value->Attribute("thanksTo"));
+                        infoOut->thanksTo = RemoveCRAndTranslate(cbC2U(value->Attribute("thanksTo")));
+
                     if (value->Attribute("license"))
-                        infoOut->license = cbC2U(value->Attribute("license"));
+                        infoOut->license = RemoveCRAndTranslate(cbC2U(value->Attribute("license")));
 
                     value = value->NextSiblingElement("Value");
                 }
@@ -933,7 +945,11 @@ void PluginManager::ReadExtraFilesFromManifestFile(const wxString& pluginFilenam
     wxString actual = fname.GetFullName();
 
     // remove 'lib' prefix from plugin name (if any)
+#ifdef CB_AUTOCONF
+    if (actual.StartsWith("lib"))
+#else
     if (!platform::windows && actual.StartsWith("lib"))
+#endif
         actual.Remove(0, 3);
 
     actual = ConfigManager::LocateDataFile(actual, sdPluginsUser | sdDataUser | sdPluginsGlobal | sdDataGlobal);
@@ -1005,6 +1021,16 @@ int PluginManager::ScanForPlugins(const wxString& path)
         return count;
 
     bool batch = Manager::IsBatchBuild();
+
+    // when debugging a single plugin, we need to exclude other dlls
+    // GDB will start slowly if a lot of plugins(dlls) get loaded, since it has to parsed
+    // each debug symbol of those plugins. The below three lines are a hack to use the "batch"
+    // mode when debugging, so only a limited number of plugins get loaded.
+    // only enable this option if the personality name is "debug-plugin"
+    wxString personality(Manager::Get()->GetPersonalityManager()->GetPersonality());
+    if (personality == "debug-plugin")
+        batch = true;
+
     wxArrayString bbplugins;
     if (batch)
         bbplugins = cbReadBatchBuildPlugins();

@@ -4,7 +4,7 @@
  *
  * $Revision: 13003 $
  * $Id: disassemblydlg.cpp 13003 2022-11-08 08:50:45Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/disassemblydlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/disassemblydlg.cpp $
  */
 
 #include "sdk.h"

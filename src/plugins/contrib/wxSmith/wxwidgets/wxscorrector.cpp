@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12999 $
-* $Id: wxscorrector.cpp 12999 2022-11-01 13:12:28Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/wxscorrector.cpp $
+* $Revision: 13522 $
+* $Id: wxscorrector.cpp 13522 2024-05-21 18:54:24Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/wxscorrector.cpp $
 */
 
 #include "wxscorrector.h"
@@ -144,11 +144,17 @@ bool wxsCorrector::FillEmpty(wxsItem* Item)
     {
         if ( Item->GetIdName().empty() )
         {
-            Ret = true;
-            SetNewIdName(Item);
-            if (!IsWxWidgetsIdPrefix(Item->GetIdName()))
+            ConfigManager* cfg = Manager::Get()->GetConfigManager("wxsmith");
+            const bool EmptyID = cfg->ReadBool("/emptyids", false);
+
+            if (!EmptyID)
             {
-                m_Ids.insert(Item->GetIdName());
+                Ret = true;
+                SetNewIdName(Item);
+                if (!IsWxWidgetsIdPrefix(Item->GetIdName()))
+                {
+                    m_Ids.insert(Item->GetIdName());
+                }
             }
         }
     }

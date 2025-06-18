@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12072 $
-* $Id: wxsscrolledwindow.cpp 12072 2020-04-22 22:27:12Z bluehazzard $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/defitems/wxsscrolledwindow.cpp $
+* $Revision: 13547 $
+* $Id: wxsscrolledwindow.cpp 13547 2024-09-14 04:35:04Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/defitems/wxsscrolledwindow.cpp $
 */
 
 #include "wxsscrolledwindow.h"
@@ -69,20 +69,20 @@ void wxsScrolledWindow::OnBuildCreatingCode()
     }
 }
 
-wxObject* wxsScrolledWindow::OnBuildPreview(wxWindow* Parent,long Flags)
+wxObject* wxsScrolledWindow::OnBuildPreview(wxWindow* Parent,long _Flags)
 {
     // TODO: Use grid-viewing panel when not in exact mode
     wxWindow* NewItem = new wxScrolledWindow( Parent,GetId(),wxDefaultPosition,wxDefaultSize,Style());
-    SetupWindow(NewItem,Flags);
-    AddChildrenPreview(NewItem,Flags);
+    SetupWindow(NewItem,_Flags);
+    AddChildrenPreview(NewItem,_Flags);
     return NewItem;
 }
 
-void wxsScrolledWindow::OnEnumContainerProperties(long Flags)
+void wxsScrolledWindow::OnEnumContainerProperties(long _Flags)
 {
-    if ( Flags & flSource )
+    if ( _Flags & flSource )
     {
-        WXS_TWOLONG( wxsScrolledWindow, m_scrollRate,  _("Default scroll rate"), _("Rate x"), _("Rate y"), _("scrollrate"), -1, -1);
+        WXS_TWOLONG( wxsScrolledWindow, m_scrollRate,  _("Default scroll rate"), _("Rate x"), _("Rate y"), "scrollrate", -1, -1);
     }
 }
 

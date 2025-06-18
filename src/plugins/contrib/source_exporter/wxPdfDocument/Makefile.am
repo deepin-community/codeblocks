@@ -105,9 +105,7 @@ noinst_HEADERS = \
 				include/wx/pdfspotcolour.h \
 				include/wx/pdftemplate.h \
 				include/wx/pdfutility.h \
-				include/wx/pdfxml.h \
-				src/srgb2014icc.h \
-				src/wxmemdbg.h
+				include/wx/pdfxml.h
 
 EXTRA_DIST = \
 				src/pdfcjkfontdata.inc \

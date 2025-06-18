@@ -17,7 +17,7 @@
 *
 * $Revision: 12553 $
 * $Id: wxslongproperty.cpp 12553 2021-12-05 10:59:43Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/properties/wxslongproperty.cpp $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/properties/wxslongproperty.cpp $
 */
 
 #include "wxslongproperty.h"

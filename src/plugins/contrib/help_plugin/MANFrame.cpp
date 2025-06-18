@@ -4,7 +4,7 @@
  *
  * $Revision: 12957 $
  * $Id: MANFrame.cpp 12957 2022-10-06 07:13:43Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/help_plugin/MANFrame.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/help_plugin/MANFrame.cpp $
  */
 #include <sdk.h>
 

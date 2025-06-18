@@ -4,7 +4,7 @@
  *
  * $Revision: 12999 $
  * $Id: wiz.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/scriptedwizard/wiz.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/scriptedwizard/wiz.cpp $
  */
 
 #include <sdk.h>

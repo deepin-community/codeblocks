@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12999 $
- * $Id: compiler.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/compiler.cpp $
+ * $Revision: 13627 $
+ * $Id: compiler.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/compiler.cpp $
  */
 
 #include "sdk_precomp.h"
@@ -125,7 +125,7 @@ Compiler::Compiler(const Compiler& other) :
     MakeValidID();
 
     m_MasterPath      = other.m_MasterPath;
-    m_ExtraPaths      = other.m_ExtraPaths;
+    m_ExtraPaths      = MakeUniqueArray(other.m_ExtraPaths,     true);
     m_Programs        = other.m_Programs;
     m_Switches        = other.m_Switches;
     m_Options         = other.m_Options;
@@ -370,7 +370,7 @@ void Compiler::MirrorCurrentSettings()
 
     m_Mirror.Name             = m_Name;
     m_Mirror.MasterPath       = m_MasterPath;
-    m_Mirror.ExtraPaths       = m_ExtraPaths;
+    m_Mirror.ExtraPaths       = MakeUniqueArray(m_ExtraPaths, true);
     for (int i = 0; i < ctCount; ++i)
         m_Mirror.Commands[i]  = m_Commands[i];
     m_Mirror.Programs         = m_Programs;
@@ -387,8 +387,8 @@ void Compiler::MirrorCurrentSettings()
     m_Mirror.CmdsBefore       = m_CmdsBefore;
     m_Mirror.CmdsAfter        = m_CmdsAfter;
 
-    m_Mirror.SortOptions[0] = m_SortOptions[0];
-    m_Mirror.SortOptions[1] = m_SortOptions[1];
+    m_Mirror.SortOptions[0]   = m_SortOptions[0];
+    m_Mirror.SortOptions[1]   = m_SortOptions[1];
 
     m_Mirrored                = true;
 }
@@ -410,6 +410,25 @@ void Compiler::SaveSettings(const wxString& baseKey)
 
     cfg->Write(tmp + _T("/name"),   m_Name);
     cfg->Write(tmp + _T("/parent"), m_ParentID, true);
+
+    if (m_Mirror.MasterPath != m_MasterPath)
+        cfg->Write(tmp + _T("/master_path"),     m_MasterPath,         true);
+    if (m_Mirror.ExtraPaths != m_ExtraPaths)
+        cfg->Write(tmp + _T("/extra_paths"),     GetStringFromArray( MakeUniqueArray(m_ExtraPaths, true), _T(";") ), true);
+    if (m_Mirror.Programs.C != m_Programs.C)
+        cfg->Write(tmp + _T("/c_compiler"),      m_Programs.C,         true);
+    if (m_Mirror.Programs.CPP != m_Programs.CPP)
+        cfg->Write(tmp + _T("/cpp_compiler"),    m_Programs.CPP,       true);
+    if (m_Mirror.Programs.LD != m_Programs.LD)
+        cfg->Write(tmp + _T("/linker"),          m_Programs.LD,        true);
+    if (m_Mirror.Programs.LIB != m_Programs.LIB)
+        cfg->Write(tmp + _T("/lib_linker"),      m_Programs.LIB,       true);
+    if (m_Mirror.Programs.WINDRES != m_Programs.WINDRES)
+        cfg->Write(tmp + _T("/res_compiler"),    m_Programs.WINDRES,   true);
+    if (m_Mirror.Programs.MAKE != m_Programs.MAKE)
+        cfg->Write(tmp + _T("/make"),            m_Programs.MAKE,      true);
+    if (m_Mirror.Programs.DBGconfig != m_Programs.DBGconfig)
+        cfg->Write(tmp + _T("/debugger_config"), m_Programs.DBGconfig, true);
 
     if (m_Mirror.CompilerOptions_ != m_CompilerOptions)
     {
@@ -457,35 +476,16 @@ void Compiler::SaveSettings(const wxString& baseKey)
         cfg->Write(tmp + _T("/commands_after"),   key, true);
     }
 
-    if (m_Mirror.MasterPath != m_MasterPath)
-        cfg->Write(tmp + _T("/master_path"),     m_MasterPath,         true);
-    if (m_Mirror.ExtraPaths != m_ExtraPaths)
-        cfg->Write(tmp + _T("/extra_paths"),     GetStringFromArray( MakeUniqueArray(m_ExtraPaths, true), _T(";") ), true);
-    if (m_Mirror.Programs.C != m_Programs.C)
-        cfg->Write(tmp + _T("/c_compiler"),      m_Programs.C,         true);
-    if (m_Mirror.Programs.CPP != m_Programs.CPP)
-        cfg->Write(tmp + _T("/cpp_compiler"),    m_Programs.CPP,       true);
-    if (m_Mirror.Programs.LD != m_Programs.LD)
-        cfg->Write(tmp + _T("/linker"),          m_Programs.LD,        true);
-    if (m_Mirror.Programs.LIB != m_Programs.LIB)
-        cfg->Write(tmp + _T("/lib_linker"),      m_Programs.LIB,       true);
-    if (m_Mirror.Programs.WINDRES != m_Programs.WINDRES)
-        cfg->Write(tmp + _T("/res_compiler"),    m_Programs.WINDRES,   true);
-    if (m_Mirror.Programs.MAKE != m_Programs.MAKE)
-        cfg->Write(tmp + _T("/make"),            m_Programs.MAKE,      true);
-    if (m_Mirror.Programs.DBGconfig != m_Programs.DBGconfig)
-        cfg->Write(tmp + _T("/debugger_config"), m_Programs.DBGconfig, true);
-
     for (int i = 0; i < ctCount; ++i)
     {
         for (size_t n = 0; n < m_Commands[i].size(); ++n)
         {
             if (n >= m_Mirror.Commands[i].size() || m_Mirror.Commands[i][n] != m_Commands[i][n])
             {
-                wxString key = wxString::Format(_T("%s/macros/%s/tool%lu/"), tmp.c_str(), CommandTypeDescriptions[i].c_str(), static_cast<unsigned long>(n));
-                cfg->Write(key + _T("command"), m_Commands[i][n].command);
-                cfg->Write(key + _T("extensions"), m_Commands[i][n].extensions);
-                cfg->Write(key + _T("generatedFiles"), m_Commands[i][n].generatedFiles);
+                wxString key = wxString::Format("%s/macros/%s/tool%zu/", tmp, CommandTypeDescriptions[i], n);
+                cfg->Write(key + "command",        m_Commands[i][n].command);
+                cfg->Write(key + "extensions",     m_Commands[i][n].extensions);
+                cfg->Write(key + "generatedFiles", m_Commands[i][n].generatedFiles);
             }
         }
     }
@@ -550,7 +550,7 @@ void Compiler::SaveSettings(const wxString& baseKey)
         if (i < m_Mirror.RegExes.size() && m_Mirror.RegExes[i] == m_RegExes[i])
             continue;
 
-        group.Printf(_T("%s/regex/re%3.3lu"), tmp.c_str(), static_cast<unsigned long>(i + 1));
+        group.Printf("%s/regex/re%3.3zu", tmp, i + 1);
         RegExStruct& rs = m_RegExes[i];
         cfg->Write(group + _T("/description"),  rs.desc,  true);
         if (rs.lt != 0)
@@ -622,8 +622,6 @@ void Compiler::LoadSettings(const wxString& baseKey)
             return;
     }
 
-    wxString sep = wxFileName::GetPathSeparator();
-
     m_Name = cfg->Read(tmp + _T("/name"), m_Name);
 
     m_MasterPath         = cfg->Read(tmp + _T("/master_path"),     m_MasterPath);
@@ -644,9 +642,9 @@ void Compiler::LoadSettings(const wxString& baseKey)
     SetCompilerOptions    (GetArrayFromString(cfg->Read(tmp + _T("/compiler_options"), wxString())));
     SetResourceCompilerOptions(GetArrayFromString(cfg->Read(tmp + _T("/resource_compiler_options"), wxString())));
     SetLinkerOptions      (GetArrayFromString(cfg->Read(tmp + _T("/linker_options"),   wxString())));
-    SetIncludeDirs        (GetArrayFromString(cfg->Read(tmp + _T("/include_dirs"),     wxString())));
-    SetResourceIncludeDirs(GetArrayFromString(cfg->Read(tmp + _T("/res_include_dirs"), wxString())));
-    SetLibDirs            (GetArrayFromString(cfg->Read(tmp + _T("/library_dirs"),     wxString())));
+    SetIncludeDirs        (MakeUniqueArray(GetArrayFromString(cfg->Read(tmp + _T("/include_dirs"),     wxString())), true));
+    SetResourceIncludeDirs(MakeUniqueArray(GetArrayFromString(cfg->Read(tmp + _T("/res_include_dirs"), wxString())), true));
+    SetLibDirs            (MakeUniqueArray(GetArrayFromString(cfg->Read(tmp + _T("/library_dirs"),     wxString())), true));
     SetLinkLibs           (GetArrayFromString(cfg->Read(tmp + _T("/libraries"),        wxString())));
     SetCommandsBeforeBuild(GetArrayFromString(cfg->Read(tmp + _T("/commands_before"),  wxString())));
     SetCommandsAfterBuild (GetArrayFromString(cfg->Read(tmp + _T("/commands_after"),   wxString())));
@@ -671,7 +669,7 @@ void Compiler::LoadSettings(const wxString& baseKey)
         }
     }
 
-    // switches
+    // Compiler switches
     m_Switches.includeDirs             = cfg->Read(tmp + _T("/switches/includes"),                    m_Switches.includeDirs);
     m_Switches.libDirs                 = cfg->Read(tmp + _T("/switches/libs"),                        m_Switches.libDirs);
     m_Switches.linkLibs                = cfg->Read(tmp + _T("/switches/link"),                        m_Switches.linkLibs);
@@ -681,7 +679,7 @@ void Compiler::LoadSettings(const wxString& baseKey)
     m_Switches.needDependencies        = cfg->ReadBool(tmp + _T("/switches/deps"),                    m_Switches.needDependencies);
     m_Switches.forceCompilerUseQuotes  = cfg->ReadBool(tmp + _T("/switches/forceCompilerQuotes"),     m_Switches.forceCompilerUseQuotes);
     m_Switches.forceLinkerUseQuotes    = cfg->ReadBool(tmp + _T("/switches/forceLinkerQuotes"),       m_Switches.forceLinkerUseQuotes);
-    m_Switches.logging = (CompilerLoggingType)cfg->ReadInt(tmp + _T("/switches/logging"),             m_Switches.logging);
+    m_Switches.logging                 = (CompilerLoggingType)cfg->ReadInt(tmp + _T("/switches/logging"), m_Switches.logging);
     m_Switches.libPrefix               = cfg->Read(tmp + _T("/switches/libPrefix"),                   m_Switches.libPrefix);
     m_Switches.libExtension            = cfg->Read(tmp + _T("/switches/libExtension"),                m_Switches.libExtension);
     m_Switches.linkerNeedsLibPrefix    = cfg->ReadBool(tmp + _T("/switches/linkerNeedsLibPrefix"),    m_Switches.linkerNeedsLibPrefix);
@@ -693,7 +691,7 @@ void Compiler::LoadSettings(const wxString& baseKey)
     m_Switches.UseFlatObjects          = cfg->ReadBool(tmp + _T("/switches/UseFlatObjects"),          m_Switches.UseFlatObjects);
     m_Switches.UseFullSourcePaths      = cfg->ReadBool(tmp + _T("/switches/UseFullSourcePaths"),      m_Switches.UseFullSourcePaths);
     m_Switches.Use83Paths              = cfg->ReadBool(tmp + _T("/switches/Use83Paths"),              m_Switches.Use83Paths);
-    m_Switches.includeDirSeparator  = (wxChar)cfg->ReadInt(tmp + _T("/switches/includeDirSeparator"), (int)m_Switches.includeDirSeparator);
+    m_Switches.includeDirSeparator     = (wxChar)cfg->ReadInt(tmp + _T("/switches/includeDirSeparator"), (int)m_Switches.includeDirSeparator);
     m_Switches.libDirSeparator         = (wxChar)cfg->ReadInt(tmp + _T("/switches/libDirSeparator"),  (int)m_Switches.libDirSeparator);
     m_Switches.objectSeparator         = (wxChar)cfg->ReadInt(tmp + _T("/switches/objectSeparator"),  (int)m_Switches.objectSeparator);
     m_Switches.statusSuccess           = cfg->ReadInt(tmp + _T("/switches/statusSuccess"),            m_Switches.statusSuccess);
@@ -773,6 +771,12 @@ void Compiler::LoadSettings(const wxString& baseKey)
 
 CompilerLineType Compiler::CheckForWarningsAndErrors(const wxString& line)
 {
+    long regex_id; wxString regex_desc; // dummy;
+    return CheckForWarningsAndErrors(line, regex_id, regex_desc);
+}
+
+CompilerLineType Compiler::CheckForWarningsAndErrors(const wxString& line, long& regex_id, wxString& regex_desc)
+{
     if (!m_MultiLineMessages || (m_MultiLineMessages && !m_Error.IsEmpty()))
     {
         m_ErrorFilename.Clear();
@@ -780,6 +784,8 @@ CompilerLineType Compiler::CheckForWarningsAndErrors(const wxString& line)
         m_Error.Clear();
     }
 
+    regex_id   = -1;
+    regex_desc = _("(Unknown)");
     for (size_t i = 0; i < m_RegExes.size(); ++i)
     {
         RegExStruct& rs = m_RegExes[i];
@@ -801,6 +807,8 @@ CompilerLineType Compiler::CheckForWarningsAndErrors(const wxString& line)
                     m_Error << regex.GetMatch(line, rs.msg[x]);
                 }
             }
+            regex_id   = i;
+            regex_desc = rs.desc;
             return rs.lt;
         }
     }
@@ -1129,7 +1137,7 @@ void Compiler::LoadRegExArray(const wxString& name, bool globalPrecedence, int r
     int depth = 0;
     while (node)
     {
-        const wxString value = node->GetAttribute(wxT("value"), wxString());
+        // const wxString value = node->GetAttribute(wxT("value"), wxString());
         if (node->GetName() == wxT("if") && node->GetChildren())
         {
             if (EvalXMLCondition(node))
@@ -1332,16 +1340,16 @@ bool Compiler::EvalXMLCondition(const wxXmlNode* node)
             path << extraPaths[i] << wxPATH_SEP;
 
         wxString origPath;
-        wxGetEnv("PATH", &origPath);     // save path
-        wxSetEnv("PATH", path+origPath); // change path
-        cmd[0] = GetExecName(cmd[0]);
+        wxGetEnv("PATH", &origPath);     // Save the original path, then...
+        wxSetEnv("PATH", path+origPath); // ...update path temporarily for the call...
 
         long ret = -1;
         wxArrayString output;
+        cmd[0] = GetExecName(cmd[0]);
         if (!cmd[0].empty()) // should never be empty
             ret = Execute(GetStringFromArray(cmd, " ", false), output);
 
-        wxSetEnv("PATH", origPath); // restore path
+        wxSetEnv("PATH", origPath);      // ...and restore original path again.
 
         if (ret != 0) // execution failed
             return (node->GetAttribute("default", wxString()) == "true");
@@ -1356,7 +1364,7 @@ bool Compiler::EvalXMLCondition(const wxXmlNode* node)
             if (name.empty() || (name == "exec") || (name == "default"))
                 continue;
 
-            // Matchs a regular expression or compares versions, dpeending on Value
+            // Matches a regular expression or compares versions, depending on Value
             // If Value == "expression", looks for match in all output lines
             // If value == "expression;op;version" applies operator 'op' between match and version. Example: "([0-9]+\.[0-9]+\.[0-9]+);ge;4.2.0"
             // Possible operators: gt, ge, eq, ne, le, lt
@@ -1531,7 +1539,7 @@ wxString Compiler::GetExecName(const wxString& name)
 // However, wxExecute in asynchronous mode does not do this. The caveat is that we must wait
 // in a loop for the end of the task and extract the command output in a separate step.
 
-// This auxiliary class is needed for detecting the end of the task and retrieving the ouput.
+// This auxiliary class is needed for detecting the end of the task and retrieving the output.
 // OnTerminate() will be called when the task ends with the return code of the task, and then
 // the task output can be retrieved (as a stream).
 

@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12999 $
- * $Id: todolistview.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/todo/todolistview.cpp $
+ * $Revision: 13340 $
+ * $Id: todolistview.cpp 13340 2023-08-24 18:12:40Z pecanh $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/todo/todolistview.cpp $
  */
 
 #include "sdk.h"
@@ -34,6 +34,7 @@
 
 #include <wx/progdlg.h>
 #include <wx/checkbox.h>
+#include <wx/wrapsizer.h>
 
 #include "cbstyledtextctrl.h"
 #include "encodingdetector.h"
@@ -96,7 +97,7 @@ wxWindow* ToDoListView::CreateControl(wxWindow* parent)
     Manager::Get()->GetAppWindow()->PushEventHandler(this);
 
     control->SetInitialSize(wxSize(342,56));
-    control->SetMinSize(wxSize(342,56));
+    control->SetMinSize(wxSize(242,56));
     wxSizer* bs = new wxBoxSizer(wxVERTICAL);
     bs->Add(control, 1, wxEXPAND);
     wxArrayString choices;
@@ -104,12 +105,12 @@ wxWindow* ToDoListView::CreateControl(wxWindow* parent)
     choices.Add(_("Open files"));          // 1
     choices.Add(_("Active target files")); // 2
     choices.Add(_("All project files"));   // 3
-    wxBoxSizer* hbs = new wxBoxSizer(wxHORIZONTAL);
+    wxWrapSizer* hbs = new wxWrapSizer(wxHORIZONTAL);
 
     hbs->Add(new wxStaticText(m_pPanel, wxID_ANY, _("Scope:")), 0, wxTOP, 4);
 
     m_pSource = new wxComboBox(m_pPanel, idSource, wxEmptyString, wxDefaultPosition, wxDefaultSize, choices, wxCB_READONLY);
-    int source = Manager::Get()->GetConfigManager(_T("todo_list"))->ReadInt(_T("source"), 0);
+    int source = Manager::Get()->GetConfigManager("todo_list")->ReadInt("source", 0);
     m_pSource->SetSelection(source);
     hbs->Add(m_pSource, 0, wxLEFT | wxRIGHT, 8);
 
@@ -149,6 +150,10 @@ void ToDoListView::DestroyControls(bool destr_control)
     }
 }
 
+void ToDoListView::SetAllowedTypes(const wxArrayString& allowedTypes)
+{
+    m_allowedTypes = allowedTypes;
+}
 
 void ToDoListView::Parse()
 {
@@ -156,10 +161,6 @@ void ToDoListView::Parse()
     // based on user prefs, parse files for todo items
     if (m_Ignore || (m_pPanel && !m_pPanel->IsShownOnScreen()) )
         return; // Reentrancy
-
-    // Load the current configuration for allowed types
-    m_allowedTypes.clear();
-    Manager::Get()->GetConfigManager("todo_list")->Read("types_selected", &m_allowedTypes);
 
     Clear(); // clear the gui
     m_ItemsMap.clear(); // clear the data
@@ -195,9 +196,9 @@ void ToDoListView::Parse()
             ProjectBuildTarget *target = prj->GetBuildTarget(prj->GetActiveBuildTarget());
             if (!target)
                 return;
-            wxProgressDialog pd(_T("Todo Plugin: Processing all files in the active target.."),
-                                _T("Processing a target of a big project may take large amount of time.\n\n"
-                                   "Please be patient!\n"),
+            wxProgressDialog pd(_("Todo Plugin: Processing all files in the active target.."),
+                                _("Processing a target of a big project may take large amount of time.\n\n"
+                                  "Please be patient!\n"),
                                 target->GetFilesCount(),
                                 Manager::Get()->GetAppWindow(),
                                 wxPD_AUTO_HIDE | wxPD_APP_MODAL | wxPD_CAN_ABORT);
@@ -228,9 +229,9 @@ void ToDoListView::Parse()
             cbProject* prj = Manager::Get()->GetProjectManager()->GetActiveProject();
             if (!prj)
                 return;
-            wxProgressDialog pd(_T("Todo Plugin: Processing all files.."),
-                                _T("Processing a big project may take large amount of time.\n\n"
-                                   "Please be patient!\n"),
+            wxProgressDialog pd(_("Todo Plugin: Processing all files.."),
+                                _("Processing a big project may take large amount of time.\n\n"
+                                  "Please be patient!\n"),
                                 prj->GetFilesCount(),
                                 Manager::Get()->GetAppWindow(),
                                 wxPD_AUTO_HIDE | wxPD_APP_MODAL | wxPD_CAN_ABORT);
@@ -261,10 +262,6 @@ void ToDoListView::ParseCurrent(bool forced)
 {
     if (m_Ignore)
         return; // Reentrancy
-
-    // Load the current configuration for allowed types
-    m_allowedTypes.clear();
-    Manager::Get()->GetConfigManager("todo_list")->Read("types_selected", &m_allowedTypes);
 
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinEditor(Manager::Get()->GetEditorManager()->GetActiveEditor());
     if (ed)
@@ -396,7 +393,10 @@ void ToDoListView::SortList()
                         wxDateTime date2;
                         date1.ParseDate(item1.date.c_str());
                         date2.ParseDate(item2.date.c_str());
-                        if      (date1 > date2)
+                        // avoid "invalid date" assertion
+                        if (not date1.IsValid()) date1.SetToCurrent();
+                        if (not date2.IsValid()) date2.SetToCurrent();
+                        if (date1 > date2)
                             swap =  1;
                         else if (date1 < date2)
                             swap = -1;
@@ -491,11 +491,12 @@ void ToDoListView::ParseBuffer(const wxString& buffer, const wxString& filename)
     m_ItemsMap[filename].clear();
 
     wxArrayString startStrings;
-    if (langName == _T("C/C++") )
+    if (langName == "C/C++" )
     {
-        startStrings.push_back(_T("#warning"));
-        startStrings.push_back(_T("#error"));
+        startStrings.push_back("#warning");
+        startStrings.push_back("#error");
     }
+
     if (!cmttoken.doxygenLineComment.empty())
         startStrings.push_back(cmttoken.doxygenLineComment);
     if (!cmttoken.doxygenStreamCommentStart.empty())
@@ -507,10 +508,7 @@ void ToDoListView::ParseBuffer(const wxString& buffer, const wxString& filename)
         startStrings.push_back(cmttoken.streamCommentStart);
 
     if ( startStrings.empty() || m_allowedTypes.empty() )
-    {
-        Manager::Get()->GetLogManager()->Log(_("ToDoList: Warning: No to-do types or comment symbols selected to search for, nothing to do."));
         return;
-    }
 
     ParseBufferForTODOs(m_ItemsMap, m_Items, startStrings, m_allowedTypes, buffer, filename);
 }
@@ -523,9 +521,10 @@ void ToDoListView::FocusEntry(size_t index)
         control->EnsureVisible(index);
     }
 }
+
 void ToDoListView::OnComboChange(cb_unused wxCommandEvent& event)
 {
-    Manager::Get()->GetConfigManager( _T("todo_list"))->Write(_T("source"), m_pSource->GetSelection() );
+    Manager::Get()->GetConfigManager( "todo_list")->Write("source", m_pSource->GetSelection() );
     Parse();
 }
 
@@ -542,14 +541,18 @@ void ToDoListView::OnListItemSelected(cb_unused wxCommandEvent& event)
 void ToDoListView::OnButtonTypes(cb_unused wxCommandEvent& event)
 {
     PlaceWindow(m_pAllowedTypesDlg);
-
-    // Read configuration fresh from the config manager
-    wxArrayString selectedTypes;
-    Manager::Get()->GetConfigManager("todo_list")->Read("types_selected", &selectedTypes);
-    m_pAllowedTypesDlg->SetChecked(selectedTypes);
-
+    m_pAllowedTypesDlg->SetChecked(m_allowedTypes);
     if (m_pAllowedTypesDlg->ShowModal() == wxID_OK)
-        Parse();    // When dialog is closed with OK, reparse...
+    {
+        // Check if something has changed
+        const wxArrayString newAllowedTypes(m_pAllowedTypesDlg->GetChecked());
+        if (m_allowedTypes != newAllowedTypes)
+        {
+            m_allowedTypes = newAllowedTypes;
+            Manager::Get()->GetConfigManager("todo_list")->Write("types_selected", m_allowedTypes);
+            Parse();    // When dialog is closed with OK, reparse...
+        }
+    }
 }
 
 void ToDoListView::OnButtonRefresh(cb_unused wxCommandEvent& event)
@@ -640,7 +643,6 @@ CheckListDialog::CheckListDialog(wxWindow*       parent,
     Layout();
 
     // Connect Events
-    m_okBtn->Connect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( CheckListDialog::OkOnButtonClick ), NULL, this);
     m_checkAll->Connect(wxEVT_COMMAND_CHECKBOX_CLICKED, wxCommandEventHandler( CheckListDialog::OnAllClick ), NULL, this);
     m_checkList->Connect(wxEVT_CHECKLISTBOX, wxCommandEventHandler( CheckListDialog::OnListCheck ), NULL, this);
 }
@@ -648,15 +650,8 @@ CheckListDialog::CheckListDialog(wxWindow*       parent,
 CheckListDialog::~CheckListDialog()
 {
     // Disconnect Events
-    m_okBtn->Disconnect(wxEVT_COMMAND_BUTTON_CLICKED, wxCommandEventHandler( CheckListDialog::OkOnButtonClick ), NULL, this);
     m_checkAll->Disconnect(wxEVT_COMMAND_CHECKBOX_CLICKED, wxCommandEventHandler( CheckListDialog::OnAllClick ), NULL, this);
     m_checkList->Disconnect(wxEVT_CHECKLISTBOX, wxCommandEventHandler( CheckListDialog::OnListCheck ), NULL, this);
-}
-
-void CheckListDialog::OkOnButtonClick(cb_unused wxCommandEvent& event)
-{
-    Manager::Get()->GetConfigManager("todo_list")->Write("types_selected", GetChecked());
-    EndModal(wxID_OK);
 }
 
 bool CheckListDialog::IsChecked(const wxString& item) const

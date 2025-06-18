@@ -4,7 +4,7 @@
  *
  * $Revision: 12534 $
  * $Id: filemanager.cpp 12534 2021-10-06 22:35:21Z bluehazzard $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/filemanager.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/filemanager.cpp $
  */
 
 #include "sdk_precomp.h"

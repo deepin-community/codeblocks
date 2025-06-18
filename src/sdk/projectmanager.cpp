@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12999 $
- * $Id: projectmanager.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/projectmanager.cpp $
+ * $Revision: 13437 $
+ * $Id: projectmanager.cpp 13437 2024-01-31 11:51:59Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/projectmanager.cpp $
  */
 
 #include "sdk_precomp.h"
@@ -36,8 +36,8 @@
 //#include "filefilters.h"
 #include "filegroupsandmasks.h"
 
-template<> ProjectManager* Mgr<ProjectManager>::instance = nullptr;
-template<> bool  Mgr<ProjectManager>::isShutdown = false;
+template<> ProjectManager* DLLIMPORT Mgr<ProjectManager>::instance = nullptr;
+template<> bool DLLIMPORT Mgr<ProjectManager>::isShutdown = false;
 
 // static
 bool ProjectManager::s_CanShutdown = true;
@@ -70,6 +70,7 @@ class NullProjectManagerUI : public cbProjectManagerUI
         void ConfigureProjectDependencies(cb_unused cbProject* base,
                                           cb_unused wxWindow *parent) override {}
         void SwitchToProjectsPage() override {}
+        void ReloadFileSystemWatcher(cb_unused cbProject* prj) override {}
 };
 
 // class constructor

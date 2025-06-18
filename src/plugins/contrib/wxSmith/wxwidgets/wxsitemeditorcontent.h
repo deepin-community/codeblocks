@@ -15,15 +15,17 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12197 $
-* $Id: wxsitemeditorcontent.h 12197 2020-08-11 08:14:14Z fuscated $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/wxsitemeditorcontent.h $
+* $Revision: 13627 $
+* $Id: wxsitemeditorcontent.h 13627 2025-03-02 18:17:10Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/wxsitemeditorcontent.h $
 */
 
 #ifndef WXSITEMEDITORCONTENT_H
 #define WXSITEMEDITORCONTENT_H
 
 #include "wxsdrawingwindow.h"
+
+#include <wx/hashmap.h>
 
 class wxsItemEditorDragAssist;
 class wxsItemResData;

@@ -4,7 +4,7 @@
  *
  * $Revision: 12141 $
  * $Id: cbcolourmanager.cpp 12141 2020-05-31 15:54:38Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/cbcolourmanager.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/cbcolourmanager.cpp $
  */
 
 #include "sdk_precomp.h"

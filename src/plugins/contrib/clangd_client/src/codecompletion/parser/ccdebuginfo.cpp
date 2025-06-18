@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 63 $
- * $Id: ccdebuginfo.cpp 63 2022-05-20 17:21:14Z pecanh $
- * $HeadURL: https://svn.code.sf.net/p/cb-clangd-client/code/trunk/clangd_client/src/codecompletion/parser/ccdebuginfo.cpp $
+ * $Revision: 13292 $
+ * $Id: ccdebuginfo.cpp 13292 2023-05-30 15:50:46Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/clangd_client/src/codecompletion/parser/ccdebuginfo.cpp $
  */
 
 #include <sdk.h>
@@ -72,7 +72,7 @@ namespace CCDebugInfoHelper
                         fileDesc,
                         _T(""),
                         _T(""),
-                        _T("Text files (*.txt)|*.txt|Any file (*)|*"),
+                        _("Text files (*.txt)|*.txt|Any file (*)|*"),
                         wxFD_SAVE | wxFD_OVERWRITE_PROMPT);
         PlaceWindow(&dlg);
         if (dlg.ShowModal() != wxID_OK)
@@ -632,6 +632,7 @@ void CCDebugInfo::OnFindClick(cb_unused wxCommandEvent& event)
         }
     }
 
+    // DisplayTokenInfo() will verify if m_Token has a value
     DisplayTokenInfo();
 }
 
@@ -792,6 +793,7 @@ void CCDebugInfo::OnSave(cb_unused wxCommandEvent& event)
                             for (TokenIdxSet::const_iterator it = result.begin(); it != result.end(); ++it)
                             {
                                 const Token* token = tree->at(*it);
+                                if (not token) continue;
                                 fileTokens << token->GetTokenKindString() << _T(" ");
                                 if (token->m_TokenKind == tkFunction)
                                     fileTokens << token->m_Name << token->GetFormattedArgs() << _T("\t");

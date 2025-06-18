@@ -4,7 +4,7 @@
  *
  * $Revision: 12605 $
  * $Id: crc32.cpp 12605 2021-12-22 08:53:19Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/crc32.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/crc32.cpp $
  */
 
 /*

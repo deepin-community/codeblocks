@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12999 $
- * $Id: encodingdetector.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/encodingdetector.cpp $
+ * $Revision: 13101 $
+ * $Id: encodingdetector.cpp 13101 2022-12-08 18:11:23Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/encodingdetector.cpp $
  */
 
 #include "sdk_precomp.h"
@@ -461,8 +461,8 @@ class EncodingDetectorImpl : public nsUniversalDetector
                     outlen = size + 4 - m_BOMSizeInBytes; // should be correct, because Convert has returned true
                     if (m_UseLog && outlen>0)
                     {
-                        logmsg.Printf(_T("Conversion succeeded using wxEncodingConverter "
-                                         "(buffer size = %lu, converted size = %lu."), static_cast<unsigned long>(size), static_cast<unsigned long>(outlen));
+                        logmsg.Printf("Conversion succeeded using wxEncodingConverter "
+                                      "(buffer size = %zu, converted size = %zu.", size, outlen);
                         logmgr->DebugLog(logmsg);
                     }
                 }
@@ -475,8 +475,8 @@ class EncodingDetectorImpl : public nsUniversalDetector
                         wideBuff = csconv.cMB2WC((const char*)buffer, size + 4 - m_BOMSizeInBytes, &outlen);
                         if (m_UseLog && outlen>0)
                         {
-                            logmsg.Printf(_T("Conversion succeeded using wxCSConv "
-                                             "(buffer size = %lu, converted size = %lu."), static_cast<unsigned long>(size), static_cast<unsigned long>(outlen));
+                            logmsg.Printf("Conversion succeeded using wxCSConv "
+                                          "(buffer size = %zu, converted size = %zu.", size, outlen);
                             logmgr->DebugLog(logmsg);
                         }
                     }

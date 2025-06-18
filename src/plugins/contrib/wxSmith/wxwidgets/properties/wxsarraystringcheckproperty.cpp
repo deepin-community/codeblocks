@@ -17,7 +17,7 @@
 *
 * $Revision: 12868 $
 * $Id: wxsarraystringcheckproperty.cpp 12868 2022-08-15 15:53:42Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/properties/wxsarraystringcheckproperty.cpp $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/properties/wxsarraystringcheckproperty.cpp $
 */
 
 #include "wxsarraystringcheckproperty.h"

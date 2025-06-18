@@ -4,7 +4,7 @@
  *
  * $Revision: 12795 $
  * $Id: cdb_driver.cpp 12795 2022-04-16 03:47:18Z ollydbg $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/debuggergdb/cdb_driver.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/debuggergdb/cdb_driver.cpp $
  */
 
 #include <sdk.h>

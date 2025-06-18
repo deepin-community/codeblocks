@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12944 $
- * $Id: abbreviations.cpp 12944 2022-10-05 06:02:53Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/abbreviations/abbreviations.cpp $
+ * $Revision: 13627 $
+ * $Id: abbreviations.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/abbreviations/abbreviations.cpp $
  */
 
 #include <sdk.h>
@@ -173,7 +173,7 @@ void Abbreviations::BuildMenu(wxMenuBar* menuBar)
     if (editMenu)
     {
         editMenu->AppendSeparator();
-        editMenu->Append(idEditAutoComplete, "Auto-complete\tCtrl-J", _("Auto-completes the word under the caret (nothing to do with code-completion plugins)"));
+        editMenu->Append(idEditAutoComplete, _("Auto-complete")+"\tCtrl-J", _("Auto-completes the word under the caret (nothing to do with code-completion plugins)"));
     }
 }
 
@@ -480,7 +480,6 @@ void Abbreviations::SaveAutoCompleteConfig()
     for (itlan = m_AutoCompLanguageMap.begin(); itlan != m_AutoCompLanguageMap.end(); ++itlan)
     {
         wxString langStr = itlan->first;
-        wxString langStrLw = langStr.Lower();
         AutoCompleteMap* pAutoCompleteMap = itlan->second;
         for (it = pAutoCompleteMap->begin(); it != pAutoCompleteMap->end(); ++it)
         {

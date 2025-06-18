@@ -37,7 +37,7 @@
 // this is the plugins SDK version number
 // it will change when the SDK interface breaks
 #define PLUGIN_SDK_VERSION_MAJOR   2
-#define PLUGIN_SDK_VERSION_MINOR   23
+#define PLUGIN_SDK_VERSION_MINOR   25
 #define PLUGIN_SDK_VERSION_RELEASE 0
 
 // class decls
@@ -972,6 +972,9 @@ class PLUGIN_EXPORT cbCodeCompletionPlugin : public cbPlugin
           * @param ed The editor to operate in.
           */
         virtual void DoAutocomplete(const wxString& token, cbEditor* ed);
+
+        virtual bool DoShowDiagnostics(cb_unused cbEditor* ed, cb_unused int line) {return false;}
+
 
     protected:
         /** @brief Has this plugin been selected to provide content for the editor.

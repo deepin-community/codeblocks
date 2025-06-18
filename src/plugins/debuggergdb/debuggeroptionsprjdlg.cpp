@@ -4,7 +4,7 @@
  *
  * $Revision: 11859 $
  * $Id: debuggeroptionsprjdlg.cpp 11859 2019-09-29 12:53:55Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/debuggergdb/debuggeroptionsprjdlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/debuggergdb/debuggeroptionsprjdlg.cpp $
  */
 
 #include <sdk.h>

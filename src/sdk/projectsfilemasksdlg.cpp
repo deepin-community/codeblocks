@@ -4,7 +4,7 @@
  *
  * $Revision: 11996 $
  * $Id: projectsfilemasksdlg.cpp 11996 2020-03-26 21:04:41Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/projectsfilemasksdlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/projectsfilemasksdlg.cpp $
  */
 
 #include "sdk_precomp.h"

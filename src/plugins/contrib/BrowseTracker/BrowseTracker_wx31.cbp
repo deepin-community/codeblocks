@@ -122,6 +122,8 @@
 		<Unit filename="JumpData.h" />
 		<Unit filename="JumpTracker.cpp" />
 		<Unit filename="JumpTracker.h" />
+		<Unit filename="JumpTrackerView.cpp" />
+		<Unit filename="JumpTrackerView.h" />
 		<Unit filename="Makefile.am" />
 		<Unit filename="ProjectData.cpp" />
 		<Unit filename="ProjectData.h" />
@@ -130,6 +132,9 @@
 		<Unit filename="manifest.xml" />
 		<Unit filename="btswitcherdlg.cpp" />
 		<Unit filename="btswitcherdlg.h" />
+		<Unit filename="helpers.h" />
+		<Unit filename="helpers.cpp" />
+
 		<Extensions>
 			<code_completion />
 			<envvars />

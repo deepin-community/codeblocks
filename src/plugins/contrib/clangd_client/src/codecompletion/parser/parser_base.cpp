@@ -137,7 +137,7 @@ ParserCommon::EFileType ParserCommon::FileType(const wxString& filename, bool fo
 
     if (!cfg_read || force_refresh)
     {
-        ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("clangd_client"));
+        ConfigManager* cfg = Manager::Get()->GetConfigManager("clangd_client");
         empty_ext               = cfg->ReadBool(_T("/empty_ext"), true);
         wxString header_ext_str = cfg->Read(_T("/header_ext"), _T("h,hpp,hxx,hh,h++,tcc,tpp,xpm"));
         wxString source_ext_str = cfg->Read(_T("/source_ext"), _T("c,cpp,cxx,cc,c++"));
@@ -182,43 +182,7 @@ ParserCommon::EFileType ParserCommon::FileType(const wxString& filename, bool fo
     return ParserCommon::ftOther;
 }
 #endif //CC_PARSER_TEST
-////// ----------------------------------------------------------------------------
-////namespace Now defined in namespze LSP_DocumentSymbolKind
-////// ----------------------------------------------------------------------------
-////{
-////    // ----------------------------------------------------------------------------
-////    // Language Server symbol kind.
-////    // ----------------------------------------------------------------------------
-////    // defined in https://microsoft.github.io/language-server-protocol/specification
-////    enum LSP_DocumentSymbolKind {
-////        File = 1,
-////        Module = 2,
-////        Namespace = 3,
-////        Package = 4,
-////        Class = 5,
-////        Method = 6,
-////        Property = 7,
-////        Field = 8,
-////        Constructor = 9,
-////        Enum = 10,
-////        Interface = 11,
-////        Function = 12,
-////        Variable = 13,
-////        Constant = 14,
-////        String = 15,
-////        Number = 16,
-////        Boolean = 17,
-////        Array = 18,
-////        Object = 19,
-////        Key = 20,
-////        Null = 21,
-////        EnumMember = 22,
-////        Struct = 23,
-////        Event = 24,
-////        Operator = 25,
-////        TypeParameter = 26
-////    };
-////}
+
 // ----------------------------------------------------------------------------
 ParserBase::ParserBase()
 // ----------------------------------------------------------------------------
@@ -227,7 +191,7 @@ ParserBase::ParserBase()
     m_TempTokenTree = new TokenTree;
     m_pLSP_Client   = nullptr;  //initialized by SetLSP_Client()
 
-    // create Idle time CallbackHandler     //(ph 2022/08/01)
+    // create Idle time CallbackHandler
     IdleCallbackHandler* pIdleCallBackHandler = new IdleCallbackHandler();
     pIdleCallbacks.reset( pIdleCallBackHandler );
 }
@@ -235,7 +199,7 @@ ParserBase::ParserBase()
 ParserBase::~ParserBase()
 // ----------------------------------------------------------------------------
 {
-    //(ph 2021/11/9)
+
     // Locking the token tree is not necessary.
     // 1) The clangd client has already been shutdown, so no TokenTree updates.
     // 2) Since no updates to TokenTree, UpdateClassBrowserView() will not be called.
@@ -249,6 +213,7 @@ ParserBase::~ParserBase()
     Delete(m_TempTokenTree);
 
     // CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)     //UNlock TokenTree
+    s_TokenTreeMutex_Owner = wxString();
 }
 // ----------------------------------------------------------------------------
 TokenTree* ParserBase::GetTokenTree() const
@@ -256,98 +221,6 @@ TokenTree* ParserBase::GetTokenTree() const
 {
     return m_TokenTree;
 }
-
-////bool ParserBase::ParseFile(const wxString& filename, bool isGlobal, bool /*locked*/)
-////{
-////    return Reparse(filename, !isGlobal);
-////}
-
-////// ----------------------------------------------------------------------------
-////bool ParserBase::Reparse(const wxString& file, cb_unused bool isLocal)
-////// ----------------------------------------------------------------------------
-////{
-////    cbThrow("LSP "+wxString(__FUNCTION__)+ " Shouldn't be here!");
-////    return true;
-////    #warning ParserBase::Reparse is castrated @ 211
-////
-////    FileLoader* loader = new FileLoader(file);
-////    (*loader)();
-////
-////    ParserThreadOptions opts;
-////
-////    opts.useBuffer             = false; // default
-////    opts.parentIdxOfBuffer     = -1;    // default
-////    opts.initLineOfBuffer      = -1;    // default
-////    opts.bufferSkipBlocks      = false; // default
-////    opts.bufferSkipOuterBlocks = false; // default
-////    opts.isTemp                = false; // default
-////
-////    opts.followLocalIncludes   = true;  // default
-////    opts.followGlobalIncludes  = true;  // default
-////    opts.wantPreprocessor      = true;  // default
-////    opts.parseComplexMacros    = true;  // default
-////    opts.platformCheck         = true;  // default
-////
-////    opts.handleFunctions       = true;  // default
-////    opts.handleVars            = true;  // default
-////    opts.handleClasses         = true;  // default
-////    opts.handleEnums           = true;  // default
-////    opts.handleTypedefs        = true;  // default
-////
-////    opts.storeDocumentation    = true;  // enable this option to enable cctest for doxygen doc reading
-////
-////    opts.loader                = loader;
-////
-////    // the file should first be put in the TokenTree, so the index is correct when initializing the
-////    // Tokenizer object inside the ParserThread::ParserThread()
-////
-////    m_TokenTree->ReserveFileForParsing(file, true);
-////
-////    ParserThread* pt = new ParserThread(this, file, true, opts, m_TokenTree);
-////    bool success = pt->Parse();
-////    delete pt;
-////
-////    return success;
-////}
-
-
-////bool ParserBase::ParseBuffer(const wxString& buffer,
-////                             bool isLocal,
-////                             bool bufferSkipBlocks,
-////                             bool isTemp,
-////                             const wxString& filename,
-////                             int parentIdx,
-////                             int initLine)
-////{
-////
-////    cbThrow( wxString(__FUNCTION__) + "Should not be here");
-////    //-ParserThreadOptions opts; //(ph 2021/07/27)
-////    LSP_SymbolsParserOptions opts;
-////
-////    opts.useBuffer            = true;
-////    opts.fileOfBuffer         = filename;
-////    opts.parentIdxOfBuffer    = parentIdx;
-////    opts.initLineOfBuffer     = initLine;
-////    opts.bufferSkipBlocks     = bufferSkipBlocks;
-////    opts.isTemp               = isTemp;
-////
-////    opts.followLocalIncludes  = true;
-////    opts.followGlobalIncludes = true;
-////    opts.wantPreprocessor     = m_Options.wantPreprocessor;
-////    opts.parseComplexMacros   = true;
-////    opts.platformCheck        = true;
-////
-////    opts.handleFunctions      = true;   // enabled to support function ptr in local block
-////
-////    opts.storeDocumentation   = m_Options.storeDocumentation;
-////
-////    ParserThread thread(this, buffer, isLocal, opts, m_TokenTree);
-////
-////    bool success = thread.Parse();
-////
-////    return success;
-////
-////}
 
 // ----------------------------------------------------------------------------
 void ParserBase::AddIncludeDir(const wxString& dir)
@@ -460,7 +333,7 @@ size_t ParserBase::FindTokensInFile(bool hasTokenTreeLock, const wxString& filen
     // Caller must obtain the TokenTree lock before calling this routine.
     cbAssert(hasTokenTreeLock and "Caller must own TokenTree lock");
 
-////    TRACE(_T("Parser::FindTokensInFile() : Searching for file '%s' in tokens tree..."), filename.wx_str());
+    //    TRACE(_T("Parser::FindTokensInFile() : Searching for file '%s' in tokens tree..."), filename.wx_str());
 
     TokenIdxSet tmpresult;
     if ( m_TokenTree->FindTokensInFile(filename, tmpresult, kindMask) )
@@ -509,9 +382,13 @@ Token* ParserBase::GetTokenInFile(wxString filename, wxString requestedDisplayNa
     if ( (not tree) or tree->empty())
     {
         if (not callerHasLock)
+        {
             // ---------------------------------------------
             CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex) //UNlock TokenTree
             // ---------------------------------------------
+            s_TokenTreeMutex_Owner = wxString();
+        }
+
        return nullptr;
     }
     else
@@ -524,10 +401,10 @@ Token* ParserBase::GetTokenInFile(wxString filename, wxString requestedDisplayNa
         for (size_t i = 0; i < tree->size(); i++)
         {
             Token* pToken = tree->at(i);
-            if (not pToken) continue;                           //(ph 2021/10/27)
+            if (not pToken) continue;
             //-bool isImpl = ParserCommon::FileType(edFilename) == ParserCommon::ftSource;
             wxString tokenFilename = pToken->GetFilename();
-            if ( pToken && (not pToken->GetFilename().StartsWith(edFilename)) ) continue;      //(ph 2021/05/22)
+            if ( pToken && (not pToken->GetFilename().StartsWith(edFilename)) ) continue;
             if ( pToken && (pToken->m_TokenKind & tkUndefined) )
             {
                 // Do we need to clone the internal data of the strings to make them thread safe?
@@ -541,9 +418,12 @@ Token* ParserBase::GetTokenInFile(wxString filename, wxString requestedDisplayNa
         }//endfor
 
         if (not callerHasLock)
+        {
             // -------------------------------------------------
             CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)     //UNlock TokenTree
             // -------------------------------------------------
+            s_TokenTreeMutex_Owner = wxString();
+        }
 
     }//end else
 
@@ -554,7 +434,7 @@ TokenKind ParserBase::ConvertLSPSymbolKindToCCTokenKind(int docSymKind)
 // ----------------------------------------------------------------------------
 {
 
-    /// FIXME (ph#): the following ccTokenKind(s) may not be correct //(ph 2021/03/22)
+    /// FIXME (ph#): the following ccTokenKind(s) may not be correct
     TokenKind ccTokenKind = tkUndefined;
 
     switch(docSymKind)
@@ -589,7 +469,7 @@ TokenKind ParserBase::ConvertLSPSymbolKindToCCTokenKind(int docSymKind)
     return ccTokenKind;
 }
 // ----------------------------------------------------------------------------
-int ParserBase::ConvertLSPCompletionSymbolKindToSemanticTokenType(int lspSymKind)   //(ph 2022/06/12)
+int ParserBase::ConvertLSPCompletionSymbolKindToSemanticTokenType(int lspSymKind)
 // ----------------------------------------------------------------------------
 {
     int semTknType = LSP_SemanticTokenType::Unknown;
@@ -622,7 +502,7 @@ int ParserBase::ConvertLSPCompletionSymbolKindToSemanticTokenType(int lspSymKind
         case LSP_CompletionSymbolKind::Operator:     semTknType = LSP_SemanticTokenType::Unknown;     break; //not defined as Semantic type
         case LSP_CompletionSymbolKind::TypeParameter: semTknType = LSP_SemanticTokenType::TypeParameter; break;
 
-        default: semTknType = LSP_SemanticTokenType::Unknown;;
+        default: semTknType = LSP_SemanticTokenType::Unknown;
     }//endswitch
     return semTknType;
 }
@@ -631,7 +511,7 @@ TokenKind ParserBase::ConvertLSPSemanticTypeToCCTokenKind(int semTokenType)
 // ----------------------------------------------------------------------------
 {
 
-    /// FIXME (ph#): the following ccTokenKind(s) may not be correct //(ph 2021/03/22)
+    /// FIXME (ph#): the following ccTokenKind(s) may not be correct
     TokenKind ccTokenKind = tkUndefined;
 
     switch(semTokenType)
@@ -656,8 +536,48 @@ TokenKind ParserBase::ConvertLSPSemanticTypeToCCTokenKind(int semTokenType)
         case LSP_SemanticTokenType::Concept:        ccTokenKind = tkUndefined;  break;
         case LSP_SemanticTokenType::Type_3:         ccTokenKind = tkTypedef;    break;
         case LSP_SemanticTokenType::Macro :         ccTokenKind = tkMacroDef;   break;
-        case LSP_SemanticTokenType::Comment:         ccTokenKind = tkUndefined; break;
+        case LSP_SemanticTokenType::Comment:        ccTokenKind = tkUndefined; break;
 
     }//endswitch
+    return ccTokenKind;
+}
+// ----------------------------------------------------------------------------
+TokenKind ParserBase::ConvertLSPCompletionSymbolKindToCCTokenKind(int lspCCKind)
+// ----------------------------------------------------------------------------
+{
+    TokenKind ccTokenKind = tkUndefined;
+
+    switch(lspCCKind)
+    {
+        case LSP_CompletionSymbolKind::Text:        ccTokenKind = tkUndefined;      break;
+        case LSP_CompletionSymbolKind::Method:      ccTokenKind = tkFunction;       break;
+        case LSP_CompletionSymbolKind::Function:    ccTokenKind = tkFunction;       break;
+        case LSP_CompletionSymbolKind::Constructor: ccTokenKind = tkConstructor;    break;
+        case LSP_CompletionSymbolKind::Field:       ccTokenKind = tkUndefined;      break;
+        case LSP_CompletionSymbolKind::Variable:    ccTokenKind = tkVariable;       break;
+        case LSP_CompletionSymbolKind::Class:       ccTokenKind = tkClass;          break;
+        case LSP_CompletionSymbolKind::Interface:   ccTokenKind = tkClass;          break;
+        case LSP_CompletionSymbolKind::Module:      ccTokenKind = tkClass;          break;
+        case LSP_CompletionSymbolKind::Property:    ccTokenKind = tkVariable;       break;
+        case LSP_CompletionSymbolKind::Unit:        ccTokenKind = tkClass;          break;
+        case LSP_CompletionSymbolKind::Value:       ccTokenKind = tkEnum;           break;
+        case LSP_CompletionSymbolKind::Enum:        ccTokenKind = tkEnum;           break;
+        case LSP_CompletionSymbolKind::Keyword:     ccTokenKind = tkTypedef;        break;
+        case LSP_CompletionSymbolKind::Snippet:     ccTokenKind = tkTypedef;        break;
+        case LSP_CompletionSymbolKind::Color:       ccTokenKind = tkUndefined;      break;
+        case LSP_CompletionSymbolKind::File:        ccTokenKind = tkNamespace;      break;
+        case LSP_CompletionSymbolKind::Reference:   ccTokenKind = tkVariable;       break;
+        case LSP_CompletionSymbolKind::Folder:      ccTokenKind = tkUndefined;      break;
+        case LSP_CompletionSymbolKind::EnumMember:  ccTokenKind = tkVariable;       break;
+        case LSP_CompletionSymbolKind::Constant:    ccTokenKind = tkVariable;       break;
+        case LSP_CompletionSymbolKind::Struct:      ccTokenKind = tkClass;          break;
+        case LSP_CompletionSymbolKind::Event:       ccTokenKind = tkUndefined;      break;
+        case LSP_CompletionSymbolKind::Operator:    ccTokenKind = tkUndefined;      break;
+        case LSP_CompletionSymbolKind::TypeParameter: ccTokenKind = tkUndefined;    break;
+
+        default: ccTokenKind = tkUndefined;
+
+    }//endswitch
+
     return ccTokenKind;
 }

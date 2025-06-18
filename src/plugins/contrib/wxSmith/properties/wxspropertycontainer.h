@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12722 $
-* $Id: wxspropertycontainer.h 12722 2022-02-23 09:31:26Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/properties/wxspropertycontainer.h $
+* $Revision: 13547 $
+* $Id: wxspropertycontainer.h 13547 2024-09-14 04:35:04Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/properties/wxspropertycontainer.h $
 */
 
 #ifndef WXSPROPERTYCONTAINER_H
@@ -135,10 +135,10 @@ class PLUGIN_EXPORT wxsPropertyContainer
          *
          * Example of registering function:
          *  \code
-         *  void SomeClass::OnEnumProperties(long Flags)
+         *  void SomeClass::OnEnumProperties(long _Flags)
          *  {
          *      static wxsLongProperty Prop1(_("Long value"),_T("value"),wxsOFFSET(SomeClass,VariableName));
-         *      if ( Flags & flXrc )
+         *      if ( _Flags & flXrc )
          *      {
          *          Property(Prop1);
          *      }
@@ -147,7 +147,7 @@ class PLUGIN_EXPORT wxsPropertyContainer
          *  }
          *  \endcode
          */
-        virtual void OnEnumProperties(long Flags) = 0;
+        virtual void OnEnumProperties(long _Flags) = 0;
 
         /** \brief Function registering property
          *
@@ -189,7 +189,7 @@ class PLUGIN_EXPORT wxsPropertyContainer
         }
 
         /** \brief Function building quick properties window */
-        virtual wxsQuickPropsPanel* OnCreateQuickProperties(cb_unused wxWindow* Parent) { return 0; }
+        virtual wxsQuickPropsPanel* OnCreateQuickProperties(cb_unused wxWindow* Parent) { return nullptr; }
 
         /** \brief Function notifying that one of properties has changed
          *

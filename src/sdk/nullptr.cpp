@@ -4,7 +4,7 @@
  *
  * $Revision: 6950 $
  * $Id: nullptr.cpp 6950 2011-02-01 07:13:54Z mortenmacfly $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/nullptr.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/nullptr.cpp $
  */
 
 #include <prep.h>

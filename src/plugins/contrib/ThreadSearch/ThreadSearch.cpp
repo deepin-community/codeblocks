@@ -514,6 +514,7 @@ void ThreadSearch::LoadConfig(int& sashPosition,
     m_FindData.SetMatchWord       (pCfg->ReadBool(wxT("/MatchWord"),             true));
     m_FindData.SetStartWord       (pCfg->ReadBool(wxT("/StartWord"),             false));
     m_FindData.SetMatchCase       (pCfg->ReadBool(wxT("/MatchCase"),             true));
+    m_FindData.SetMatchInComments (pCfg->ReadBool(wxT("/MatchInComments"),       true));
     m_FindData.SetRegEx           (pCfg->ReadBool(wxT("/RegEx"),                 false));
     m_FindData.SetHiddenSearch    (pCfg->ReadBool(wxT("/HiddenSearch"),          true));
     m_FindData.SetRecursiveSearch (pCfg->ReadBool(wxT("/RecursiveSearch"),       true));
@@ -581,6 +582,7 @@ void ThreadSearch::SaveConfig(int sashPosition, const wxArrayString& searchPatte
     pCfg->Write(wxT("/MatchWord"),             m_FindData.GetMatchWord());
     pCfg->Write(wxT("/StartWord"),             m_FindData.GetStartWord());
     pCfg->Write(wxT("/MatchCase"),             m_FindData.GetMatchCase());
+    pCfg->Write(wxT("/MatchInComments"),       m_FindData.GetMatchInComments());
     pCfg->Write(wxT("/RegEx"),                 m_FindData.GetRegEx());
     pCfg->Write(wxT("/HiddenSearch"),          m_FindData.GetHiddenSearch());
     pCfg->Write(wxT("/RecursiveSearch"),       m_FindData.GetRecursiveSearch());
@@ -736,6 +738,7 @@ void ThreadSearch::RunThreadSearch(const wxString& text, bool isCtxSearch/*=fals
         findData.SetMatchCase(true);
         findData.SetMatchWord(true);
         findData.SetStartWord(false);
+        findData.SetMatchInComments(true);
         findData.SetRegEx    (false);
     }
 
@@ -956,8 +959,7 @@ void ThreadSearch::OnMnuEditPaste(wxCommandEvent& event)
     wxWindow* pFocused = wxWindow::FindFocus();
     if (not pFocused) { event.Skip(); return; }
 
-    wxString focusedStr = pFocused->GetName();
-//    DBGLOG(wxT("OnMnuEditPaste:Focused[%p][%s]"), pFocused, focusedStr.c_str());
+//    DBGLOG(wxT("OnMnuEditPaste:Focused[%p][%s]"), pFocused, pFocused->GetName());
 
     // don't allow paste when the following windows have the focus
     if ( (pFocused == m_pThreadSearchView->m_pSearchPreview) ||

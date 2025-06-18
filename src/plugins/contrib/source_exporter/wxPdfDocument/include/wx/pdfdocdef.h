@@ -69,6 +69,40 @@ Or you can send a mail to the author
 \section version Version history
 
 <dl>
+<dt><b>1.1.0</b> - <i>January 2024</i></dt>
+<dd>
+wxPdfDocument is compatible with wxWidgets versions 3.0.x, 3.1.x and 3.2.x.
+
+Changes:<br>
+- Support for negative coordinates in all graphics operations.
+- Changed signatures of methods ScaleX(), ScaleY(), ScaleXY(), Scale(), MirrorH(), MirrorV(), SkewX(), SkewY(), Skew(), Rotate(), and UseTemplate().
+If an application had explicitly specified the default value (-1) in calls to one of those methods,
+these values have to be replaced by calls to method GetX() resp GetY().
+
+Fixed bugs:<br>
+- Fixed issue "Rotated text at wrong position". The problem arose from the use of negative coordinates. All graphics operations now support negative coordinates, too.
+- Fixed output of wrong text background colour for rotated text in wxPdfDC.
+
+</dd>
+
+<dt><b>1.0.3</b> - <i>November 2023</i></dt>
+<dd>
+wxPdfDocument is compatible with wxWidgets versions 3.0.x, 3.1.x and 3.2.x.
+
+General changes:<br>
+- Updated Unicode data for ShowFont utility
+
+Fixed bugs:<br>
+- Fixed handling of long table: take top page margin, page header and table header into account for page breaks.
+- Fixed handling for empty table bodies.
+- Fixed handling of the height of (optional) table header rows (taking it into account for calculating table parts fitting on a page).
+- Fixed isue #81. Improve handling of table cell borders in markup. Table cell borders could be (partially) hidden by table cell backgrounds.
+- Actually use wxPdfDocument::GetImageSize() MIME type parameter.
+- Fixed handling of surrogates for TrueType fonts.
+- Fixed problem with automatic page break
+
+</dd>
+
 <dt><b>1.0.2</b> - <i>December 2021</i></dt>
 <dd>
 wxPdfDocument is compatible with wxWidgets versions 3.0.x and 3.1.x.

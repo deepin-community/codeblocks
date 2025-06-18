@@ -4,7 +4,7 @@
  *
  * $Revision: 12618 $
  * $Id: compilerCYGWIN.cpp 12618 2021-12-31 12:59:50Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/compilergcc/compilerCYGWIN.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/compilergcc/compilerCYGWIN.cpp $
  */
 
 #include <sdk.h>

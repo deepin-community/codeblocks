@@ -16,15 +16,21 @@
 	along with this program; if not, write to the Free Software
 	Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 */
-// RCS-ID: $Id: BrowseTracker.h 12797 2022-04-17 19:47:12Z pecanh $
+// RCS-ID: $Id: BrowseTracker.h 13627 2025-03-02 18:17:10Z mortenmacfly $
 
 
 #ifndef BROWSETRACKER_H_INCLUDED
 #define BROWSETRACKER_H_INCLUDED
 
+#include <map>
+//#include <string>
+#include <mutex>
+
 #include "cbplugin.h" // for "class cbPlugin"
+#include "cbeditor.h" // for "class cbPlugin"
 #include "editormanager.h"  //(2021/06/19)
 #include "BrowseTrackerDefs.h"
+#include <logmanager.h>
 
 class wxFileConfig;
 
@@ -181,14 +187,14 @@ class BrowseTracker : public cbPlugin
         EditorBase* GetEditor(int index);
         int         GetEditor(EditorBase* eb);
         EditorBase* GetCurrentEditor();
-        int         GetCurrentEditorIndex();
+        int         GetCurrentEditorIndex(EditorBase* pEb);
         EditorBase* GetPreviousEditor();
         int         GetPreviousEditorIndex();
         int         GetEditorBrowsedCount();
         void        SetSelection(int nEditorIndex);
         void        AddEditor(EditorBase* eb);
         void        RemoveEditor(EditorBase* eb);
-        void        ClearEditor(int index);
+        void        ClearEditor(EditorBase* eb);
         void        RecordBrowseMark(EditorBase* eb);
         void        ClearLineBrowseMark(bool removeScreenMark);
         void        ClearLineBrowseMark(int line, bool removeScreenMark);
@@ -205,7 +211,10 @@ class BrowseTracker : public cbPlugin
         bool        LineHasBookMarker(cbStyledTextCtrl* pControl, int line) const;
 
         void        ReadUserOptions(wxString configFullPath);
+        void        LoadConfOptions();
+
         void        SaveUserOptions(wxString configFullPath);
+        void        SaveConfOptions();
         wxFileConfig* GetBrowseTrackerCfgFile(){return m_pCfgFile; }
         wxString      GetBrowseTrackerCfgFilename(){return m_CfgFilenameStr;}
 
@@ -222,7 +231,8 @@ class BrowseTracker : public cbPlugin
         bool            m_WrapJumpEntries;    //wrap jump entries when top or botton reached
         bool            m_ToolbarIsShown;     // Show BrowseTracker toolbar
         bool            m_ConfigShowToolbar;  // Show BrowseTracker toolbar
-        bool            m_CfgActivatePrevEd;     // Activate previously activated editor
+        bool            m_CfgActivatePrevEd;  // Activate previously activated editor
+        int             m_CfgJumpViewRowCount;// Max number of JumpView rows
 
 	private:
 
@@ -315,7 +325,7 @@ class BrowseTracker : public cbPlugin
         wxString        m_LoadingProjectFilename;
         int             m_ProjectHookId; // project loader hook ID
         int             m_EditorHookId;  // Editor/scintilla events hook ID
-        int             m_CurrEditorIndex;
+        //-int             m_CurrEditorIndex;
         int             m_LastEditorIndex;
         ArrayOfEditorBasePtrs  m_apEditors;
         int             m_nBrowsedEditorCount;
@@ -323,7 +333,6 @@ class BrowseTracker : public cbPlugin
         EditorBase*     m_LastEbDeactivated;
         EditorBase*     m_PreviousEbActivated;
         EditorBase*     m_CurrentEbActivated;
-        int             m_nRemoveEditorSentry;
         int             m_nBrowseMarkPreviousSentry;
         int             m_nBrowseMarkNextSentry;
         bool            m_OnEditorEventHookIgnoreMarkerChanges;
@@ -356,14 +365,25 @@ class BrowseTracker : public cbPlugin
         bool            m_bProjectClosing;      // project close in progress
         bool            m_bAppShutdown;
         int             m_nProjectClosingFileCount;
+        int             m_EditorHookCurrentLine;
 
-        JumpTracker*    m_pJumpTracker;
+        //JumpTracker*    m_pJumpTracker;
+        std::unique_ptr<JumpTracker> m_pJumpTracker;
 
         // Activated editors stack maintenance pointers //(2021/06/19)
         cbAuiNotebook*             m_pNotebook;
         cbNotebookStack*           m_pNotebookStackHead;
         cbNotebookStack*           m_pNotebookStackTail;
         size_t                     m_nNotebookStackSize;
+
+        // A map to store file names and line numbers from the EditorHook
+        std::multimap<cbEditor*, int> m_EditorHookFileLineMap;
+
+        // Mutex for access to m_EditorHookFileLineMap.
+        std::mutex m_EditorHookmapMutex;
+
+        LogManager* m_pLogMgr;
+
 
 		DECLARE_EVENT_TABLE();
 

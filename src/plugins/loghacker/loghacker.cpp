@@ -4,7 +4,7 @@
  *
  * $Revision: 11951 $
  * $Id: loghacker.cpp 11951 2020-01-09 15:08:16Z mortenmacfly $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/loghacker/loghacker.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/loghacker/loghacker.cpp $
  */
 
 #include "sdk.h"

@@ -4,7 +4,7 @@
  *
  * $Revision: 12995 $
  * $Id: editorcolourset.cpp 12995 2022-10-28 07:22:31Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/editorcolourset.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/editorcolourset.cpp $
  */
 
 #include "sdk_precomp.h"

@@ -2,6 +2,10 @@ AM_CPPFLAGS = $(WX_CXXFLAGS) \
 		-I$(top_srcdir)/src/include \
 		-I$(top_srcdir)/src/sdk/wxscintilla/include
 
+if CODEBLOCKS_NT
+AM_CPPFLAGS += -DEXPORT_LIB
+endif
+
 noinst_LTLIBRARIES = libwxsmith_wxwidgets_defitems.la
 
 libwxsmith_wxwidgets_defitems_la_LDFLAGS = @MODULE_SHARED_LDFLAGS@ -version-info 0:1:0 -no-undefined -avoid-version
@@ -33,6 +37,7 @@ libwxsmith_wxwidgets_defitems_la_SOURCES = \
 ./wxsspinbutton.cpp \
 ./wxsbutton.cpp \
 ./wxslistbox.cpp \
+./wxseditablelistbox.cpp \
 ./wxsgauge.cpp \
 ./wxsradiobutton.cpp \
 ./wxspanel.cpp \
@@ -144,6 +149,7 @@ noinst_HEADERS = \
 ./wxsboxsizer.h \
 ./wxsflexgridsizer.h \
 ./wxslistbox.h \
+./wxseditablelistbox.h \
 ./wxshtmlwindow.h \
 ./wxsscrolledwindow.h \
 ./wxsstddialogbuttonsizer.h \

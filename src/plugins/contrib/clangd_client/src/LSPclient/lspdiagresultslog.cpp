@@ -2,13 +2,15 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 63 $
- * $Id: lspdiagresultslog.cpp 63 2022-05-20 17:21:14Z pecanh $
- * $HeadURL: https://svn.code.sf.net/p/cb-clangd-client/code/trunk/clangd_client/src/LSPclient/lspdiagresultslog.cpp $
+ * $Revision: 13529 $
+ * $Id: lspdiagresultslog.cpp 13529 2024-06-12 17:43:55Z pecanh $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/clangd_client/src/LSPclient/lspdiagresultslog.cpp $
  */
 
 //#include "sdk_precomp.h" gets not used because `EXPORT_LIB' not defined [-Winvalid-pch] error
-#include "sdk.h"
+#if not defined(__WXMSW__)
+ #include "sdk.h" // needed for wxTextCtr/listLoggerCtrl on linux
+#endif
 
 #ifndef CB_PRECOMP
     #include <wx/arrstr.h>
@@ -29,10 +31,20 @@
 #include "cbstyledtextctrl.h"
 #include "lspdiagresultslog.h"
 
+// three additional includes to support codeActions (aka fix available)
+#include "globals.h"
+#include "logmanager.h"
+#include "infowindow.h"
+
+
 namespace
 {
     const int ID_List = wxNewId();
     const int idMenuIgnoredMsgs = wxNewId();
+    // CodeAction Fix Available
+    const int idMenuApplyFixIfAvailable = XRCID("idMenuApplyFixIfAvailable");
+    const int idRequestCodeActionAppy = XRCID("idRequestCodeActionApply");
+
 }
 
 BEGIN_EVENT_TABLE(LSPDiagnosticsResultsLog, wxEvtHandler)
@@ -50,6 +62,7 @@ LSPDiagnosticsResultsLog::LSPDiagnosticsResultsLog(const wxArrayString& titles_i
             (wxObjectEventFunction) (wxEventFunction) (wxCommandEventFunction)
             &LSPDiagnosticsResultsLog::OnSetIgnoredMsgs);
 
+    Bind(wxEVT_COMMAND_MENU_SELECTED, &LSPDiagnosticsResultsLog::OnApplyFixIfAvailable, this, idMenuApplyFixIfAvailable);
 
 }
 // ----------------------------------------------------------------------------
@@ -74,8 +87,9 @@ LSPDiagnosticsResultsLog::~LSPDiagnosticsResultsLog()
     Disconnect(idMenuIgnoredMsgs, -1, wxEVT_COMMAND_MENU_SELECTED,
             (wxObjectEventFunction) (wxEventFunction) (wxCommandEventFunction)
             &LSPDiagnosticsResultsLog::OnSetIgnoredMsgs);
+    Unbind(wxEVT_COMMAND_MENU_SELECTED, &LSPDiagnosticsResultsLog::OnApplyFixIfAvailable, this, idMenuApplyFixIfAvailable);
     if (FindEventHandler(this))
-        Manager::Get()->GetAppWindow()->RemoveEventHandler(this);   //(ph 2021/04/17)
+        Manager::Get()->GetAppWindow()->RemoveEventHandler(this);
 }
 // ----------------------------------------------------------------------------
 wxWindow* LSPDiagnosticsResultsLog::CreateControl(wxWindow* parent)
@@ -83,7 +97,9 @@ wxWindow* LSPDiagnosticsResultsLog::CreateControl(wxWindow* parent)
 {
     ListCtrlLogger::CreateControl(parent);
     control->SetId(ID_List);
-    Connect(ID_List, -1, wxEVT_COMMAND_LIST_ITEM_ACTIVATED,
+    //Connect(ID_List, -1, wxEVT_COMMAND_LIST_ITEM_ACTIVATED,
+    //                ^^^ a range of IDs is not necessary
+    Connect(ID_List, wxEVT_COMMAND_LIST_ITEM_ACTIVATED,
             (wxObjectEventFunction) (wxEventFunction) (wxCommandEventFunction)
             &LSPDiagnosticsResultsLog::OnDoubleClick);
     Manager::Get()->GetAppWindow()->PushEventHandler(this);
@@ -105,6 +121,7 @@ bool LSPDiagnosticsResultsLog::HasFeature(Feature::Enum feature) const
 void LSPDiagnosticsResultsLog::AppendAdditionalMenuItems(wxMenu &menu)
 // ----------------------------------------------------------------------------
 {
+    menu.Append(idMenuApplyFixIfAvailable, _("Apply fix if available"), _("Apply LSP fix if available"));
     menu.Append(idMenuIgnoredMsgs, _("Show/Set ignore messages"), _("Show/Set ignored messages"));
 }
 
@@ -175,10 +192,10 @@ void LSPDiagnosticsResultsLog::OnSetIgnoredMsgs(wxCommandEvent& event)
     // Log lines contain filename|lineNumber|msg
     //eg., F:\usr\Proj\Clangd_Client\plugin\plugins\LSPclient\lspdiagresultslog.cpp|16|note:In included file: definition of builtin function '__rdtsc'|
 
+    wxString annoyingMsg = _("Setting a diagnostic as ignored may cause the associated statement to also\n"
+                             "be ignored for references, declarations, implementations etc.");
 
-    wxString annoyingMsg = "Setting a diagnostic as ignored may cause the associated statement to also";
-    annoyingMsg += "\nbe ignored for references, declarations, implementations etc.";
-    AnnoyingDialog annoyingDlg("Set ignored log messages", annoyingMsg, wxART_INFORMATION,  AnnoyingDialog::OK);
+    AnnoyingDialog annoyingDlg(_("Set ignored log messages"), annoyingMsg, wxART_INFORMATION,  AnnoyingDialog::OK);
     annoyingDlg.ShowModal();
 
     int cnt = GetItemsCount(); //log lines
@@ -220,3 +237,60 @@ void LSPDiagnosticsResultsLog::OnSetIgnoredMsgs(wxCommandEvent& event)
     }
     return;
 }
+// ----------------------------------------------------------------------------
+void LSPDiagnosticsResultsLog::OnApplyFixIfAvailable(wxCommandEvent& event)
+// ----------------------------------------------------------------------------
+{
+    // When user right-clicks a log entry that contains "(fix available)"
+    // parse the log line to get filename and line number.
+    // Issue an event to Clgdcompletion to apply the fix which was stored
+    // in the Parsers FixesAvailable map.vectors.
+
+    LogManager* pLogMgr = Manager::Get()->GetLogManager();
+    wxUnusedVar(pLogMgr); //maybe unused
+
+    wxListCtrl* pListControl = control;
+    wxString selectedLineText = wxString();
+    long itemIndex = -1;
+
+    while ((itemIndex = pListControl->GetNextItem(itemIndex,
+          wxLIST_NEXT_ALL, wxLIST_STATE_SELECTED)) != wxNOT_FOUND)
+    {
+        // Got the selected item index
+        selectedLineText = GetItemAsText(itemIndex);
+        if (not (selectedLineText.Contains(" (fix available) ") or (selectedLineText.Contains("(fixes available)"))))
+        {
+            wxString msg = wxString::Format(_("No Fix available for logLine(%d)"), int(itemIndex) );
+            InfoWindow::Display(_("NO fix"), msg);
+            return;
+        }
+    }
+    if (selectedLineText.empty()) return;
+
+    // parse the line at '|' chars to get filename, lineNum text, and error text
+    wxArrayString lineItems = GetArrayFromString(selectedLineText, "|", /*trimSpaces*/ true);
+    size_t itemKnt = lineItems.GetCount();
+    if (itemKnt < 3) return;
+    for (size_t ii=0; ii<itemKnt; ++ii)
+    {
+        //-pLogMgr->DebugLog(lineItems[ii]); // **Debugging**
+        if (lineItems[ii].empty()) return;
+    }
+
+    // index 0:filename 1:lineNumber 2:Error text
+    wxString filename = lineItems[0];
+    wxString lineNumStr = lineItems[1];
+    wxString logText = lineItems[2];
+
+    // Obtain cbEditor for this file
+    cbEditor* pEd = Manager::Get()->GetEditorManager()->GetBuiltinEditor(filename);
+    if (not pEd) return;
+
+    // Issue a  "textDocument/codeAction" request to ClgdCompletion.
+    // This class does not have addressability to what we need (parser and FixesAvailable).
+    wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED, idRequestCodeActionAppy);
+    evt.SetString(filename +"|"+lineNumStr+"|"+logText);
+    Manager::Get()->GetAppFrame()->GetEventHandler()->AddPendingEvent(evt);
+
+    return;
+}//OnApplyFixIfAvailable

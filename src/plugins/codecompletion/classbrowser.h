@@ -17,7 +17,7 @@
 #include "parser/parser.h"
 #include "parser/token.h"
 
-class NativeParser;
+class ParseManager;
 class wxComboBox;
 class wxTreeCtrl;
 class wxTextCtrl;
@@ -69,9 +69,9 @@ public:
 
     /** class constructor
      * @param parent the parent window
-     * @param np the NativeParser instance, which contains all the images for the wxTreeCtrl
+     * @param pm the ParseManager instance, which contains all the images for the wxTreeCtrl
      */
-    ClassBrowser(wxWindow* parent, NativeParser* np);
+    ClassBrowser(wxWindow* parent, ParseManager* pm);
 
     /** class destructor */
     virtual ~ClassBrowser();
@@ -101,12 +101,16 @@ public:
     void UpdateSash();
 
     /** Called from the worker thread using CallAfter() */
-    void BuildTreeStartOrStop(bool start);
+    void BuildTreeStartOrStop(bool start, EThreadJob threadJob);
     void SelectTargetTree(bool top);
     void TreeOperation(ETreeOperator op, CCTreeItem* item);
     void SaveSelectedItem();
     void SelectSavedItem();
     void ReselectItem();
+
+    /** Determine if the mouse in withing the Symbols tab windows //(ph 2024/01/25)
+    */
+    void OnClassBrowserSetFocus(wxFocusEvent& event);
 
 private:
     /** handler for the mouse double click on a tree item, we usually make a jump to the
@@ -140,6 +144,9 @@ private:
 
     /** whether print the debug log message */
     void OnDebugSmartSense(wxCommandEvent& event);
+
+    /** whether or not tracing the code completion process (requires TRACE marcos to be compiled in by #defining CC_DEBUG_GLOBAL to 2 */
+    void OnEnableDebugTrace(wxCommandEvent& event);
 
     /** sort type changed */
     void OnSetSortType(wxCommandEvent& event);
@@ -202,7 +209,7 @@ private:
     CCTreeItem* GetItemPtr(wxTreeItemId ItemId);
 
     /** the pointer to parser manager object */
-    NativeParser*              m_NativeParser;
+    ParseManager*              m_ParseManager;
 
     /** the top(main) level tree control, see above diagram for details */
     CCTreeCtrl*                m_CCTreeCtrl;
@@ -232,6 +239,7 @@ private:
      *  post the semaphore, the waiting thread start doing the job
      */
     wxSemaphore                m_ClassBrowserSemaphore;
+    wxSemaphore                m_ClassBrowserCallAfterSemaphore;
 
     /** a wxThread used to build the wxTreeCtrl for the top and bottom in the class(symbol) browser
      *  because it always take many seconds to build the trees, so those work were delegated to a

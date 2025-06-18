@@ -36,17 +36,18 @@
 #include <wx/tokenzr.h>
 
 #include <cbstyledtextctrl.h>
+#include <cbauibook.h>
 
 #include "classbrowser.h" // class's header file
 #include "parsemanager.h"
-#include "parser/cclogger.h" //(ph 2021/07/27)
+#include "parser/cclogger.h"
 
 #include "parser/ccdebuginfo.h"
 
-#include <stack>
+//unused-#include <stack>
 
 #define CC_CLASS_BROWSER_DEBUG_OUTPUT 0
-//(ph 2021/06/3)
+//(2021/06/3)
 //-#undef CC_CLASS_BROWSER_DEBUG_OUTPUT
 //-#define CC_CLASS_BROWSER_DEBUG_OUTPUT 1
 
@@ -92,6 +93,7 @@ int idCBSortByKind             = wxNewId();
 int idCBSortByScope            = wxNewId();
 int idCBSortByLine             = wxNewId();
 int idCBBottomTree             = wxNewId();
+int idSearchSymbolTimer        = wxNewId(); //patch 1409
 
 /** the event ID which will be sent from worker thread to ClassBrowser */
 int idThreadEvent              = wxNewId();
@@ -128,20 +130,32 @@ BEGIN_EVENT_TABLE(ClassBrowser, wxPanel)
     // EVT_COMMAND(idThreadEvent, wxEVT_COMMAND_ENTER,      ClassBrowser::OnThreadEvent)
 END_EVENT_TABLE()
 
+// ----------------------------------------------------------------------------
+namespace
+// ----------------------------------------------------------------------------
+{
+    //UpdateClassBrowerView() re-entrant guard
+    bool n_UpdateClassBrowserViewBusy = false;
+    //-size_t n_FocusedStartTime = 0; **unused**
+}
 // class constructor
+// ----------------------------------------------------------------------------
 ClassBrowser::ClassBrowser(wxWindow* parent, ParseManager* np) :
+// ----------------------------------------------------------------------------
     m_ParseManager(np),
     m_targetTreeCtrl(nullptr),
     m_TreeForPopupMenu(nullptr),
     m_Parser(nullptr),
     m_ClassBrowserSemaphore(0, 1),  // initial count, max count
-    m_ClassBrowserBuilderThread(nullptr)
+    m_ClassBrowserCallAfterSemaphore(0, 1),  // initial count, max count
+    m_ClassBrowserBuilderThread(nullptr),
+    m_TimerSymbolSearchWaitForBottomTree(this, idSearchSymbolTimer) //patch 1409
 {
-    wxXmlResource::Get()->LoadPanel(this, parent, "pnlClassBrowser"); // panel class browser -> pnlCB
+    wxXmlResource::Get()->LoadPanel(this, parent, "pnlCldClassBrowser"); // panel class browser -> pnlCB
     m_Search = XRCCTRL(*this, "cmbSearch", wxComboBox);
 
-    if (platform::windows)
-        m_Search->SetWindowStyle(wxTE_PROCESS_ENTER); // it's a must on windows to catch EVT_TEXT_ENTER
+    //patch 1409 removed "if (platform::windows)" so that it works on Linux
+    m_Search->SetWindowStyle(wxTE_PROCESS_ENTER); // it's a must on windows to catch EVT_TEXT_ENTER
 
     // Subclassed in XRC file, for reference see here: http://wiki.wxwidgets.org/Resource_Files
     m_CCTreeCtrl       = XRCCTRL(*this, "treeAll",     CCTreeCntrl);
@@ -159,15 +173,42 @@ ClassBrowser::ClassBrowser(wxWindow* parent, ParseManager* np) :
     // if the classbrowser is put under the control of a wxFlatNotebook,
     // somehow the main panel is like "invisible" :/
     // so we force the correct colour for the panel here...
-    XRCCTRL(*this, "MainPanel", wxPanel)->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+    XRCCTRL(*this, "pnlCldMainPanel", wxPanel)->SetBackgroundColour(wxSystemSettings::GetColour(wxSYS_COLOUR_BTNFACE));
+
+    Connect(idSearchSymbolTimer, wxEVT_TIMER, wxTimerEventHandler(ClassBrowser::DoSearchBottomTree));    //patch 1409
+
+    m_cmbView = XRCCTRL(*this, "cmbView", wxChoice); ;
+    // Catch set/kill focus to the Symbols tab controls
+    m_CCTreeCtrl->Bind(wxEVT_SET_FOCUS, &ClassBrowser::OnClassBrowserSetFocus, this);
+    m_CCTreeCtrl->Bind(wxEVT_KILL_FOCUS, &ClassBrowser::OnClassBrowserKillFocus, this);
+    m_CCTreeCtrlBottom->Bind(wxEVT_SET_FOCUS, &ClassBrowser::OnClassBrowserSetFocus, this);
+    m_CCTreeCtrlBottom->Bind(wxEVT_KILL_FOCUS, &ClassBrowser::OnClassBrowserKillFocus, this);
+
+    m_Search->Bind(wxEVT_SET_FOCUS, &ClassBrowser::OnClassBrowserSetFocus, this);
+    m_Search->Bind(wxEVT_KILL_FOCUS, &ClassBrowser::OnClassBrowserKillFocus, this);
+    m_cmbView->Bind(wxEVT_SET_FOCUS, &ClassBrowser::OnClassBrowserSetFocus, this);
+    m_cmbView->Bind(wxEVT_KILL_FOCUS, &ClassBrowser::OnClassBrowserKillFocus, this);
 
 }
 
 // class destructor
+// ----------------------------------------------------------------------------
 ClassBrowser::~ClassBrowser()
+// ----------------------------------------------------------------------------
 {
+    Disconnect(idSearchSymbolTimer,    wxEVT_TIMER, wxTimerEventHandler(ClassBrowser::DoSearchBottomTree));   //patch 1409
     const int pos = XRCCTRL(*this, "splitterWin", wxSplitterWindow)->GetSashPosition();
     Manager::Get()->GetConfigManager("clangd_client")->Write("/splitter_pos", pos);
+
+
+    m_CCTreeCtrl->Unbind(wxEVT_SET_FOCUS, &ClassBrowser::OnClassBrowserSetFocus, this);
+    m_CCTreeCtrl->Unbind(wxEVT_KILL_FOCUS, &ClassBrowser::OnClassBrowserSetFocus, this);
+    m_CCTreeCtrlBottom->Unbind(wxEVT_SET_FOCUS, &ClassBrowser::OnClassBrowserSetFocus, this);
+    m_CCTreeCtrlBottom->Unbind(wxEVT_KILL_FOCUS, &ClassBrowser::OnClassBrowserSetFocus, this);
+    m_Search->Unbind(wxEVT_SET_FOCUS, &ClassBrowser::OnClassBrowserSetFocus, this);
+    m_Search->Unbind(wxEVT_KILL_FOCUS, &ClassBrowser::OnClassBrowserSetFocus, this);
+    m_cmbView->Unbind(wxEVT_SET_FOCUS, &ClassBrowser::OnClassBrowserSetFocus, this);
+    m_cmbView->Unbind(wxEVT_KILL_FOCUS, &ClassBrowser::OnClassBrowserSetFocus, this);
 
     SetParser(nullptr);
 
@@ -180,22 +221,96 @@ ClassBrowser::~ClassBrowser()
         // awake the thread so it can terminate
         m_ClassBrowserSemaphore.Post();
         // free the system-resources
-        //- m_ClassBrowserBuilderThread->Wait(); removed, trying to fix MACOS hang //(ph 2022/05/6)
-        // ^^ The above causes infinite wait on  Mac OS //(ph 2022/05/7)
+        //- m_ClassBrowserBuilderThread->Wait(); removed, trying to fix MACOS hang
+        // ^^ The above causes infinite wait on  Mac OS //(2022/05/7)
 
-        #if not defined(__WXMAC__)      //(ph 2022/05/8)
+        #if not defined(__WXMAC__)      //(2022/05/8)
         // But this delete causes crashes on MacOS with the following message:
         // "Terminating app due to uncaught exception 'NSInternalInconsistencyException', reason: 'NSWindow drag regions should only be invalidated on the Main Thread!'"
         // Eliminating this delete on the Mac solved the crash. This needs further investigation.
-        // FIXME (ph#): Investigate crash when deleting ClassBrowserBuilderThread on MacOS //(ph 2022/05/7)
+        // FIXME (ph#): Investigate crash when deleting ClassBrowserBuilderThread on MacOS //(2022/05/7)
             m_ClassBrowserBuilderThread->Delete();
         #endif
 
         // according to the wxWidgets-documentation the wxThread object itself has to be deleted explicitly,
         // to free the memory, if it is created on the heap, this is not done by Wait()
         delete m_ClassBrowserBuilderThread;
+        m_ClassBrowserBuilderThread = nullptr;
     }
 
+}
+// ----------------------------------------------------------------------------
+void ClassBrowser::OnClassBrowserKillFocus(wxFocusEvent& event)
+// ----------------------------------------------------------------------------
+{
+    event.Skip();
+
+    // NOTE: If you're debugging with the mouse, this event will produce
+    // incorrect results. Use the debugger hotkeys to step and continue and
+    // leave the mouse in the debuggee.
+
+    // For wxAUINotebooks, focus events are unreliable.
+    // Here we do a manual check for the location of the mouse
+
+
+    // Check if the mouse is withing the Symbols window.
+    ProjectManager* pPrjMgr = Manager::Get()->GetProjectManager();
+    wxWindow* pCurrentPage = pPrjMgr->GetUI().GetNotebook()->GetCurrentPage();
+    int pageIndex = pPrjMgr->GetUI().GetNotebook()->GetPageIndex(pCurrentPage);
+    wxString pageTitle = pPrjMgr->GetUI().GetNotebook()->GetPageText(pageIndex);
+    if (pCurrentPage == GetParseManager()->GetClassBrowser())
+    {
+        if ( pCurrentPage->GetScreenRect().Contains( wxGetMousePosition()) )
+            GetParseManager()->SetSymbolsWindowHasFocus(true);
+        else GetParseManager()->SetSymbolsWindowHasFocus(false);
+    }
+}
+// ----------------------------------------------------------------------------
+void ClassBrowser::OnClassBrowserSetFocus(wxFocusEvent& event)
+// ----------------------------------------------------------------------------
+{
+    event.Skip();
+
+    // NOTE: If you're debugging with the mouse, this event will produce
+    // incorrect results. Use the debugger hotkeys to step and continue and
+    // leave the mouse in the debuggee.
+
+    // For wxAUINotebooks, focus events are unreliable.
+    // Here we do a manual check for the location of the mouse
+
+    // Ignore the bounciness of of SetFocus() events
+    // initialize start time for this function
+    //    if (not n_FocusedStartTime)
+    //        n_FocusedStartTime = GetParseManager()->GetNowMilliSeconds();
+    //    else
+    //    {
+    //        // if duration is less than allowed, ignore an the call
+    //        size_t durationMillis = GetParseManager()->GetDurationMilliSeconds(n_FocusedStartTime);
+    //        if (durationMillis < 500) return;
+    //        n_FocusedStartTime = 0; //reset the time next function entry;
+    //    }
+
+    //    wxWindow* pFocusedWin = wxWindow::FindFocus();
+    //    wxString winName = pFocusedWin ? pFocusedWin->GetName() : wxString();
+    //    CCLogger::Get()->DebugLog(wxString::Format("%s:%s", __FUNCTION__, winName ));
+
+    // Check if the mouse is within the Symbols window.
+    ProjectManager* pPrjMgr = Manager::Get()->GetProjectManager();
+    wxWindow* pCurrentPage = pPrjMgr->GetUI().GetNotebook()->GetCurrentPage();
+    int pageIndex = pPrjMgr->GetUI().GetNotebook()->GetPageIndex(pCurrentPage);
+    wxString pageTitle = pPrjMgr->GetUI().GetNotebook()->GetPageText(pageIndex);
+    if (pCurrentPage == GetParseManager()->GetClassBrowser())
+    {
+        if ( pCurrentPage->GetScreenRect().Contains( wxGetMousePosition()) )
+            GetParseManager()->SetSymbolsWindowHasFocus(true);
+        else GetParseManager()->SetSymbolsWindowHasFocus(false);
+    }
+    //-if (GetParseManager()->IsOkToUpdateClassBrowserView())
+        //-UpdateClassBrowserView();
+    // This function causes too much trouble. Cannot expand elements in the
+    // top tree because this function causes an update instead.
+    // Would have to be able to distinguish clicked items in the window
+    // to determine if an update or some other action is needed.
 }
 // ----------------------------------------------------------------------------
 void ClassBrowser::SetParser(ParserBase* parser)
@@ -209,35 +324,51 @@ void ClassBrowser::SetParser(ParserBase* parser)
     {
         const int sel = XRCCTRL(*this, "cmbView", wxChoice)->GetSelection();
         BrowserDisplayFilter filter = static_cast<BrowserDisplayFilter>(sel);
-        if (!m_ParseManager->IsParserPerWorkspace() && filter == bdfWorkspace)
+        if (filter == bdfWorkspace) filter = bdfProject; // one parser per wokspc not supported in clangd_client
+        if ( (not m_ParseManager->IsParserPerWorkspace()) && filter == bdfWorkspace)
             filter = bdfProject;
 
         m_Parser->ClassBrowserOptions().displayFilter = filter;
-        // Note: (ph#) The next statement is about to clobber the global setting with the current parser setting. //(ph 2021/05/25)
-        // eg. If you have just set"Display inheritance info" to yes, it'll now be clobbered with
-        // the old parser settings with which the plugin started. What the ... ?
-        // This means there is no way to reparse a project with inheritance when the previous parser
-        // did not have it already set.
-        // The only way out is to set "Show inheritance" before starting CodeBlocks.
-        // DeleteParser() calls SetParser() calls ClassBrowser->SetParser() calls WriteOptions()
-        //-m_Parser->WriteOptions(); //(ph 2021/05/25) removed
+        m_Parser->WriteOptions(/*classbrowserOnly=*/true);  //(svn 13612 bkport)
+
         UpdateClassBrowserView();
     }
     else
         CCLogger::Get()->DebugLog("SetParser: No parser available.");
 }
-
+// ----------------------------------------------------------------------------
 void ClassBrowser::UpdateSash()
+// ----------------------------------------------------------------------------
 {
     const int pos = Manager::Get()->GetConfigManager("clangd_client")->ReadInt("/splitter_pos", 250);
     XRCCTRL(*this, "splitterWin", wxSplitterWindow)->SetSashPosition(pos, false);
     XRCCTRL(*this, "splitterWin", wxSplitterWindow)->Refresh();
 }
 // ----------------------------------------------------------------------------
-void ClassBrowser::UpdateClassBrowserView(bool checkHeaderSwap )
+void ClassBrowser::UpdateClassBrowserView(bool checkHeaderSwap, bool forceUpdate )
 // ----------------------------------------------------------------------------
 {
     TRACE("ClassBrowser::UpdateClassBrowserView(), m_ActiveFilename = %s", m_ActiveFilename);
+
+    // Guarantee that this function is not re-entrant
+    if (n_UpdateClassBrowserViewBusy)
+        return;
+    struct UpdateClassBrowserViewBusy_t
+    {
+        UpdateClassBrowserViewBusy_t() {n_UpdateClassBrowserViewBusy = true;}
+       ~UpdateClassBrowserViewBusy_t() {n_UpdateClassBrowserViewBusy = false;}
+    } updateClassBrowserViewBusy ;
+
+    if ( (not m_Parser) || Manager::IsAppShuttingDown() )
+        return;
+
+    // Dont update symbols window when debugger is running
+    if (GetParseManager()->IsDebuggerRunning())
+        return;
+
+    if ( (not forceUpdate)
+        and (not GetParseManager()->IsOkToUpdateClassBrowserView()) )
+        return;
 
     // Only the Active project updates the classBrowser View
     // Don't update ClassBrowser UI if parsing is paused
@@ -248,21 +379,22 @@ void ClassBrowser::UpdateClassBrowserView(bool checkHeaderSwap )
         if (pParser and pParser->PauseParsingCount())
             return;
     }
+
     const wxString oldActiveFilename(m_ActiveFilename);
     m_ActiveFilename.Clear();
-
-    if (!m_Parser || Manager::IsAppShuttingDown())
-        return;
 
     cbEditor* pEditor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
     if (pEditor)
     {
         m_ActiveFilename = pEditor->GetFilename();
-        //(ph 2022/04/2) Only active project updates class browser
+        // Only active project updates class browser
         ProjectFile* pPf = pEditor->GetProjectFile();
-        if(not pPf) return;
+        if(not pPf) return; //standalone source file has no project
         cbProject* pEdProject = pPf->GetParentProject();
-        if (pEdProject != pProject) return;
+        //-if (pEdProject != pProject) //no go if one of the projects is ~proxyProject
+        //-    ;//return; what will happen? Looks ok, just clears the symbols tree.
+        if ( (not pEdProject) or (not pProject))
+            return;
     }
 
     TRACE("ClassBrowser::UpdateClassBrowserView(), new m_ActiveFilename = %s", m_ActiveFilename);
@@ -286,31 +418,39 @@ void ClassBrowser::UpdateClassBrowserView(bool checkHeaderSwap )
 
     cbProject* pActiveProject = nullptr;
     if (not m_ParseManager->IsParserPerWorkspace()) //IsParserPerWorkspace always false for clangd_client
-        pActiveProject = m_ParseManager->GetProjectByParser(m_Parser); //<== always executed
+        pActiveProject = m_ParseManager->GetProjectByParser((Parser*)m_Parser); //<== always executed
     else
         pActiveProject = m_ParseManager->GetActiveEditorProject();
 
     if (not pActiveProject)
     {
         CCLogger::Get()->DebugLog("ClassBrowser::UpdateClassBrowserView(): No active project available.");
-        return; //(ph 2022/08/01)
+        //-return; <== do not return, else classBrower tree will not clear and contain trash.
     }
 
-    //-ThreadedBuildTree(activeProject); // (Re-) create tree UI //(ph 2021/09/27)- //(ph 2021/09/27)
+    //-ThreadedBuildTree(pActiveProject); // (Re-) create tree UI //(21/09/27) deprecated
 
-    if ( not m_ClassBrowserBuilderThread ) //(ph 2021/09/26)
+    if ( not m_ClassBrowserBuilderThread )
     {
         ThreadedBuildTree(pActiveProject);   // create tree UI
-        if (not m_ClassBrowserBuilderThread->IsPaused())
+        if ( m_ClassBrowserBuilderThread and (not m_ClassBrowserBuilderThread->IsPaused()))
                 return; //failure to lock TokenTree
     }
-    else if (m_ClassBrowserBuilderThread->IsBusy())
+    else if (IsBusyClassBrowserBuilderThread())
     {
-        // re-schedule this call on the Idle time Callback queue //(ph 2021/09/27)
-        GetParseManager()->GetIdleCallbackHandler(pActiveProject)->QueueCallback(this, &ClassBrowser::UpdateClassBrowserView, checkHeaderSwap);
+        // Avoid deadly embrace when ClassBrowserBuildThread is already busy.
+        CCLogger::Get()->DebugLogError("ClassBrowserBuildThred is busy; did not reschedule.");
+            //-cbAssertNonFatal(0 && "Did not reschedule busy UpdateClassBrowser call."); // **Debugging**
         return;
     }
-    else ThreadedBuildTree(pActiveProject); // Re-create tree UI
+    else
+    {
+        //#if defined(cbDEBUG) // **Debugging**
+        //wxString msg = wxString::Format("ThreadedBuildTree Re-create/cleanup called(%s).", pActiveProject ? pActiveProject->GetTitle() : "NoProject");
+        //CCLogger::Get()->DebugLog(msg);
+        //#endif
+        ThreadedBuildTree(pActiveProject); // Re-create ClassBrowser tree UI
+    }
 
 
     wxSplitterWindow* splitter = XRCCTRL(*this, "splitterWin", wxSplitterWindow);
@@ -376,7 +516,7 @@ void ClassBrowser::ShowMenu(wxTreeCtrl* tree, wxTreeItemId id, cb_unused const w
         if (menu->GetMenuItemCount() != 0)
             menu->AppendSeparator();
 
-        // FIXME (ph#): Show inherited is causing loop when no inherited class //(ph 2022/05/31)
+        // FIXME (ph#): Show inherited is causing loop when no inherited class //(2022/05/31)
         //?menu->AppendCheckItem(idCBViewInheritance, _("Show inherited members"));
         menu->AppendCheckItem(idCBExpandNS,        _("Auto-expand namespaces"));
         menu->Append         (idMenuRefreshTree,   _("&Refresh tree"));
@@ -394,7 +534,7 @@ void ClassBrowser::ShowMenu(wxTreeCtrl* tree, wxTreeItemId id, cb_unused const w
             menu->Check(idMenuDebugSmartSense, s_DebugSmartSense);
         }
 
-        // FIXME (ph#): Show Inheritance is causing a loop //(ph 2022/05/31)
+        // FIXME (ph#): Show Inheritance is causing a loop //(2022/05/31)
         // restore this: menu->Check(idCBViewInheritance, m_Parser ? options.showInheritance : false);
         menu->Check(idCBExpandNS,        m_Parser ? options.expandNS        : false);
     }
@@ -490,7 +630,8 @@ wxTreeItemId ClassBrowser::FindChild(const wxString& search, wxTreeCtrl* tree, c
                 return res;
         }
 
-        res = m_CCTreeCtrl->GetNextChild(start, cookie);
+        //-res = m_CCTreeCtrl->GetNextChild(start, cookie);  //patch 1409
+        res = tree->GetNextChild(start, cookie);             //patch 1409
     }
 
     res.Unset();
@@ -536,9 +677,13 @@ bool ClassBrowser::RecursiveSearch(const wxString& search, wxTreeCtrl* tree, con
 }
 
 // events
-
+// ----------------------------------------------------------------------------
 void ClassBrowser::OnTreeItemRightClick(wxTreeEvent& event)
+// ----------------------------------------------------------------------------
 {
+    if (GetParseManager()->GetParsingIsBusy())
+        return;
+
     wxTreeCtrl* tree = (wxTreeCtrl*)event.GetEventObject();
     if (!tree)
         return;
@@ -546,8 +691,9 @@ void ClassBrowser::OnTreeItemRightClick(wxTreeEvent& event)
     tree->SelectItem(event.GetItem());
     ShowMenu(tree, event.GetItem(), event.GetPoint());
 }
-
+// ----------------------------------------------------------------------------
 void ClassBrowser::OnJumpTo(wxCommandEvent& event)
+// ----------------------------------------------------------------------------
 {
     wxTreeCtrl* tree = m_TreeForPopupMenu;
     if (!tree || !m_Parser)
@@ -565,7 +711,7 @@ void ClassBrowser::OnJumpTo(wxCommandEvent& event)
 
         cbProject* project;
         if (!m_ParseManager->IsParserPerWorkspace())
-            project = m_ParseManager->GetProjectByParser(m_Parser);
+            project = m_ParseManager->GetProjectByParser((Parser*)m_Parser);
         else
             project = m_ParseManager->GetActiveEditorProject();
 
@@ -597,6 +743,9 @@ void ClassBrowser::OnJumpTo(wxCommandEvent& event)
 void ClassBrowser::OnTreeItemDoubleClick(wxTreeEvent& event)
 // ----------------------------------------------------------------------------
 {
+    if (GetParseManager()->GetParsingIsBusy())
+        return;
+
     wxTreeCtrl* wx_tree = (wxTreeCtrl*)event.GetEventObject();
     if (!wx_tree || !m_Parser)
         return;
@@ -611,19 +760,30 @@ void ClassBrowser::OnTreeItemDoubleClick(wxTreeEvent& event)
     auto locker_result = s_TokenTreeMutex.LockTimeout(250);
     wxString lockFuncLine = wxString::Format("%s_%d", __FUNCTION__, __LINE__);
     if (locker_result != wxMUTEX_NO_ERROR)
-    {
+    {   /// Requeuing is deprecated for now
         // lock failed, do not block the UI thread, verify tries, call back when idle
-        if (GetParseManager()->GetIdleCallbackHandler(pActiveProject)->IncrQCallbackOk(lockFuncLine))
-            GetParseManager()->GetIdleCallbackHandler(pActiveProject)->QueueCallback(this, &ClassBrowser::OnTreeItemDoubleClick, event);
-        else return;
+        //-if (GetParseManager()->GetIdleCallbackHandler(pActiveProject)->IncrQCallbackOk(lockFuncLine))
+        //-    GetParseManager()->GetIdleCallbackHandler(pActiveProject)->QueueCallback(this, &ClassBrowser::OnTreeItemDoubleClick, event);
+        //-else return;
+        return;
     }
     else /*lock succeeded*/
     {
         s_TokenTreeMutex_Owner = wxString::Format("%s %d",__FUNCTION__, __LINE__); /*record owner*/
-        GetParseManager()->GetIdleCallbackHandler(pActiveProject)->ClearQCallbackPosn(lockFuncLine);
+        //-GetParseManager()->GetIdleCallbackHandler(pActiveProject)->ClearQCallbackPosn(lockFuncLine);
     }
 
-    /// From here, Unlock the TokenTree before any returns !!!
+    /// From here, Unlocking the TokenTree on any returns is done in the struct dtor
+    struct UnlockTokenTree
+    {
+        UnlockTokenTree(){}
+        ~UnlockTokenTree()
+        {
+            CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex);
+            s_TokenTreeMutex_Owner = wxString();
+        }
+
+    } unlockTokenTree;
 
     CCTreeCtrlData* ctd = (CCTreeCtrlData*)wx_tree->GetItemData(id);
     if (ctd && ctd->m_Token)
@@ -633,13 +793,13 @@ void ClassBrowser::OnTreeItemDoubleClick(wxTreeEvent& event)
         if (wxGetKeyState(WXK_ALT) && wxGetKeyState(WXK_SHIFT))
         {
 //            TokenTree* tree = m_Parser->GetTokenTree(); // the one used inside CCDebugInfo
-
-
             CCDebugInfo info(wx_tree, m_Parser, ctd->m_Token);
             PlaceWindow(&info);
             info.ShowModal();
 
-            CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
+            // -----------------------------------------------
+            //CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex) done by ~UnLockTokenTree()
+            // -----------------------------------------------
             return;
         }
 
@@ -677,7 +837,7 @@ void ClassBrowser::OnTreeItemDoubleClick(wxTreeEvent& event)
 
         cbProject* project = nullptr;
         if (!m_ParseManager->IsParserPerWorkspace())
-            project = m_ParseManager->GetProjectByParser(m_Parser);
+            project = m_ParseManager->GetProjectByParser((Parser*)m_Parser);
         else
             project = m_ParseManager->GetActiveEditorProject();
 
@@ -707,13 +867,16 @@ void ClassBrowser::OnTreeItemDoubleClick(wxTreeEvent& event)
         }
     }
 
-    CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)         //(ph 2021/09/29)
-    return;                                                 //(ph 2021/09/29)
+    // ----------------------------------------------------
+    //CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex) done by ~UnlockTokenTree() above
+    // ----------------------------------------------------
+    return;
 }
 // ----------------------------------------------------------------------------
 void ClassBrowser::OnRefreshTree(cb_unused wxCommandEvent& event)
 // ----------------------------------------------------------------------------
 {
+    s_ClassBrowserCaller = wxString::Format("%s:%d",__FUNCTION__, __LINE__);
     UpdateClassBrowserView();
 }
 // ----------------------------------------------------------------------------
@@ -722,10 +885,10 @@ void ClassBrowser::OnForceReparse(cb_unused wxCommandEvent& event)
 {
     // Invoked via Symbols context menu "Re-parse now"
 
-    // Issue event for idCurrentProjectReparse  //(ph 2021/06/13)
+    // Issue event for idCurrentProjectReparse
     // Will be caught by codecompletion::ReparseCurrentProject event
     wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED);
-    int reparse = wxFindMenuItemId(Manager::Get()->GetAppFrame(), "Project", "Reparse active project");
+    int reparse = wxFindMenuItemId(Manager::Get()->GetAppFrame(), "Project", "Reparse current project");
     evt.SetId(reparse);
     Manager::Get()->GetAppFrame()->GetEventHandler()->AddPendingEvent(evt);
     return;
@@ -743,22 +906,23 @@ void ClassBrowser::OnCBViewMode(wxCommandEvent& event)
     if (event.GetId() == idCBViewInheritance)
     {
         options.showInheritance = event.IsChecked();
-        pCfgMgr->Write("/browser_show_inheritance", bool(event.IsChecked()));    //(ph 2021/05/25)
+        pCfgMgr->Write("/browser_show_inheritance", bool(event.IsChecked()));
     }
 
     if (event.GetId() == idCBExpandNS)
     {
         options.expandNS = event.IsChecked();
-        pCfgMgr->Write("/browser_expand_ns", bool(event.IsChecked()));    //(ph 2021/05/25)
+        pCfgMgr->Write("/browser_expand_ns", bool(event.IsChecked()));
 
     }
     if (event.GetId() == idCBBottomTree)
     {
         options.treeMembers = event.IsChecked();
-        pCfgMgr->Write("/browser_tree_members", bool(event.IsChecked()));    //(ph 2021/05/25)
+        pCfgMgr->Write("/browser_tree_members", bool(event.IsChecked()));
     }
 
-    //-m_Parser->WriteOptions();    //(ph 2021/05/25)
+    //-m_Parser->WriteOptions();
+    s_ClassBrowserCaller = wxString::Format("%s:%d",__FUNCTION__, __LINE__);
     UpdateClassBrowserView();
 }
 // ----------------------------------------------------------------------------
@@ -771,9 +935,10 @@ void ClassBrowser::OnCBExpandNS(wxCommandEvent& event)
     if (event.GetId() == idCBExpandNS)
         m_Parser->ClassBrowserOptions().expandNS = event.IsChecked();
 
-    //-m_Parser->WriteOptions();    //(ph 2021/05/25)
+    //-m_Parser->WriteOptions();
+    s_ClassBrowserCaller = wxString::Format("%s:%d",__FUNCTION__, __LINE__);
     UpdateClassBrowserView();
-    Manager::Get()->GetConfigManager("clangd_client")->Write("/browser_expand_ns", bool(event.IsChecked()));    //(ph 2021/05/25)
+    Manager::Get()->GetConfigManager("clangd_client")->Write("/browser_expand_ns", bool(event.IsChecked()));
 
 }
 // ----------------------------------------------------------------------------
@@ -781,10 +946,12 @@ void ClassBrowser::OnViewScope(wxCommandEvent& event)
 // ----------------------------------------------------------------------------
 {
     const int sel = event.GetSelection();
+    BrowserDisplayFilter filter = static_cast <BrowserDisplayFilter> (sel);
+    if (filter == bdfWorkspace) filter = bdfProject; // one parser per workspace not supported in Clangd_client
     if (m_Parser)
     {
-        BrowserDisplayFilter filter = static_cast <BrowserDisplayFilter> (sel);
-        if (!m_ParseManager->IsParserPerWorkspace() && filter == bdfWorkspace)
+        //BrowserDisplayFilter filter = static_cast <BrowserDisplayFilter> (sel); moved above
+        if (not m_ParseManager->IsParserPerWorkspace() && filter == bdfWorkspace)
         {
             cbMessageBox(_("This feature is not supported in combination with\n"
                            "the option \"one parser per whole workspace\"."),
@@ -794,18 +961,20 @@ void ClassBrowser::OnViewScope(wxCommandEvent& event)
         }
 
         m_Parser->ClassBrowserOptions().displayFilter = filter;
-        //-m_Parser->WriteOptions();    //(ph 2021/05/25)
+        //-m_Parser->WriteOptions();
+        s_ClassBrowserCaller = wxString::Format("%s:%d",__FUNCTION__, __LINE__);
         UpdateClassBrowserView();
     }
-    //-else  //(ph 2021/05/25)
+
     {
         // we have no parser; just write the setting in the configuration
         Manager::Get()->GetConfigManager("clangd_client")->Write("/browser_display_filter", sel);
         CCLogger::Get()->DebugLog("OnViewScope: No parser available.");
     }
 }
-
+// ----------------------------------------------------------------------------
 void ClassBrowser::OnDebugSmartSense(cb_unused wxCommandEvent& event)
+// ----------------------------------------------------------------------------
 {
     s_DebugSmartSense = !s_DebugSmartSense;
 }
@@ -823,33 +992,28 @@ void ClassBrowser::OnSetSortType(wxCommandEvent& event)
     if (m_Parser)
     {
         m_Parser->ClassBrowserOptions().sortType = bst;
-        //-m_Parser->WriteOptions(); //(ph 2021/05/25)
+        //-m_Parser->WriteOptions();
+        s_ClassBrowserCaller = wxString::Format("%s:%d",__FUNCTION__, __LINE__);
         UpdateClassBrowserView();
     }
-    //-else //(ph 2021/05/25)
-        Manager::Get()->GetConfigManager("clangd_client")->Write("/browser_sort_type", (int)bst);
+
+    Manager::Get()->GetConfigManager("clangd_client")->Write("/browser_sort_type", (int)bst);
 }
 // ----------------------------------------------------------------------------
 template <typename T, typename T1, typename P1>
 bool ClassBrowser::GetTokenTreeLock(void (T::*method)(T1 x1), P1 event)
 // ----------------------------------------------------------------------------
-{ //(ph 2021/09/29)
+{
     // -----------------------------------------------------
     //CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
     // -----------------------------------------------------
     auto locker_result = s_TokenTreeMutex.LockTimeout(250);
-    wxString lockFuncLine = wxString::Format("%s_%d", __FUNCTION__, __LINE__);
     if (locker_result != wxMUTEX_NO_ERROR)
     {
-        // lock failed, do not block the UI thread, insead, do call back when idle
-        if (m_Parser->GetIdleCallbackHandler()->IncrQCallbackOk(lockFuncLine)) //verify max tries
-            m_Parser->GetIdleCallbackHandler()->QueueCallback(this, method, event);
+        // Do not reschedule a failed token tree lock here
+        // Here. It makes no sense to return, then retry the lock for a caller
+        // that will nolonger be waiting for the lock.
         return false;
-    }
-    else /*lock succeeded*/
-    {
-        s_TokenTreeMutex_Owner = wxString::Format("%s %d",__FUNCTION__, __LINE__); /*record owner*/
-        m_Parser->GetIdleCallbackHandler()->ClearQCallbackPosn(lockFuncLine);
     }
     return true;
 }
@@ -862,11 +1026,24 @@ void ClassBrowser::OnSearch(cb_unused wxCommandEvent& event)
         return;
 
     // ----------------------------------------------------
-    // CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
+    //CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
     // ----------------------------------------------------
-    // If lock not available, queue an idle time callback and return
-    if (not GetTokenTreeLock(&ClassBrowser::OnSearch, event) )
+    //- If the lock is busy, a callback is queued for idle time.
+    auto locker_result = s_TokenTreeMutex.LockTimeout(250);
+    wxString lockFuncLine = wxString::Format("%s_%d", __FUNCTION__, __LINE__);
+    if (locker_result != wxMUTEX_NO_ERROR)
+    {
+        /// requeuing is deprecated for now.
+        //- lock failed, do not block the UI thread, call back when idle
+        //- if (GetIdleCallbackHandler()->IncrQCallbackOk(lockFuncLine))
+        //-     GetIdleCallbackHandler()->QueueCallback(this, &ClgdCompletion::ParseFunctionsAndFillToolbar);
         return;
+    }
+    else /*lock succeeded*/
+    {
+        //- s_TokenTreeMutex_Owner = wxString::Format("%s %d",__FUNCTION__, __LINE__); /*record owner*/
+        // -GetIdleCallbackHandler()->ClearQCallbackPosn(lockFuncLine);
+    }
 
     TokenTree* tree = m_Parser->GetTokenTree();
     TokenIdxSet result;
@@ -922,9 +1099,22 @@ void ClassBrowser::OnSearch(cb_unused wxCommandEvent& event)
             // ----------------------------------------------------------------------------
             // CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
             // ----------------------------------------------------------------------------
-            // If lock not available, queue an idle time callback and return
-            if (not GetTokenTreeLock(&ClassBrowser::OnSearch, event) )
+            //- If the lock is busy, a callback is queued for idle time.
+            auto locker_result = s_TokenTreeMutex.LockTimeout(250);
+            wxString lockFuncLine = wxString::Format("%s_%d", __FUNCTION__, __LINE__);
+            if (locker_result != wxMUTEX_NO_ERROR)
+            {
+                /// Requeuing is deprecated for now
+                // lock failed, do not block the UI thread, call back when idle
+                //-if (GetIdleCallbackHandler()->IncrQCallbackOk(lockFuncLine))
+                //-    GetIdleCallbackHandler()->QueueCallback(this, &ClgdCompletion::ParseFunctionsAndFillToolbar);
                 return;
+            }
+            else /*lock succeeded*/
+            {
+                //-s_TokenTreeMutex_Owner = wxString::Format("%s %d",__FUNCTION__, __LINE__); /*record owner*/
+                //-GetIdleCallbackHandler()->ClearQCallbackPosn(lockFuncLine);
+            }
 
             token = tree->at(int_selections[sel]);
         }
@@ -1002,11 +1192,39 @@ void ClassBrowser::OnSearch(cb_unused wxCommandEvent& event)
         else
         {
             // search in bottom tree too
-            res = FindChild(token->m_Name, m_CCTreeCtrlBottom, m_CCTreeCtrlBottom->GetRootItem(), true, true);
-            if (res.IsOk())
-                m_CCTreeCtrlBottom->SelectItem(res);
+            //-res = FindChild(token->m_Name, m_CCTreeCtrlBottom, m_CCTreeCtrlBottom->GetRootItem(), true, true);
+            //-if (res.IsOk())
+            //-    m_CCTreeCtrlBottom->SelectItem(res);
+            //patch 1409 remove the above code
+            m_LastSearchedSymbol = token->m_Name;   //patch 1409
+            SearchBottomTree(true);                 //patch 1409
+
         }
     }
+}
+// ----------------------------------------------------------------------------
+void ClassBrowser::SearchBottomTree(bool firstTry)   //patch 1409
+// ----------------------------------------------------------------------------
+{
+    wxTreeItemId bottomRoot = m_CCTreeCtrlBottom->GetRootItem();
+    if (!bottomRoot.IsOk())
+    {
+        if (firstTry)
+        {
+            m_TimerSymbolSearchWaitForBottomTree.Start(100, wxTIMER_ONE_SHOT);
+            return;
+        }
+    }
+    wxTreeItemId res = FindChild(m_LastSearchedSymbol, m_CCTreeCtrlBottom, bottomRoot, true, true);
+    if (res.IsOk()) {
+        m_CCTreeCtrlBottom->SelectItem(res);
+    }
+}
+// ----------------------------------------------------------------------------
+void ClassBrowser::DoSearchBottomTree(wxTimerEvent& event)  //patch 1409
+// ----------------------------------------------------------------------------
+{
+    SearchBottomTree(false);
 }
 
 /* There are several cases:
@@ -1024,11 +1242,19 @@ void ClassBrowser::ThreadedBuildTree(cbProject* activeProject)
 
     TRACE("ClassBrowser: ThreadedBuildTree started.");
 
+    // Do not block the main thread. (Legacy CodeCompletion Ticket 1393).
+    // When UpdateClassBrowser is called twice immediately, CB freezes because
+    // the worker thread is paused (below) holding the mutex, then init() blocks the main Gui
+    // attempting to obtain the mutex, causing a deadly embrace.The paused worker thread can't free the mutex.
+    if (m_ClassBrowserBuilderThread and IsBusyClassBrowserBuilderThread())
+    {
+        return;
+    }
     // create the thread if needed
     bool thread_needs_run = false;
     if ( not m_ClassBrowserBuilderThread)
     {
-        m_ClassBrowserBuilderThread = new ClassBrowserBuilderThread(this, m_ClassBrowserSemaphore);
+        m_ClassBrowserBuilderThread = new ClassBrowserBuilderThread(this, m_ClassBrowserSemaphore, m_ClassBrowserCallAfterSemaphore);
         m_ClassBrowserBuilderThread->Create();
         thread_needs_run = true; // just created, so surely need to run it
     }
@@ -1059,13 +1285,21 @@ void ClassBrowser::ThreadedBuildTree(cbProject* activeProject)
         TRACE("ClassBrowser: ClassBrowserBuilderThread: Paused.");
     }
 
-    // initialise it, this function is being called from the GUI main thread.
-    // To avoid blocking the UI, check if busy thread before calling.
-    if (m_ClassBrowserBuilderThread and m_ClassBrowserBuilderThread->IsBusy())
+    if (m_ClassBrowserBuilderThread and (not s_TokenTreeMutex_Owner.empty()) )
     {
-        // re-schedule this call on the Idle time Callback queue //(ph 2021/09/30)
-        cbAssert(m_Parser);
-        if (m_Parser)
+        // Token tree is locked, punt
+        return;
+    }
+
+    // Initialise it, this function is being called from the GUI main thread.
+    // To avoid blocking the UI, check if busy thread before calling.
+    if (m_ClassBrowserBuilderThread and IsBusyClassBrowserBuilderThread())
+    {
+        // re-schedule this call on the Idle time Callback queue )
+        // FIXME (ph#):This code will never execute because of the ticket 1393
+        //  fixed at the top of this function.
+        cbAssertNonFatal(m_Parser);
+        if (m_Parser and activeProject) // avoid crash
             m_Parser->GetIdleCallbackHandler()->QueueCallback(this, &ClassBrowser::ThreadedBuildTree, activeProject);
         return;
     }
@@ -1100,12 +1334,16 @@ void ClassBrowser::ThreadedBuildTree(cbProject* activeProject)
         }
     }
 }
-
+// ----------------------------------------------------------------------------
 void ClassBrowser::OnTreeItemExpanding(wxTreeEvent& event)
+// ----------------------------------------------------------------------------
 {
-    if (m_ClassBrowserBuilderThread && !m_ClassBrowserBuilderThread->IsBusy())  // targets can't be changed while busy
+    if (GetParseManager()->GetParsingIsBusy())
+        return;
+
+    if (m_ClassBrowserBuilderThread && (not m_ClassBrowserBuilderThread->GetIsBusy()))  // targets can't be changed while busy
     {
-        if (event.GetItem().IsOk() && !m_CCTreeCtrl->GetChildrenCount(event.GetItem(), false))
+        if (event.GetItem().IsOk() && (not m_CCTreeCtrl->GetChildrenCount(event.GetItem(), false)))
         {
             m_targetNode = event.GetItem();
             m_targetTreeCtrl = m_CCTreeCtrl;
@@ -1114,17 +1352,22 @@ void ClassBrowser::OnTreeItemExpanding(wxTreeEvent& event)
         }
     }
 }
-
+// ----------------------------------------------------------------------------
 void ClassBrowser::OnTreeSelChanged(wxTreeEvent& event)
+// ----------------------------------------------------------------------------
 {
+    if (GetParseManager()->GetParsingIsBusy())
+        return;
+
     if (m_ClassBrowserBuilderThread && m_Parser && m_Parser->ClassBrowserOptions().treeMembers)
     {
         m_ClassBrowserBuilderThread->SetNextJob(JobSelectTree, GetItemPtr(event.GetItem()));
         m_ClassBrowserSemaphore.Post();
     }
 }
-
+// ----------------------------------------------------------------------------
 void ClassBrowser::SetNodeProperties(CCTreeItem* Item)
+// ----------------------------------------------------------------------------
 {
     m_targetTreeCtrl->SetItemHasChildren(m_targetNode, Item->m_hasChildren);
     m_targetTreeCtrl->SetItemBold(m_targetNode, Item->m_bold);
@@ -1153,29 +1396,84 @@ CCTreeItem* ClassBrowser::GetItemPtr(wxTreeItemId ItemId)
     return static_cast <CCTreeItem*> (tcd->m_MirrorNode);
 }
 
-////////////////////////////////////////////////////////////////////////
+// ----------------------------------------------------------------------------
 // The methods below are called from the (classbrowserbuilderthread) worker thread using CallAfter()
-////////////////////////////////////////////////////////////////////////
-
-void ClassBrowser::BuildTreeStartOrStop(bool start)
+// ----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------
+void ClassBrowser::BuildTreeStartOrStop(bool start, EThreadJob threadJob)
+// ----------------------------------------------------------------------------
 {
+
+    /// Do not use return statements unless you first issue
+    ///   m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
+
     static size_t startMillis;
+    wxString jobType = wxString();
+
+    switch (threadJob)
+    {
+        case JobBuildTree: //fill the top tree
+            jobType = "JobBuildTree";
+            break;
+        case JobSelectTree: //fill the bottom tree
+            jobType = "JobSelectTree";
+             break;
+        case JobExpandItem: // add items on the fly
+            jobType = "JobExpandTree";
+            break;
+        default:
+            jobType = "Undefined";
+    }
+
+    bool bottomTreeEnabled = m_Parser->ClassBrowserOptions().treeMembers;
+    wxUnusedVar(bottomTreeEnabled); // **Debugging**
+
     if (start)
     {
-        startMillis = m_ParseManager->GetNowMilliSeconds();
-        CCLogger::Get()->DebugLog("Updating class browser...");
-    }
-    else
-    {
-        size_t durationMillis = m_ParseManager->GetDurationMilliSeconds(startMillis);
-        CCLogger::Get()->DebugLog(wxString::Format("Class browser updated (%zu msec)", durationMillis));
-    }
-}
+        if (m_ClassBrowserBuilderThread) //m_ClassBrowserBuilderThread->GetIsBusy();
+        {
+            GetParseManager()->SetUpdatingClassBrowserBusy(true);
+            if (not startMillis)
+            {
+                startMillis = m_ParseManager->GetNowMilliSeconds();
+                CCLogger::Get()->DebugLog("Updating class browser...");
+            }
+        }
 
+        GetParseManager()->SetParsingIsBusy(true);
+    }
+    else // start == false; classBrowser Symbols updated
+    {
+        if (m_ClassBrowserBuilderThread )
+        {
+            size_t durationMillis = m_ParseManager->GetDurationMilliSeconds(startMillis);
+            startMillis = 0;
+            GetParseManager()->SetUpdatingClassBrowserBusy(false);
+            CCLogger::Get()->DebugLog(wxString::Format("Class browser updated (%zu msec)", durationMillis));
+        }
+
+        GetParseManager()->SetParsingIsBusy(false);
+
+    }//end else ClassBrowseer symbols updated
+
+    // **Debugging**
+    //wxString startOrStop = start ? "start" : "stop";
+    //CCLogger::Get()->DebugLogError(wxString::Format("%s: Bottom(%s) %s %s",
+    //            __FUNCTION__,
+    //            bottomTreeEnabled?"Enabled":"Disabled",
+    //            startOrStop, jobType)
+    //            );
+
+    // this must be executed, else ClassBrowserBuilderThread will freeze
+    m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
+}
+// ----------------------------------------------------------------------------
 void ClassBrowser::SelectTargetTree(bool top)
+// ----------------------------------------------------------------------------
 {
     m_targetTreeCtrl = top ? m_CCTreeCtrl : m_CCTreeCtrlBottom;
     m_targetNode.Unset();
+    m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
 }
 // ----------------------------------------------------------------------------
 void ClassBrowser::TreeOperation(ETreeOperator op, CCTreeItem* item)
@@ -1190,9 +1488,10 @@ void ClassBrowser::TreeOperation(ETreeOperator op, CCTreeItem* item)
       {
       case OpClear:
           m_targetTreeCtrl->Disable(); //fix trunk rev 12689 ticket 1152
-          m_targetTreeCtrl->Freeze();
+          //?m_targetTreeCtrl->Freeze();
           m_targetTreeCtrl->DeleteAllItems();
           m_targetNode.Unset();
+          m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
           break;
       case OpAddRoot:
           // Only add it if there is no root. At the end m_targetNode always points to the root node
@@ -1205,6 +1504,7 @@ void ClassBrowser::TreeOperation(ETreeOperator op, CCTreeItem* item)
                                                        item->m_data);
               SetNodeProperties(item);
           }
+          m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
           break;
       case OpAddChild:
           if (m_targetNode.IsOk() && item)
@@ -1216,24 +1516,29 @@ void ClassBrowser::TreeOperation(ETreeOperator op, CCTreeItem* item)
                                                           item->m_image[wxTreeItemIcon_Selected],
                                                           item->m_data);
               SetNodeProperties(item);
-              item->m_semaphore.Post();
+              //-item->m_semaphore.Post();
           }
+          m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
           break;
       case OpGoUp:
           if (m_targetNode.IsOk())
               m_targetNode = m_targetTreeCtrl->GetItemParent(m_targetNode);
+          m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
           break;
       case OpExpandCurrent:
           if (m_targetNode.IsOk())
               m_targetTreeCtrl->Expand(m_targetNode);
+          m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
           break;
       case OpExpandRoot:
           root = m_targetTreeCtrl->GetRootItem();
           if (root.IsOk())
               m_targetTreeCtrl->Expand(m_targetTreeCtrl->GetRootItem());
+          m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
           break;
       case OpExpandAll:
           m_targetTreeCtrl->ExpandAll();
+          m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
           break;
       case OpShowFirst:
           root = m_targetTreeCtrl->GetRootItem();
@@ -1244,14 +1549,17 @@ void ClassBrowser::TreeOperation(ETreeOperator op, CCTreeItem* item)
               if (first.IsOk())
                   m_targetTreeCtrl->ScrollTo(first);
           }
+          m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
           break;
       case OpEnd:
-          m_targetTreeCtrl->Thaw();
+          //?m_targetTreeCtrl->Thaw();
           m_targetTreeCtrl->Enable(); //fix rev 12689 ticket 1152
+          m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
       }
 }
-
+// ----------------------------------------------------------------------------
 void ClassBrowser::SaveSelectedItem()
+// ----------------------------------------------------------------------------
 {
 #ifdef CC_BUILDTREE_MEASURING
     wxStopWatch sw;
@@ -1266,12 +1574,15 @@ void ClassBrowser::SaveSelectedItem()
         item = m_CCTreeCtrl->GetItemParent(item);
     }
 
+    m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
+
 #ifdef CC_BUILDTREE_MEASURING
     CCLogger::Get()->DebugLog(wxString::Format("SaveSelectedItem() took : %ld ms for %u items", sw.Time(), m_CCTreeCtrl->GetCount()));
 #endif
 }
-
+// ----------------------------------------------------------------------------
 void ClassBrowser::SelectSavedItem()
+// ----------------------------------------------------------------------------
 {
 #ifdef CC_BUILDTREE_MEASURING
     wxStopWatch sw;
@@ -1279,7 +1590,11 @@ void ClassBrowser::SelectSavedItem()
 
     wxTreeItemId parent = m_CCTreeCtrl->GetRootItem();
     if (!parent.IsOk())
+    {
+        //Tell ClassBrowserBuilderThread it can continue;
+        m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
         return;
+    }
 
     wxTreeItemIdValue cookie;
     wxTreeItemId item = m_CCTreeCtrl->GetFirstChild(parent, cookie);
@@ -1301,18 +1616,24 @@ void ClassBrowser::SelectSavedItem()
             item = m_CCTreeCtrl->GetNextSibling(item);
     }
 
-    if (parent.IsOk() && m_ClassBrowserBuilderThread && m_Parser && m_Parser->ClassBrowserOptions().treeMembers)
+    //-if (parent.IsOk() && m_ClassBrowserBuilderThread && m_Parser && m_Parser->ClassBrowserOptions().treeMembers) tigerbeard ticket 1447
+    // Ticket 1447 allows the top tree to update when the bottom tree is disabled.
+    if (parent.IsOk() && m_ClassBrowserBuilderThread && m_Parser)
     {
         m_CCTreeCtrl->SelectItem(parent);
         m_CCTreeCtrl->EnsureVisible(parent);
     }
 
+    //Tell ClassBrowserBuilderThread it can continue;
+    m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
+
 #ifdef CC_BUILDTREE_MEASURING
     CCLogger::Get()->DebugLog(wxString::Format("SelectSavedItem() took : %ld ms for %u items", sw.Time(), m_CCTreeCtrl->GetCount()));
 #endif
 }
-
+// ----------------------------------------------------------------------------
 void ClassBrowser::ReselectItem()
+// ----------------------------------------------------------------------------
 {
     if (m_ClassBrowserBuilderThread && m_Parser && m_Parser->ClassBrowserOptions().treeMembers)
     {
@@ -1325,4 +1646,6 @@ void ClassBrowser::ReselectItem()
         else
             m_CCTreeCtrlBottom->DeleteAllItems();
     }
+
+    m_ClassBrowserCallAfterSemaphore.Post(); //say we did it;
 }

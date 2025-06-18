@@ -4,7 +4,7 @@
  *
  * $Revision: 12998 $
  * $Id: toolsmanager.cpp 12998 2022-10-30 16:47:04Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/toolsmanager.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/toolsmanager.cpp $
  */
 
 #include "sdk_precomp.h"

@@ -4,7 +4,7 @@
  *
  * $Revision: 7109 $
  * $Id: scrooge.cpp 7109 2011-04-15 11:53:16Z mortenmacfly $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/build_tools/scrooge/scrooge.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/build_tools/scrooge/scrooge.cpp $
  */
 
 #include <stdio.h>

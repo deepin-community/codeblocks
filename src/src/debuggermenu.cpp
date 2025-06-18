@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12079 $
- * $Id: debuggermenu.cpp 12079 2020-05-18 22:43:36Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/debuggermenu.cpp $
+ * $Revision: 13426 $
+ * $Id: debuggermenu.cpp 13426 2024-01-03 17:12:21Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/debuggermenu.cpp $
  */
 #include "sdk.h"
 
@@ -391,13 +391,15 @@ void DebuggerMenuHandler::RebuildMenus()
         DebuggerManager::ConfigurationVector::const_iterator itConf = configs.begin();
         std::advance(itConf, m_activeDebugger->GetIndexOfActiveConfig());
 
-        if (itConf != configs.end())
-            menu->Check((*itConf)->GetMenuId(), true);
-        else
-            menu->Check(configs.front()->GetMenuId(), true);
+        const int id = (itConf != configs.end()) ? (*itConf)->GetMenuId() : configs.front()->GetMenuId();
+        if (menu->FindItem(id))
+            menu->Check(id, true);
     }
     else
-        menu->Check(idMenuDebugActiveTargetsDefault, true);
+    {
+        if (menu->FindItem(idMenuDebugActiveTargetsDefault))
+            menu->Check(idMenuDebugActiveTargetsDefault, true);
+    }
 }
 
 void DebuggerMenuHandler::BuildContextMenu(wxMenu &menu, const wxString& word_at_caret, bool is_running)

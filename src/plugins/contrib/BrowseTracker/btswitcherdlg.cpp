@@ -1,13 +1,13 @@
-/////////////////////////////////////////////////////////////////////////////
+// -----------------------------------------------------------------------------
 // Name:        switcherdlg.h
 // Purpose:     Pane switcher dialog
 // Author:      Julian Smart
 // Modified by:
 // Created:     2007-08-19
-// RCS-ID:      $Id: switcherdlg.cpp 11396 2018-05-05 13:52:23Z killerbot $
+// RCS-ID:      $Id: btswitcherdlg.cpp 13292 2023-05-30 15:50:46Z mortenmacfly $
 // Copyright:   (c) Julian Smart
 // Licence:     wxWidgets licence
-/////////////////////////////////////////////////////////////////////////////
+// -----------------------------------------------------------------------------
 
 #include <wx/wx.h>
 

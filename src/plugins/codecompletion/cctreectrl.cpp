@@ -4,7 +4,7 @@
  *
  * $Revision: 12999 $
  * $Id: cctreectrl.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/codecompletion/cctreectrl.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/codecompletion/cctreectrl.cpp $
  */
 
 #include <sdk.h>

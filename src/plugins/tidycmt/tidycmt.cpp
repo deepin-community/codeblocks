@@ -4,7 +4,7 @@
  *
  * $Revision: 12279 $
  * $Id: tidycmt.cpp 12279 2020-12-28 16:57:04Z mortenmacfly $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/tidycmt/tidycmt.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/tidycmt/tidycmt.cpp $
  */
 
 #include <sdk.h> // Code::Blocks SDK

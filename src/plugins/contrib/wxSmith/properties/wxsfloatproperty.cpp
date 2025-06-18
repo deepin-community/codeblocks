@@ -17,7 +17,7 @@
 *
 * $Revision: 12197 $
 * $Id: wxsfloatproperty.cpp 12197 2020-08-11 08:14:14Z fuscated $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/properties/wxsfloatproperty.cpp $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/properties/wxsfloatproperty.cpp $
 */
 
 #include "wxsfloatproperty.h"

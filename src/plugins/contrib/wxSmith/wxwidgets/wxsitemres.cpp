@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12682 $
-* $Id: wxsitemres.cpp 12682 2022-01-27 09:19:28Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/wxsitemres.cpp $
+* $Revision: 13150 $
+* $Id: wxsitemres.cpp 13150 2023-01-14 11:37:46Z wh11204 $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/wxsitemres.cpp $
 */
 
 #include "wxsitemres.h"
@@ -645,4 +645,13 @@ bool wxsItemRes::Rename(const wxString& oldName, const wxString& newName)
     }
 
     return renamed;
+}
+
+void wxsItemRes::SetI18N(bool Value)
+{
+    if (m_UseI18n != Value)
+    {
+        m_UseI18n = Value;
+        GetProject()->NotifyChange();
+    }
 }

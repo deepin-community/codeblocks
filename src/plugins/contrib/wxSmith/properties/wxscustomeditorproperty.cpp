@@ -17,7 +17,7 @@
 *
 * $Revision: 12197 $
 * $Id: wxscustomeditorproperty.cpp 12197 2020-08-11 08:14:14Z fuscated $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/properties/wxscustomeditorproperty.cpp $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/properties/wxscustomeditorproperty.cpp $
 */
 
 #include "wxscustomeditorproperty.h"

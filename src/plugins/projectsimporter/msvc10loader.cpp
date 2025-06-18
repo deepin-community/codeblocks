@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12999 $
- * $Id: msvc10loader.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/projectsimporter/msvc10loader.cpp $
+ * $Revision: 13451 $
+ * $Id: msvc10loader.cpp 13451 2024-02-15 11:55:40Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/projectsimporter/msvc10loader.cpp $
  */
 
 #include "sdk.h"
@@ -70,7 +70,8 @@ bool MSVC10Loader::Open(const wxString& filename)
     m_ProjectName = wxFileName(filename).GetName();
     if (!MSVC7WorkspaceLoader::g_WorkspacePath.IsEmpty())
     {
-        wxFileName tmp(MSVC7WorkspaceLoader::g_WorkspacePath); tmp.MakeRelativeTo(m_pProject->GetBasePath());
+        wxFileName tmp(MSVC7WorkspaceLoader::g_WorkspacePath);
+        tmp.MakeRelativeTo(m_pProject->GetBasePath());
         m_WorkspacePath = tmp.GetPathWithSep();
     }
 
@@ -247,11 +248,11 @@ bool MSVC10Loader::GetProjectConfigurations(const TiXmlElement* root)
         if (pc.sTargetExt.IsEmpty())
         {
             if (pc.TargetType.IsSameAs(_T("DynamicLibrary"), false))
-                pc.sTargetExt =! m_ConvertSwitches ? _T(".dll") : _T(".so");
+                pc.sTargetExt = !m_ConvertSwitches ? ".dll" : ".so";
             else if (pc.TargetType.IsSameAs(_T("StaticLibrary"),  false))
-                pc.sTargetExt =! m_ConvertSwitches ? _T(".lib") : _T(".a");
+                pc.sTargetExt = !m_ConvertSwitches ? ".lib" : ".a";
             else
-                pc.sTargetExt =! m_ConvertSwitches ? _T(".exe") : _T("");
+                pc.sTargetExt = !m_ConvertSwitches ? ".exe" : "";
         }
         if (pc.bNoImportLib==-1)
             pc.bNoImportLib=m_NoImportLib;
@@ -316,7 +317,7 @@ void MSVC10Loader::SetConfigurationValuesPath(const TiXmlElement* root, const ch
     for (const TiXmlElement* e=root->FirstChildElement(key); e; e=e->NextSiblingElement(key))
     {
         if (!GetConfigurationName(e,config,defconfig))
-          continue;
+            continue;
 
         wxString* value;
         if (config.IsEmpty())
@@ -328,7 +329,7 @@ void MSVC10Loader::SetConfigurationValuesPath(const TiXmlElement* root, const ch
             value = (wxString*)((char*)&m_pc[config]+target);
 
         *value = UnixFilename(GetText(e));
-        if ((*value).Last()!=wxFILE_SEP_PATH)
+        if (!value->empty() && (value->Last() != wxFILE_SEP_PATH))
             *value += wxFILE_SEP_PATH;
     }
 }
@@ -947,11 +948,12 @@ wxArrayString MSVC10Loader::GetArrayPaths(const TiXmlElement* e, const SProjectC
             for (size_t i=0; i<aVal.Count(); ++i)
             {
                 val = aVal.Item(i);
-                if (!val.Trim().IsEmpty())
+                if (!val.Trim().empty())
                 {
                     val = UnixFilename(val);
-                    if (val.Last()!=wxFILE_SEP_PATH)
+                    if (!val.empty() && (val.Last() != wxFILE_SEP_PATH))
                         val += wxFILE_SEP_PATH;
+
                     sResult.Add(val);
                 }
             }

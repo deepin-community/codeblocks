@@ -4,7 +4,7 @@
  *
  * $Revision: 12607 $
  * $Id: cbprofiler.cpp 12607 2021-12-23 08:50:04Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/profiler/cbprofiler.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/profiler/cbprofiler.cpp $
  */
 
 #include "sdk.h"

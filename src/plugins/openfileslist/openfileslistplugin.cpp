@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12956 $
- * $Id: openfileslistplugin.cpp 12956 2022-10-06 06:34:23Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/openfileslist/openfileslistplugin.cpp $
+ * $Revision: 13098 $
+ * $Id: openfileslistplugin.cpp 13098 2022-12-07 08:45:01Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/openfileslist/openfileslistplugin.cpp $
  */
 
 #include "sdk.h"
@@ -188,7 +188,7 @@ void OpenFilesListPlugin::BuildMenu(wxMenuBar* menuBar)
             {
                 m_ViewMenu->InsertCheckItem(i, idViewOpenFilesTree, _("&Open files list"), _("Toggle displaying the open files list"));
                 m_ViewPreserveChk = m_ViewMenu->InsertCheckItem(i + 2, idViewPreserveOpenEditors, _("&Preserve open editors"), _("Preserve open editors per target/project.\n"
-                                                                                                                                 "Only available the when the workspace is empty."));
+                                                                                                                                 "Only available when the workspace is empty."));
                 m_ViewPreserveChk->Check(m_PreserveOpenEditors);
                 m_ViewMenu->InsertSeparator(i + 3);
                 return;
@@ -197,8 +197,8 @@ void OpenFilesListPlugin::BuildMenu(wxMenuBar* menuBar)
         // not found, just append
         m_ViewMenu->AppendCheckItem(idViewOpenFilesTree, _("&Open files list"), _("Toggle displaying the open files list"));
         m_ViewMenu->AppendSeparator();
-        m_ViewPreserveChk = m_ViewMenu->AppendCheckItem(idViewPreserveOpenEditors, _("&Preserve open editors"), _("Preserve open editors per target/project\n"
-                                                                                                                  "Only available the when workspace is empty."));
+        m_ViewPreserveChk = m_ViewMenu->AppendCheckItem(idViewPreserveOpenEditors, _("&Preserve open editors"), _("Preserve open editors per target/project.\n"
+                                                                                                                  "Only available when the workspace is empty."));
         m_ViewPreserveChk->Check(m_PreserveOpenEditors);
         m_ViewMenu->AppendSeparator();
     }

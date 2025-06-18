@@ -4,7 +4,7 @@
  *
  * $Revision: 12537 $
  * $Id: envvars_prjoptdlg.cpp 12537 2021-10-24 22:27:25Z bluehazzard $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/envvars/envvars_prjoptdlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/envvars/envvars_prjoptdlg.cpp $
  */
 
 // ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----

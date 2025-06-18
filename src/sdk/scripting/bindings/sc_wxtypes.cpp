@@ -4,7 +4,7 @@
  *
  * $Revision: 13002 $
  * $Id: sc_wxtypes.cpp 13002 2022-11-08 07:06:34Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/scripting/bindings/sc_wxtypes.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/scripting/bindings/sc_wxtypes.cpp $
  */
 
 #include "sdk_precomp.h"

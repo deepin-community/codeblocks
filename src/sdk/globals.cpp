@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12999 $
- * $Id: globals.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/globals.cpp $
+ * $Revision: 13330 $
+ * $Id: globals.cpp 13330 2023-08-06 07:13:08Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/globals.cpp $
  */
 
 #include "sdk_precomp.h"
@@ -75,10 +75,10 @@ const wxString cbDEFAULT_OPEN_FOLDER_CMD = _T("xdg-open");
 
 int GetPlatformsFromString(const wxString& platforms)
 {
-    bool pW = platforms.Contains(_("Windows"));
-    bool pU = platforms.Contains(_("Unix"));
-    bool pM = platforms.Contains(_("Mac"));
-    bool pA = platforms.Contains(_("All"));
+    bool pW = platforms.Contains("Windows");
+    bool pU = platforms.Contains("Unix");
+    bool pM = platforms.Contains("Mac");
+    bool pA = platforms.Contains("All");
 
     if (pA || (pW && pU && pM))
         return spAll;
@@ -98,15 +98,15 @@ wxString GetStringFromPlatforms(int platforms, bool forceSeparate)
     {
         int tmpAll = spWindows | spUnix | spMac;
         if (((platforms & tmpAll) == tmpAll) || ((platforms & spAll) == spAll))
-            return _("All");
+            return "All";
     }
 
     if (platforms & spWindows)
-        ret << _("Windows;");
+        ret << "Windows;";
     if (platforms & spUnix)
-        ret << _("Unix;");
+        ret << "Unix;";
     if (platforms & spMac)
-        ret << _("Mac;");
+        ret << "Mac;";
     return ret;
 }
 
@@ -1030,6 +1030,7 @@ bool IsSuffixOfPath(wxFileName const & suffix, wxFileName const & path)
 bool cbResolveSymLinkedDirPath(wxString& dirpath)
 {
 #ifdef _WIN32
+    wxUnusedVar(dirpath);
     return false;
 #else
     if (dirpath.empty())
@@ -1163,7 +1164,7 @@ wxBitmap cbLoadBitmap(const wxString& filename, wxBitmapType bitmapType, wxFileS
 }
 
 #if wxCHECK_VERSION(3, 1, 6)
-wxBitmapBundle cbLoadBitmapBundle(const wxString& prefix, const wxString& filename, int minSize, wxBitmapType bitmapType, wxFileSystem* fs)
+wxBitmapBundle cbLoadBitmapBundle(const wxString& prefix, const wxString& filename, int minSize, wxBitmapType bitmapType, cb_unused wxFileSystem* fs)
 {
     static const int imageSize[] = {16, 20, 24, 28, 32, 40, 48, 56, 64};
 

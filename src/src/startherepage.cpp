@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12856 $
- * $Id: startherepage.cpp 12856 2022-07-28 14:24:06Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/startherepage.cpp $
+ * $Revision: 13293 $
+ * $Id: startherepage.cpp 13293 2023-05-30 15:53:23Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/startherepage.cpp $
  */
 
 #include <sdk.h>
@@ -35,8 +35,12 @@
 #include <wx/docview.h>
 #include <wx/wxhtml.h>
 
-const wxString g_StartHereTitle = _("Start here");
 int idWin = wxNewId();
+
+wxString GetStartHereTitle()
+{
+    return _("Start here");
+}
 
 class MyHtmlWin : public wxHtmlWindow
 {
@@ -84,8 +88,7 @@ void ReplaceRecentProjectFiles(wxString &buf, const wxFileHistory &projects, con
         for (size_t i = 0; i < projects.GetCount(); ++i)
         {
             links << "<tr><td width=\"50\"><img alt=\"\" width=\"20\" src=\"blank.png\" />";
-            links << wxString::Format("<a href=\"CB_CMD_DELETE_HISTORY_PROJECT_%lu\"><img alt=\"\" src=\"trash_16x16.png\" /></a>",
-                                      static_cast<unsigned long>(i + 1));
+            links << wxString::Format("<a href=\"CB_CMD_DELETE_HISTORY_PROJECT_%zu\"><img alt=\"\" src=\"trash_16x16.png\" /></a>", i + 1);
             links << "<img alt=\"\"  width=\"10\" src=\"blank.png\" /></td><td width=\"10\">";
             links << "<a href=\"CB_CMD_OPEN_HISTORY_PROJECT_" << (i + 1) << "\">"
                   << "<font color=\"" << linkColour << "\">" << projects.GetHistoryFile(i)
@@ -108,8 +111,7 @@ void ReplaceRecentProjectFiles(wxString &buf, const wxFileHistory &projects, con
         for (size_t i = 0; i < files.GetCount(); ++i)
         {
             links << "<tr><td width=\"50\"><img alt=\"\" width=\"20\" src=\"blank.png\" />";
-            links << wxString::Format("<a href=\"CB_CMD_DELETE_HISTORY_FILE_%lu\"><img alt=\"\" src=\"trash_16x16.png\" /></a>",
-                                      static_cast<unsigned long>(i + 1));
+            links << wxString::Format("<a href=\"CB_CMD_DELETE_HISTORY_FILE_%zu\"><img alt=\"\" src=\"trash_16x16.png\" /></a>", i + 1);
             links << "<img alt=\"\"  width=\"10\" src=\"blank.png\" /></td><td width=\"10\">";
             links << "<a href=\"CB_CMD_OPEN_HISTORY_FILE_" << (i + 1) << "\">"
                   << "<font color=\"" << linkColour << "\">" << files.GetHistoryFile(i) << "</font></a>";
@@ -148,7 +150,7 @@ void CopyToClipboard(const wxString& text)
 
 StartHerePage::StartHerePage(wxEvtHandler* owner, const RecentItemsList &projects,
                              const RecentItemsList &files, wxWindow* parent)
-    : EditorBase(parent, g_StartHereTitle, true),
+    : EditorBase(parent, GetStartHereTitle(), true),
     m_pOwner(owner),
     m_projects(projects),
     m_files(files)

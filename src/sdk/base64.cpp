@@ -4,7 +4,7 @@
  *
  * $Revision: 12578 $
  * $Id: base64.cpp 12578 2021-12-14 08:57:56Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/base64.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/base64.cpp $
  */
 
 //*********************************************************************
