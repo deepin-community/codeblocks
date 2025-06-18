@@ -2,13 +2,13 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 87 $
- * $Id: parsemanager.cpp 87 2022-10-31 17:58:56Z pecanh $
- * $HeadURL: https://svn.code.sf.net/p/cb-clangd-client/code/trunk/clangd_client/src/codecompletion/parsemanager.cpp $
+ * $Revision: 13644 $
+ * $Id: parsemanager.cpp 13644 2025-03-29 05:36:19Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/clangd_client/src/codecompletion/parsemanager.cpp $
  */
 
 #include <sdk.h>
-#include <time.h> //(ph 2021/04/16)
+#include <time.h>
 
 #ifndef CB_PRECOMP
     #include <cctype>
@@ -17,7 +17,7 @@
     #include <wx/log.h> // for wxSafeShowMessage()
     #include <wx/regex.h>
     #include <wx/wfstream.h>
-    #include <wx/window.h>  //(ph 2021/04/15)
+    #include <wx/window.h>
 
     #include <cbauibook.h>
     #include <cbeditor.h>
@@ -37,25 +37,39 @@
 #endif
 
 #include <wx/tokenzr.h>
-#include <wx/filefn.h>      //(ph 2021/04/16)
-#include <wx/datetime.h>    //(ph 2021/04/17)
+#include <wx/filefn.h>
+#include <wx/datetime.h>
 #include <wx/fs_zip.h>      // to unzip proxy project .cbp from resouce file
 #include <wx/zipstrm.h>
 #include <wx/wfstream.h>
+#include <wx/textfile.h>
+#include <wx/aui/aui.h>
 
 #include <cbstyledtextctrl.h>
 #include <compilercommandgenerator.h>
 #include <cbworkspace.h>
 
+#if defined(_WIN32)
+#include "winprocess/asyncprocess/procutils.h" // LSP
+#else
+#include "procutils.h"
+#endif //_Win32
+
+
 #include "parsemanager.h"
-#include "classbrowser.h"
+#include "parsemanager_base.h"
 #include "parser/parser.h"
-#include "parser/profiletimer.h"
-#include "IdleCallbackHandler.h"    //(ph 2021/09/25)//(ph 2022/02/14)
+
+#include "classbrowser.h"
+//#include "parser/profiletimer.h"
+#include "IdleCallbackHandler.h"
+#include "client.h"
+//#include "infowindow.h"
+
 
 
 #define CC_ParseManager_DEBUG_OUTPUT 0
-//#define CC_ParseManager_DEBUG_OUTPUT 1      //(ph 2021/05/1)
+//#define CC_ParseManager_DEBUG_OUTPUT 1
 
 #if defined (CC_GLOBAL_DEBUG_OUTPUT)
     #if CC_GLOBAL_DEBUG_OUTPUT == 1
@@ -96,7 +110,16 @@
  *     FindCurrentFunctionToken(), ResolveOperator()
  * FindCurrentFunctionStart() -> GetTokenFromCurrentLine
  */
-
+// ----------------------------------------------------------------------------
+namespace
+// ----------------------------------------------------------------------------
+{
+    //UpdateClassBrowser() re-entrant guard
+    bool n_UpdateClassBrowserBusy = false;  //UpdateClassBrowser is busy
+    bool n_IsSymbolsTabSelected = false;    // user activated Symbols tab status
+    int n_SymbolsPageIdx = -1;              // to become the Symbols tab notebook index
+    bool n_SkipNextSymbolsChangePageCall = false; //working around a wxAUI bug
+}
 // ----------------------------------------------------------------------------
 namespace ParseManagerHelper
 // ----------------------------------------------------------------------------
@@ -130,73 +153,81 @@ namespace ParseManagerHelper
         const wxString& m_ExcludeDir;
         wxArrayString&  m_Files;
     };
-}// namespace ParseManagerHelper
 
-//// /** event id for the sequence project parsing timer */
-//// int idTimerParsingOneByOne = wxNewId();
+    bool CreateParserGuardBusy = false;
+
+}// namespace ParseManagerHelper
 
 /** if this option is enabled, there will be many log messages when doing semantic match */
 bool s_DebugSmartSense = false;
 
-static void AddToImageList(wxImageList *list, const wxString &path)
+static void AddToImageList(wxImageList* list, const wxString& path, int size)
 {
-    wxBitmap bmp = cbLoadBitmap(path, wxBITMAP_TYPE_PNG);
+#if wxCHECK_VERSION(3, 1, 6)
+    wxBitmap bmp = cbLoadBitmapBundleFromSVG(path, wxSize(size, size)).GetBitmap(wxDefaultSize);
+#else
+    wxBitmap bmp = cbLoadBitmap(path);
+#endif
+
     if (!bmp.IsOk())
-    {
         printf("failed to load: %s\n", path.utf8_str().data());
-    }
+
     list->Add(bmp);
 }
 
 static wxImageList* LoadImageList(int size)
 {
-    wxImageList *list = new wxImageList(size, size);
-    wxBitmap bmp;
-    const wxString prefix = ConfigManager::GetDataFolder()
-                          + wxString::Format(_T("/clangd_client.zip#zip:images/%dx%d/"), size,
-                                             size);
+    wxImageList* list = new wxImageList(size, size);
+    wxString prefix(ConfigManager::GetDataFolder() + "/clangd_client.zip#zip:images/");
+#if wxCHECK_VERSION(3, 1, 6)
+    prefix << "svg/";
+    const wxString ext(".svg");
+#else
+    prefix << wxString::Format("%dx%d/", size, size);
+    const wxString ext(".png");
+#endif
 
     // Bitmaps must be added by order of PARSER_IMG_* consts.
-    AddToImageList(list, prefix + _T("class_folder.png")); // PARSER_IMG_CLASS_FOLDER
-    AddToImageList(list, prefix + _T("class.png")); // PARSER_IMG_CLASS
-    AddToImageList(list, prefix + _T("class_private.png")); // PARSER_IMG_CLASS_PRIVATE
-    AddToImageList(list, prefix + _T("class_protected.png")); // PARSER_IMG_CLASS_PROTECTED
-    AddToImageList(list, prefix + _T("class_public.png")); // PARSER_IMG_CLASS_PUBLIC
-    AddToImageList(list, prefix + _T("ctor_private.png")); // PARSER_IMG_CTOR_PRIVATE
-    AddToImageList(list, prefix + _T("ctor_protected.png")); // PARSER_IMG_CTOR_PROTECTED
-    AddToImageList(list, prefix + _T("ctor_public.png")); // PARSER_IMG_CTOR_PUBLIC
-    AddToImageList(list, prefix + _T("dtor_private.png")); // PARSER_IMG_DTOR_PRIVATE
-    AddToImageList(list, prefix + _T("dtor_protected.png")); // PARSER_IMG_DTOR_PROTECTED
-    AddToImageList(list, prefix + _T("dtor_public.png")); // PARSER_IMG_DTOR_PUBLIC
-    AddToImageList(list, prefix + _T("method_private.png")); // PARSER_IMG_FUNC_PRIVATE
-    AddToImageList(list, prefix + _T("method_protected.png")); // PARSER_IMG_FUNC_PRIVATE
-    AddToImageList(list, prefix + _T("method_public.png")); // PARSER_IMG_FUNC_PUBLIC
-    AddToImageList(list, prefix + _T("var_private.png")); // PARSER_IMG_VAR_PRIVATE
-    AddToImageList(list, prefix + _T("var_protected.png")); // PARSER_IMG_VAR_PROTECTED
-    AddToImageList(list, prefix + _T("var_public.png")); // PARSER_IMG_VAR_PUBLIC
-    AddToImageList(list, prefix + _T("macro_def.png")); // PARSER_IMG_MACRO_DEF
-    AddToImageList(list, prefix + _T("enum.png")); // PARSER_IMG_ENUM
-    AddToImageList(list, prefix + _T("enum_private.png")); // PARSER_IMG_ENUM_PRIVATE
-    AddToImageList(list, prefix + _T("enum_protected.png")); // PARSER_IMG_ENUM_PROTECTED
-    AddToImageList(list, prefix + _T("enum_public.png")); // PARSER_IMG_ENUM_PUBLIC
-    AddToImageList(list, prefix + _T("enumerator.png")); // PARSER_IMG_ENUMERATOR
-    AddToImageList(list, prefix + _T("namespace.png")); // PARSER_IMG_NAMESPACE
-    AddToImageList(list, prefix + _T("typedef.png")); // PARSER_IMG_TYPEDEF
-    AddToImageList(list, prefix + _T("typedef_private.png")); // PARSER_IMG_TYPEDEF_PRIVATE
-    AddToImageList(list, prefix + _T("typedef_protected.png")); // PARSER_IMG_TYPEDEF_PROTECTED
-    AddToImageList(list, prefix + _T("typedef_public.png")); // PARSER_IMG_TYPEDEF_PUBLIC
-    AddToImageList(list, prefix + _T("symbols_folder.png")); // PARSER_IMG_SYMBOLS_FOLDER
-    AddToImageList(list, prefix + _T("vars_folder.png")); // PARSER_IMG_VARS_FOLDER
-    AddToImageList(list, prefix + _T("funcs_folder.png")); // PARSER_IMG_FUNCS_FOLDER
-    AddToImageList(list, prefix + _T("enums_folder.png")); // PARSER_IMG_ENUMS_FOLDER
-    AddToImageList(list, prefix + _T("macro_def_folder.png")); // PARSER_IMG_MACRO_DEF_FOLDER
-    AddToImageList(list, prefix + _T("others_folder.png")); // PARSER_IMG_OTHERS_FOLDER
-    AddToImageList(list, prefix + _T("typedefs_folder.png")); // PARSER_IMG_TYPEDEF_FOLDER
-    AddToImageList(list, prefix + _T("macro_use.png")); // PARSER_IMG_MACRO_USE
-    AddToImageList(list, prefix + _T("macro_use_private.png")); // PARSER_IMG_MACRO_USE_PRIVATE
-    AddToImageList(list, prefix + _T("macro_use_protected.png")); // PARSER_IMG_MACRO_USE_PROTECTED
-    AddToImageList(list, prefix + _T("macro_use_public.png")); // PARSER_IMG_MACRO_USE_PUBLIC
-    AddToImageList(list, prefix + _T("macro_use_folder.png")); // PARSER_IMG_MACRO_USE_FOLDER
+    AddToImageList(list, prefix + "class_folder" + ext, size); // PARSER_IMG_CLASS_FOLDER
+    AddToImageList(list, prefix + "class" + ext, size); // PARSER_IMG_CLASS
+    AddToImageList(list, prefix + "class_private" + ext, size); // PARSER_IMG_CLASS_PRIVATE
+    AddToImageList(list, prefix + "class_protected" + ext, size); // PARSER_IMG_CLASS_PROTECTED
+    AddToImageList(list, prefix + "class_public" + ext, size); // PARSER_IMG_CLASS_PUBLIC
+    AddToImageList(list, prefix + "ctor_private" + ext, size); // PARSER_IMG_CTOR_PRIVATE
+    AddToImageList(list, prefix + "ctor_protected" + ext, size); // PARSER_IMG_CTOR_PROTECTED
+    AddToImageList(list, prefix + "ctor_public" + ext, size); // PARSER_IMG_CTOR_PUBLIC
+    AddToImageList(list, prefix + "dtor_private" + ext, size); // PARSER_IMG_DTOR_PRIVATE
+    AddToImageList(list, prefix + "dtor_protected" + ext, size); // PARSER_IMG_DTOR_PROTECTED
+    AddToImageList(list, prefix + "dtor_public" + ext, size); // PARSER_IMG_DTOR_PUBLIC
+    AddToImageList(list, prefix + "method_private" + ext, size); // PARSER_IMG_FUNC_PRIVATE
+    AddToImageList(list, prefix + "method_protected" + ext, size); // PARSER_IMG_FUNC_PRIVATE
+    AddToImageList(list, prefix + "method_public" + ext, size); // PARSER_IMG_FUNC_PUBLIC
+    AddToImageList(list, prefix + "var_private" + ext, size); // PARSER_IMG_VAR_PRIVATE
+    AddToImageList(list, prefix + "var_protected" + ext, size); // PARSER_IMG_VAR_PROTECTED
+    AddToImageList(list, prefix + "var_public" + ext, size); // PARSER_IMG_VAR_PUBLIC
+    AddToImageList(list, prefix + "macro_def" + ext, size); // PARSER_IMG_MACRO_DEF
+    AddToImageList(list, prefix + "enum" + ext, size); // PARSER_IMG_ENUM
+    AddToImageList(list, prefix + "enum_private" + ext, size); // PARSER_IMG_ENUM_PRIVATE
+    AddToImageList(list, prefix + "enum_protected" + ext, size); // PARSER_IMG_ENUM_PROTECTED
+    AddToImageList(list, prefix + "enum_public" + ext, size); // PARSER_IMG_ENUM_PUBLIC
+    AddToImageList(list, prefix + "enumerator" + ext, size); // PARSER_IMG_ENUMERATOR
+    AddToImageList(list, prefix + "namespace" + ext, size); // PARSER_IMG_NAMESPACE
+    AddToImageList(list, prefix + "typedef" + ext, size); // PARSER_IMG_TYPEDEF
+    AddToImageList(list, prefix + "typedef_private" + ext, size); // PARSER_IMG_TYPEDEF_PRIVATE
+    AddToImageList(list, prefix + "typedef_protected" + ext, size); // PARSER_IMG_TYPEDEF_PROTECTED
+    AddToImageList(list, prefix + "typedef_public" + ext, size); // PARSER_IMG_TYPEDEF_PUBLIC
+    AddToImageList(list, prefix + "symbols_folder" + ext, size); // PARSER_IMG_SYMBOLS_FOLDER
+    AddToImageList(list, prefix + "vars_folder" + ext, size); // PARSER_IMG_VARS_FOLDER
+    AddToImageList(list, prefix + "funcs_folder" + ext, size); // PARSER_IMG_FUNCS_FOLDER
+    AddToImageList(list, prefix + "enums_folder" + ext, size); // PARSER_IMG_ENUMS_FOLDER
+    AddToImageList(list, prefix + "macro_def_folder" + ext, size); // PARSER_IMG_MACRO_DEF_FOLDER
+    AddToImageList(list, prefix + "others_folder" + ext, size); // PARSER_IMG_OTHERS_FOLDER
+    AddToImageList(list, prefix + "typedefs_folder" + ext, size); // PARSER_IMG_TYPEDEF_FOLDER
+    AddToImageList(list, prefix + "macro_use" + ext, size); // PARSER_IMG_MACRO_USE
+    AddToImageList(list, prefix + "macro_use_private" + ext, size); // PARSER_IMG_MACRO_USE_PRIVATE
+    AddToImageList(list, prefix + "macro_use_protected" + ext, size); // PARSER_IMG_MACRO_USE_PROTECTED
+    AddToImageList(list, prefix + "macro_use_public" + ext, size); // PARSER_IMG_MACRO_USE_PUBLIC
+    AddToImageList(list, prefix + "macro_use_folder" + ext, size); // PARSER_IMG_MACRO_USE_FOLDER
 
     return list;
 }
@@ -204,11 +235,9 @@ static wxImageList* LoadImageList(int size)
 // ----------------------------------------------------------------------------
 ParseManager::ParseManager( LSPEventCallbackHandler* pLSPEventSinkHandler ) :
     // ----------------------------------------------------------------------------
-////    m_TimerParsingOneByOne(this, idTimerParsingOneByOne),
     m_ClassBrowser(nullptr),
     m_ClassBrowserIsFloating(false),
     m_ParserPerWorkspace(false),
-////    m_LastAISearchWasGlobal(false),
     m_LastControl(nullptr),
     m_LastFunctionIndex(-1),
     m_LastFuncTokenIdx(-1),
@@ -217,26 +246,32 @@ ParseManager::ParseManager( LSPEventCallbackHandler* pLSPEventSinkHandler ) :
 {
     // parser used when no project is loaded, holds options etc
     m_TempParser = new Parser(this, nullptr); // null pProject
-    m_Parser     = m_TempParser;
+    m_ActiveParser     = m_TempParser;
 
-    m_ParserPerWorkspace = false; //(ph 2021/08/26)
+    m_ParserPerWorkspace = false;
 
-    m_pLSPEventSinkHandler = pLSPEventSinkHandler; //(ph 2021/10/23)
+    m_pLSPEventSinkHandler = pLSPEventSinkHandler;
+
+    // allocate a global hidden editor used for temporary symbol management
+    // to avoid massive allocation of wxIDs
+    if (not m_pHiddenEditor.get())
+    {
+        m_pHiddenEditor.reset( new cbStyledTextCtrl(Manager::Get()->GetAppWindow(), XRCID("ParserHiddenEditor"), wxDefaultPosition, wxSize(0,0)));
+        GetHiddenEditor()->Show(false);
+        GetHiddenEditor()->UsePopUp(false);
+        GetHiddenEditor()->SetText("");
+    }
 }
 // ----------------------------------------------------------------------------
 ParseManager::~ParseManager()
 // ----------------------------------------------------------------------------
 {
-////    Disconnect(ParserCommon::idParserStart, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ParseManager::OnParserStart));
-////    Disconnect(ParserCommon::idParserEnd,   wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(ParseManager::OnParserEnd));
-////    Disconnect(idTimerParsingOneByOne,      wxEVT_TIMER,                 wxTimerEventHandler(ParseManager::OnParsingOneByOneTimer));
-
-    // clear any Idle time callbacks //(ph 2022/08/01)
+    // clear any Idle time callbacks
     ClearAllIdleCallbacks();
 
     RemoveClassBrowser();
     ClearParsers();
-    if (m_TempParser) //(ph 2022/04/13)
+    if (m_TempParser)
         Delete(m_TempParser);
 
     if (m_pProxyProject)
@@ -244,7 +279,19 @@ ParseManager::~ParseManager()
 
 }
 // ----------------------------------------------------------------------------
-ParserBase* ParseManager::GetParserByProject(cbProject* project)
+void ParseManager::ParserOptionsSave(Parser* pParser)
+// ----------------------------------------------------------------------------
+{
+    m_OptionsSaved = pParser->Options();
+}
+// ----------------------------------------------------------------------------
+void ParseManager::BrowserOptionsSave(Parser* pParser)
+// ----------------------------------------------------------------------------
+{
+    m_BrowserOptionsSaved = pParser->ClassBrowserOptions();
+}
+// ----------------------------------------------------------------------------
+Parser* ParseManager::GetParserByProject(cbProject* project)
 // ----------------------------------------------------------------------------
 {
     // Returns parser associated with project from either the
@@ -271,14 +318,14 @@ ParserBase* ParseManager::GetParserByProject(cbProject* project)
     return nullptr;
 }
 // ----------------------------------------------------------------------------
-ParserBase* ParseManager::GetParserByFilename(const wxString& filename)
+Parser* ParseManager::GetParserByFilename(const wxString& filename)
 // ----------------------------------------------------------------------------
 {
     cbProject* project = GetProjectByFilename(filename);
     return GetParserByProject(project);
 }
 // ----------------------------------------------------------------------------
-cbProject* ParseManager::GetProjectByParser(ParserBase* parser)
+cbProject* ParseManager::GetProjectByParser(Parser* parser)
 // ----------------------------------------------------------------------------
 {
     for (ParserList::const_iterator it = m_ParserList.begin(); it != m_ParserList.end(); ++it)
@@ -299,7 +346,7 @@ cbProject* ParseManager::GetProjectByFilename(const wxString& filename)
     if (activeProject)
     {
         // Get the parser for the active project
-        ParserBase* parser = GetParserByProject(activeProject);
+        Parser* parser = GetParserByProject(activeProject);
         //If (active parser parsed file) or (file belongs to active project) return active project
         if ( (parser && parser->IsFileParsed(filename)) //Why?
             || activeProject->GetFileByFilename(filename, false, true) )
@@ -356,7 +403,7 @@ bool ParseManager::Done()
     bool done = true;
     for (ParserList::const_iterator it = m_ParserList.begin(); it != m_ParserList.end(); ++it)
     {
-        if (!it->second->Done())
+        if (not it->second->Done())
         {
             done = false;
             break;
@@ -481,6 +528,107 @@ int ParseManager::GetTokenKindImage(const Token* token)
     }
 }
 // ----------------------------------------------------------------------------
+int ParseManager::GetTokenImageFromSemanticTokenType(Token* token)
+// ----------------------------------------------------------------------------
+{
+    if (!token)
+        return PARSER_IMG_NONE;
+
+    switch (token->m_TokenKind)
+    {
+        case tkMacroDef:          return PARSER_IMG_MACRO_DEF;
+
+        case tkEnum:
+            switch (token->m_Scope)
+            {
+                case tsPublic:    return PARSER_IMG_ENUM_PUBLIC;
+                case tsProtected: return PARSER_IMG_ENUM_PROTECTED;
+                case tsPrivate:   return PARSER_IMG_ENUM_PRIVATE;
+                case tsUndefined:
+                default:          return PARSER_IMG_ENUM;
+            }
+
+        case tkEnumerator:        return PARSER_IMG_ENUMERATOR;
+
+        case tkClass:
+            switch (token->m_Scope)
+            {
+                case tsPublic:    return PARSER_IMG_CLASS_PUBLIC;
+                case tsProtected: return PARSER_IMG_CLASS_PROTECTED;
+                case tsPrivate:   return PARSER_IMG_CLASS_PRIVATE;
+                case tsUndefined:
+                default:          return PARSER_IMG_CLASS;
+            }
+
+        case tkNamespace:         return PARSER_IMG_NAMESPACE;
+
+        case tkTypedef:
+            switch (token->m_Scope)
+            {
+                case tsPublic:    return PARSER_IMG_TYPEDEF_PUBLIC;
+                case tsProtected: return PARSER_IMG_TYPEDEF_PROTECTED;
+                case tsPrivate:   return PARSER_IMG_TYPEDEF_PRIVATE;
+                case tsUndefined:
+                default:          return PARSER_IMG_TYPEDEF;
+            }
+
+        case tkMacroUse:
+            switch (token->m_Scope)
+            {
+                case tsPublic:    return PARSER_IMG_MACRO_USE_PUBLIC;
+                case tsProtected: return PARSER_IMG_MACRO_USE_PROTECTED;
+                case tsPrivate:   return PARSER_IMG_MACRO_USE_PRIVATE;
+                case tsUndefined:
+                default:          return PARSER_IMG_MACRO_USE;
+            }
+
+        case tkConstructor:
+            switch (token->m_Scope)
+            {
+                case tsProtected: return PARSER_IMG_CTOR_PROTECTED;
+                case tsPrivate:   return PARSER_IMG_CTOR_PRIVATE;
+                case tsUndefined:
+                case tsPublic:
+                default:          return PARSER_IMG_CTOR_PUBLIC;
+            }
+
+        case tkDestructor:
+            switch (token->m_Scope)
+            {
+                case tsProtected: return PARSER_IMG_DTOR_PROTECTED;
+                case tsPrivate:   return PARSER_IMG_DTOR_PRIVATE;
+                case tsUndefined:
+                case tsPublic:
+                default:          return PARSER_IMG_DTOR_PUBLIC;
+            }
+
+        case tkFunction:
+            switch (token->m_Scope)
+            {
+                case tsProtected: return PARSER_IMG_FUNC_PROTECTED;
+                case tsPrivate:   return PARSER_IMG_FUNC_PRIVATE;
+                case tsUndefined:
+                case tsPublic:
+                default:          return PARSER_IMG_FUNC_PUBLIC;
+            }
+
+        case tkVariable:
+            switch (token->m_Scope)
+            {
+                case tsProtected: return PARSER_IMG_VAR_PROTECTED;
+                case tsPrivate:   return PARSER_IMG_VAR_PRIVATE;
+                case tsUndefined:
+                case tsPublic:
+                default:          return PARSER_IMG_VAR_PUBLIC;
+            }
+
+        case tkAnyContainer:
+        case tkAnyFunction:
+        case tkUndefined:
+        default:                  return PARSER_IMG_NONE;
+    }
+}
+// ----------------------------------------------------------------------------
 wxArrayString ParseManager::GetAllPathsByFilename(const wxString& filename)
 // ----------------------------------------------------------------------------
 {
@@ -505,7 +653,7 @@ wxArrayString ParseManager::GetAllPathsByFilename(const wxString& filename)
     if (files.GetCount() == 1)
     {
         cbProject* project = IsParserPerWorkspace() ? GetActiveEditorProject()
-                                                    : GetProjectByParser(m_Parser);
+                                                    : GetProjectByParser(m_ActiveParser);
         // search in the project
         if (project)
         {
@@ -573,7 +721,7 @@ void ParseManager::AddPaths(wxArrayString& dirs, const wxString& path, bool hasE
         dirs.Add(s);
 }
 // ----------------------------------------------------------------------------
-wxString ParseManager::GetHeaderForSourceFile(cbProject* pProject, wxString& filename)  //(ph 2021/05/19)
+wxString ParseManager::GetHeaderForSourceFile(cbProject* pProject, wxString& filename)
 // ----------------------------------------------------------------------------
 {
     // find the matching header file to this source file
@@ -583,8 +731,8 @@ wxString ParseManager::GetHeaderForSourceFile(cbProject* pProject, wxString& fil
     for (FilesList::const_iterator flist_it = pProject->GetFilesList().begin(); flist_it != pProject->GetFilesList().end(); ++flist_it)
     {
         ProjectFile* pf = *flist_it;
-        if ( (ParserCommon::FileType(pf->relativeFilename) == ParserCommon::ftSource) //look for hdrs only
-            or (FileTypeOf(pf->relativeFilename) == ftTemplateSource) )
+        if ( pf and ((ParserCommon::FileType(pf->relativeFilename) == ParserCommon::ftSource) //look for hdrs only  //(ticket #1496 check pf 2024/08/7)
+            or (FileTypeOf(pf->relativeFilename) == ftTemplateSource)) )
             continue;
         if ( pf and (pf->file.GetName() == fnFilename.GetName()) )
         {
@@ -597,14 +745,14 @@ wxString ParseManager::GetHeaderForSourceFile(cbProject* pProject, wxString& fil
     return wxString();
 }
 // ----------------------------------------------------------------------------
-wxString ParseManager::GetSourceForHeaderFile(cbProject* pProject, wxString& filename)   //(ph 2021/05/19)
+wxString ParseManager::GetSourceForHeaderFile(cbProject* pProject, wxString& filename)
 // ----------------------------------------------------------------------------
 {
     // find the matching source file to this header file
     //-ProjectFile* pProjectFile = pProject->GetFileByFilename(filename, false);
     wxFileName fnFilename(filename);
-    //-if (FileTypeOf(filename) == ftSource) return wxString(); //already a source file //(ph 2022/06/01)-
-    if (ParserCommon::FileType(filename) == ParserCommon::ftSource) return wxString(); //already a source file //(ph 2022/06/1)-
+    //-if (FileTypeOf(filename) == ftSource) return wxString(); //already a source file
+    if (ParserCommon::FileType(filename) == ParserCommon::ftSource) return wxString(); //already a source file -
     for (FilesList::const_iterator flist_it = pProject->GetFilesList().begin(); flist_it != pProject->GetFilesList().end(); ++flist_it)
     {
         ProjectFile* pf = *flist_it;
@@ -616,7 +764,7 @@ wxString ParseManager::GetSourceForHeaderFile(cbProject* pProject, wxString& fil
     return wxString();
 }
 // ----------------------------------------------------------------------------
-wxString ParseManager::GetSourceOrHeaderForFile(cbProject* pProject, wxString& filename)    //(ph 2021/05/19)
+wxString ParseManager::GetSourceOrHeaderForFile(cbProject* pProject, wxString& filename)
 // ----------------------------------------------------------------------------
 {
     if (ParserCommon::FileType(filename) == ParserCommon::ftHeader)
@@ -626,7 +774,7 @@ wxString ParseManager::GetSourceOrHeaderForFile(cbProject* pProject, wxString& f
     return wxString();
 }
 // ----------------------------------------------------------------------------
-ParserBase* ParseManager::CreateParser(cbProject* project, bool useSavedOptions)    //(ph 2021/05/25)
+Parser* ParseManager::CreateParser(cbProject* project, bool useSavedOptions)
 // ----------------------------------------------------------------------------
 {
     if ( GetParserByProject(project) )
@@ -635,17 +783,33 @@ ParserBase* ParseManager::CreateParser(cbProject* project, bool useSavedOptions)
         return nullptr;
     }
 
+    // Guarantee that we're not waiting on a Global Variable Editor dialog.
+    // which may have been invoked by a previous call to DoFullParsing() below.
+    // This happens (sometimes) when the dialog Help button returns; CB is refocused and the idle loop activates.
+    // This can cause OnEditorActivated (the parent of the dlg) to be re-invoked and end up here again.
+    // (the Global Variable Editor dlg is rooted from OnUpdateUI() which is re-invoked from the idle loop).
+    // This could be a wxWidgets error. It seems correct that the dlg should be re-focused/re-activated,
+    // but the parent cbEditor should not be.
+    if (ParseManagerHelper::CreateParserGuardBusy)
+        return nullptr;
+    // Set this function busy, and clear it on any return stmt.
+    struct CreateParserGuard_t
+    {
+        CreateParserGuard_t() {ParseManagerHelper::CreateParserGuardBusy = true;}
+        ~CreateParserGuard_t() {ParseManagerHelper::CreateParserGuardBusy = false;}
+    } CreateParserGuard;
+
     // Easy case for "one parser per workspace" that has already been created:
-    // m_ParserPerWorkspace always false for clangd
+    // Note: m_ParserPerWorkspace always false for clangd
     if (m_ParserPerWorkspace && (not m_ParsedProjects.empty()) )
         return m_ParserList.begin()->second;
 
     TRACE(_T("ParseManager::CreateParser: Calling DoFullParsing()"));
 
-    ParserBase* parser = new Parser(this, project); //read options, connect events, & stages files to parse
+    Parser* parser = new Parser(this, project); //read options, connect events, & stages files to parse
 
-    // if using previous parser options get and set them into this parser   //(ph 2021/05/25)
-    if (useSavedOptions)            //(ph 2021/05/25)
+    // if using previous parser options get and set them into this parser
+    if (useSavedOptions)
     {
         parser->Options() = GetSavedOptions();
         parser->ClassBrowserOptions() =  GetSavedBrowserOptions();
@@ -659,9 +823,9 @@ ParserBase* ParseManager::CreateParser(cbProject* project, bool useSavedOptions)
 
     // If current parser is the temp or proxy parser activate the new parser
     Parser* pProxyParser = (Parser*)GetParserByProject(GetProxyProject());
-    if ( m_Parser == m_TempParser)
+    if ( m_ActiveParser == m_TempParser)
         SetParser(parser); // Also updates class browser
-    else if (m_Parser == pProxyParser)
+    else if (m_ActiveParser == pProxyParser)
         SetParser(parser); // Also updates class browser
 
     if (m_ParserPerWorkspace) //always false for clangd
@@ -673,8 +837,6 @@ ParserBase* ParseManager::CreateParser(cbProject* project, bool useSavedOptions)
     wxString log(wxString::Format(_("ParseManager::CreateParser: Finished creating a new parser for project '%s'"), prj.wx_str()));
     //-CCLogger::Get()->Log(log);
     CCLogger::Get()->DebugLog(log);
-
-////    RemoveObsoleteParsers();
 
     return parser;
 }
@@ -710,46 +872,386 @@ bool ParseManager::DeleteParser(cbProject* project)
         // The logic here is : firstly delete the parser instance, then see whether we need an
         // active parser switch (call SetParser())
         //ollydbg crash fix 2022/10/28 Reply#230 https://forums.codeblocks.org/index.php/topic,24357.msg171551.html#msg171551
-        ParserBase* pDeletedParser = parserList_it->second;
+        Parser* pDeletedParser = parserList_it->second;
         delete parserList_it->second;      // delete the instance first, then remove from the list
         m_ParserList.erase(parserList_it); // remove deleted parser from parser list
 
-        // if the active parser is deleted, set the active parser to nullptr
-        if (pDeletedParser == m_Parser)
+        // if the active parser is deleted, set the active parser to m_TempParser
+        if (pDeletedParser == m_ActiveParser)
         {
-            m_Parser = nullptr;
-            SetParser(m_TempParser); // Also updates class browser; do not use SetParser(m_TempParser) //(ph 2022/06/6)-
+            // Remember the closing parser //(svn 13612 bkport)
+            SetClosingParser(m_ActiveParser);
+            m_ActiveParser = nullptr;
+            SetParser(m_TempParser); // Also updates class browser;
+            cbAssertNonFatal(m_ActiveParser && "SetParser() failed to set valid ptr");
+            if (not m_ActiveParser) m_ActiveParser =  m_TempParser;
         }
 
         return true;
     }
 
-////    if (removeProjectFromParser)
-////        return true;
-
     CCLogger::Get()->DebugLog(_T("ParseManager::DeleteParser: Deleting parser failed!"));
     return false;
 }
-////// ----------------------------------------------------------------------------
-////bool ParseManager::ReparseFile(cbProject* project, const wxString& filename)
-////// ----------------------------------------------------------------------------
-////{
-////    if (ParserCommon::FileType(filename) == ParserCommon::ftOther)
-////        return false;
-////
-////    ParserBase* parser = GetParserByProject(project);
-////    if (!parser)
-////        return false;
-////
-////    if (!parser->UpdateParsingProject(project))
-////        return false;
-////
-////    TRACE(_T("ParseManager::ReparseFile: Calling Parser::Reparse()"));
-////
-////    return parser->Reparse(filename);
-////}
 // ----------------------------------------------------------------------------
-bool ParseManager::AddFileToParser(cbProject* project, const wxString& filename, ParserBase* parser)
+ProcessLanguageClient* ParseManager::CreateNewLanguageServiceProcess(cbProject* pcbProject, int LSPeventID)
+// ----------------------------------------------------------------------------
+{
+    #if defined(cbDEBUG)
+    cbAssertNonFatal(pcbProject && "CreateNewLanguageServiceProcess requires a project");
+    #endif
+    if (not pcbProject) return nullptr;
+
+    LogManager* pLogMgr = Manager::Get()->GetLogManager();
+
+    // Don't allow a second process to write to the current clangd symbol caches
+    if (not DoLockClangd_CacheAccess(pcbProject) )
+    {
+        // FIXME (ph#): Is this caused by a crashed debugging session?
+        if (pcbProject != GetProxyProject()) //ok if ~ProxyProject~
+        {
+            wxString msg = wxString::Format("%s failed to Lock access to Clangd cache for %s", __FUNCTION__, pcbProject->GetTitle());
+            msg << "\n\tAllocation of Clangd_client will fail.";
+            pLogMgr->LogError(msg);
+            pLogMgr->DebugLogError(msg);
+            return nullptr;
+        }
+    }
+
+    ProcessLanguageClient* pLSPclient = nullptr;
+    if (m_LSP_Clients.count(pcbProject) and GetLSPclient(pcbProject))
+        pLSPclient = m_LSP_Clients[pcbProject];
+    else
+    {
+        pLSPclient = new ProcessLanguageClient(pcbProject);
+        if (pLSPclient and  pLSPclient->GetLSP_Server_PID() )
+            CCLogger::Get()->DebugLog("LSP: Started new LSP client/server for "
+                              + pcbProject->GetFilename() + " @("
+                              + pLSPclient->LSP_GetTimeHMSM() + ")"
+                             );
+    }
+    if ( (not pLSPclient) or (not pLSPclient->GetLSP_Server_PID()) )
+    {
+        if (pLSPclient)
+            delete pLSPclient;
+        pLSPclient = nullptr;
+        DoUnlockClangd_CacheAccess(pcbProject);
+    }
+    else
+    {
+        m_LSP_Clients[pcbProject] = pLSPclient;
+        pLSPclient->SetCBProject(pcbProject);
+        pLSPclient->SetLSP_UserEventID(LSPeventID);
+
+        wxFileName cbpName(pcbProject->GetFilename());
+        wxString rootURI = cbpName.GetPath();
+
+        Parser* pParser = GetParserByProject(pcbProject);
+        if (not pParser)
+        {
+            wxString msg("CreateNewLanguageServiceProcess() CC pParser is null.");
+            cbMessageBox(msg, "Error");
+        }
+        if (pParser)
+        {
+            pParser->SetLSP_Client(pLSPclient);
+            pLSPclient->SetParser( pParser);
+        }
+
+        pLSPclient->LSP_Initialize(pcbProject);
+    }
+
+    return pLSPclient;
+}//end CreateNewLanguageServiceProcess()
+// ----------------------------------------------------------------------
+void ParseManager::CloseAllClients()
+// ----------------------------------------------------------------------
+{
+    // From OnRelease() processing
+    // ----------------------------------------------------------------
+    // m_LSP_Clients contains map [pProject, pLSP_Client]
+    if (m_LSP_Clients.size())    // shutdown LSP servers
+    {
+        for (auto const& client : m_LSP_Clients)
+        {
+            //key: pProject; value: pProcessLanguageClient;
+            if (client.second)
+            {
+                client.second->LSP_Shutdown();
+                if (client.second)
+                    delete client.second; //delete the LSP client
+                m_LSP_Clients[client.first] = nullptr; //set [pProject,nullptr]
+            }
+        }
+    }//endif any LSP_Clients
+}
+// ----------------------------------------------------------------
+ProcessLanguageClient* ParseManager::GetLSPclient(cbProject* pProject)
+// ----------------------------------------------------------------
+{
+    ProcessLanguageClient* pClient =  nullptr;
+    LogManager* pLogMgr = Manager::Get()->GetLogManager();
+
+    if (not pProject)
+    {
+       pLogMgr->DebugLog(wxString(__FUNCTION__) + ": param pProject is missing");
+        return nullptr;
+    }
+    wxString projectTitle = pProject->GetTitle();
+
+    if (m_LSP_Clients.count(pProject))
+        pClient =  m_LSP_Clients[pProject];
+
+    if (not pClient)
+    {
+        #if defined(ccDEBUG)
+        pLogMgr->DebugLog(wxString(__FUNCTION__) + ": No associated pClient in m_LSP_Clients[pProject] " << projectTitle);
+        #endif
+        return nullptr;
+    }
+
+    if (pClient and pClient->GetLSP_Initialized(pProject))
+        return pClient;
+
+    #if defined(ccDEBUG)
+    wxString clientPtr = wxString::Format("%p", pClient);
+    pLogMgr->DebugLog(wxString(__FUNCTION__) + ": pClient is not yet initialized. " + clientPtr);
+    #endif
+
+    return nullptr;
+}
+// ---------------------------------------------------------
+ProcessLanguageClient* ParseManager::GetLSPclient(cbEditor* pEd)
+// ---------------------------------------------------------
+{
+    // Return client ptr or nullptr
+
+    if (not pEd) return nullptr;
+    ProjectFile* pProjectFile = pEd->GetProjectFile();
+    if (not pProjectFile)
+        return nullptr;
+    cbProject* pEdProject = pProjectFile->GetParentProject();
+    if (not pEdProject) return nullptr;
+    if (GetLSPclient(pEdProject))
+        return GetLSPclient(pEdProject);
+    return nullptr;
+}
+// ----------------------------------------------------------------------------
+cbProject* ParseManager::GetProjectByClientAndFilename(ProcessLanguageClient* pClient, wxString& filename)
+// ----------------------------------------------------------------------------
+{
+    // Find the project that owns this file
+    cbProject* pProject = nullptr;
+
+    LSPClientsMapType::iterator it = m_LSP_Clients.begin();
+    while (it != m_LSP_Clients.end())
+    {
+        cbProject* pMapProject = it->first;
+        ProcessLanguageClient* pMapClient = it->second;
+        if (pMapClient == pClient)
+        {
+            pProject = pMapProject;
+            // if no filename, ignore the proxy project and get active project
+            if (filename.empty() and (pProject->GetTitle() == "~ProxyProject~"))
+                {it++; continue;}
+            // Keep looking if the filename not contained by this project
+            if ( filename.Length() and (pProject != GetProjectByFilename(filename)))
+                { it++; continue;}
+            break;
+        }
+        it++;
+    }
+    return pProject;
+}
+
+// ----------------------------------------------------------------------------
+bool ParseManager::DoLockClangd_CacheAccess(cbProject* pcbProject)
+// ----------------------------------------------------------------------------
+{
+    // Multiple processes must not write to the Clangd cashe else crashes happen
+    // from bad cache indexes or asserts.
+
+    // Create a cache lock file containing the pid and windows label of the first
+    // process to use the Clangd-cache file.
+    // On subsequent attempts to use the cache, verify that it's the same process that
+    // first opened the Clangd-cache.
+
+    // Entries in the lock file look like lines of:
+    //   OwningCodeBlocksPID;PathToOwningEXEfile;PathToProjectCBPfile
+
+    bool success = false;
+    if (not pcbProject) return success = false; // make success false and return it
+    //Do not add an entry for the ~ProxyProject~
+    if (pcbProject == GetProxyProject())
+        return false;
+
+    wxFileName fnCBPfile = pcbProject->GetFilename();
+    wxString cbpDirectory = fnCBPfile.GetPath();
+
+    // if no .cache dir, create one
+    wxString Clangd_cacheDir = cbpDirectory + "/.cache";
+    success = wxDirExists(Clangd_cacheDir);
+    if (not success )
+        success = wxFileName::Mkdir(Clangd_cacheDir);
+    if (not success) return success = false; // make success false and return it
+
+    wxString lockFilename = Clangd_cacheDir + "/Clangd-cache.lock";
+    if (platform::windows) lockFilename.Replace("/", "\\");
+    // Get this process PID
+
+    long ourPid = wxGetProcessId();
+    wxString ourPidStr = std::to_string(ourPid);
+    // Get this process exec path
+    wxString newExePath =  ProcUtils::GetProcessNameByPid(ourPid);
+    wxString lockEntry;
+    lockEntry << ourPidStr << ";" << newExePath << ";" << fnCBPfile.GetFullPath();
+
+   wxTextFile lockFile(lockFilename);
+
+    if (not wxFileExists(lockFilename) )
+    {
+        lockFile.Create();
+        lockFile.AddLine(lockEntry);
+        lockFile.Write();
+        lockFile.Close();
+        return success = true; //make success true and return it
+    }
+    // lock file already exists. Check if it's ours or another process owns it
+    bool opened = lockFile.Open();
+    if (not opened) return success = false; //lock file in use // make success false and return it
+
+    long     lineItemPid = 0;
+    wxString lineItemCBP = wxString();
+    wxString lineItemExe = wxString();
+    // If lockfile contains pid with this .cbp file, we own clangd cache
+    for (size_t ii=0; ii<lockFile.GetLineCount(); ++ii)
+    {
+        wxString lineItem = lockFile.GetLine(ii);
+        lineItem.BeforeFirst(';').ToLong(&lineItemPid);
+        lineItemCBP = lineItem.AfterLast(';').Lower();
+        lineItemExe = lineItem.AfterFirst(';').BeforeLast(';').Lower();
+        if ( (lineItemPid == ourPid) and (lineItemCBP == fnCBPfile.GetFullPath().Lower()) )
+        {   // Our pid already owns this cbp file
+            lockFile.Close();
+            return true;
+        }
+        if (lineItemCBP == fnCBPfile.GetFullPath().Lower() )
+            break; //This is the .cbp we're looking for
+    }
+
+    // If lockFile owning pid not our pid; is the lockFile owning pid still running ?
+    if ( (lineItemCBP == fnCBPfile.GetFullPath().Lower()) and  (lineItemPid != ourPid) )
+    {
+        long owningPid = lineItemPid;
+        wxString owningPidProcessName = ProcUtils::GetProcessNameByPid(owningPid);
+
+        // if pidProcessName not empty, owningPid is running
+        if (owningPidProcessName.Length()) switch(1)
+        {
+            default: //owning pid is alive, but is it CodeBlocks
+            // The owning pid is running but is it a reused pid? (not codeblocks)
+            // if the running pid process name is different from lockFile pid process name
+            // it's a reused pid. Probably from a system reboot or previous "stop debugger" command.
+            wxFileName fnLineItemExeName = lineItemExe;
+            wxFileName fnOwningExeProcessName  = owningPidProcessName;
+
+            // Is it CodeBlocks executable
+            if (fnOwningExeProcessName.GetPath().Lower() == fnLineItemExeName.GetPath().Lower())
+            {
+                // same dir, same project, different alive pid
+                // A running pid is using the old stale lockFile pid, and it's running CodeBlocks
+
+                // Summary:
+                // These's already a running process that's using the cache and it's running codeblocks.
+                // And THIS process is trying to access the same cache that the running process owns.
+                // If it walks, quacks, and looks like a duck ...
+                wxString deniedMsg = wxString::Format( _(
+                                   "Process: %s Pid(%d)\nis denied access to:\n%s"
+                                   "\nbeing used by\n"
+                                   "process: %s Pid(%d)"),
+                                    fnCBPfile.GetFullPath(), int(ourPid),
+                                    Clangd_cacheDir,
+                                    owningPidProcessName, int(owningPid)
+                                   );
+                deniedMsg += _("\n\nTo debug without this problem, debug a clone of the project directory.");
+                deniedMsg += _("\nDelete the .cache directory and the compile_commands.json file from the clone");
+                deniedMsg += _("\nbecause they contain references to the original files.");
+                cbMessageBox(deniedMsg);
+                lockFile.Close();
+                return success = false; // make success false and return it
+            }//endif execs match
+        }//endif switch
+    }//owningPid not out pid
+
+    // old owning pid no longer exists; Set this process as new owning pid
+    lockFile.AddLine(lockEntry);
+    lockFile.Write();
+    lockFile.Close();
+    return success = true; //make success true and return it
+
+    // unused original codeCompletion code --> return success = false;
+}
+// ----------------------------------------------------------------------------
+bool ParseManager::DoUnlockClangd_CacheAccess(cbProject* pcbProject)
+// ----------------------------------------------------------------------------
+{
+    // Multiple processes must not write to the Clangd cache else crashes/asserts
+    // happen from bad cache indexes.
+
+   // Call this function to remove the cache Access lock
+
+    bool success = false;
+    if (not pcbProject) return success = false; // make success false and return it
+
+    wxFileName fnCBPfile = pcbProject->GetFilename();
+    wxString cbpDirectory = fnCBPfile.GetPath();
+
+    // if no .Clangd-cache dir, just return
+    wxString Clangd_cacheDir = cbpDirectory + "/.cache";
+    success = wxDirExists(Clangd_cacheDir);
+    if (not success) return success = false; // make success false and return it
+
+    //avoid file not found error when closing nultiple .cbp in workspace
+    wxLogNull noLog;
+
+    wxString lockFilename = Clangd_cacheDir + "/Clangd-cache.lock";
+    if (platform::windows) lockFilename.Replace("/", "\\");
+
+    wxTextFile lockFile(lockFilename);
+    bool opened = lockFile.Open();
+    if (not opened) return success = false; //lock file in use // make success false and return it
+
+    long     lineItemPid = 0;
+    wxString lineItemCBP = wxString();
+    wxString lineItemExe = wxString();
+    success = false;
+    for (size_t ii=lockFile.GetLineCount(); ii-- >0; ) //loop from last line to first
+    {
+        wxString lineItem = lockFile.GetLine(ii);
+        lineItem.BeforeFirst(';').ToLong(&lineItemPid);
+        lineItemCBP = lineItem.AfterLast(';').Lower();
+        lineItemExe = lineItem.AfterFirst(';').BeforeLast(';').Lower();
+        // if pid is not alive, remove the lineItem
+        wxString pidProcessName = ProcUtils::GetProcessNameByPid(lineItemPid);
+        if (pidProcessName.empty() )
+        {
+            lockFile.RemoveLine(ii);
+            continue;
+        }
+        if (lineItemCBP == fnCBPfile.GetFullPath().Lower() )
+        {
+            lockFile.RemoveLine(ii);
+            success = true;
+        }
+    }//endFor
+    lockFile.Write();
+    if (lockFile.GetLineCount() == 0)
+        wxRemoveFile(lockFilename);
+
+    return success;
+}
+// ----------------------------------------------------------------------------
+bool ParseManager::AddFileToParser(cbProject* project, const wxString& filename, Parser* parser)
 // ----------------------------------------------------------------------------
 {
     if (ParserCommon::FileType(filename) == ParserCommon::ftOther)
@@ -774,7 +1276,7 @@ bool ParseManager::AddFileToParser(cbProject* project, const wxString& filename,
 void ParseManager::RemoveFileFromParser(cbProject* project, const wxString& filename)
 // ----------------------------------------------------------------------------
 {
-    ParserBase* parser = GetParserByProject(project);
+    Parser* parser = GetParserByProject(project);
     if (!parser)
         return ;
 
@@ -789,15 +1291,18 @@ void ParseManager::RemoveFileFromParser(cbProject* project, const wxString& file
 void ParseManager::RereadParserOptions()
 // ----------------------------------------------------------------------------
 {
-    ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("clangd_client"));
-    bool useSymbolBrowser = cfg->ReadBool(_T("/use_symbols_browser"), true);
+    ConfigManager* cfg = Manager::Get()->GetConfigManager("clangd_client");
+    bool useSymbolBrowser = cfg->ReadBool(_T("/use_symbols_browser"), false);
 
     if (useSymbolBrowser)
     {
         if (!m_ClassBrowser)
         {
             CreateClassBrowser();
-            UpdateClassBrowser();
+            //-UpdateClassBrowser();
+            s_ClassBrowserCaller = wxString::Format("%s:%d",__FUNCTION__, __LINE__);
+            m_ClassBrowser->UpdateClassBrowserView();
+
         }
         // change class-browser docking settings
         else if (m_ClassBrowserIsFloating != cfg->ReadBool(_T("/as_floating_window"), false))
@@ -805,55 +1310,26 @@ void ParseManager::RereadParserOptions()
             RemoveClassBrowser();
             CreateClassBrowser();
             // force re-update
-            UpdateClassBrowser();
+            //-UpdateClassBrowser();
+            s_ClassBrowserCaller = wxString::Format("%s:%d",__FUNCTION__, __LINE__);
+            m_ClassBrowser->UpdateClassBrowserView();
         }
     }
     else if (!useSymbolBrowser && m_ClassBrowser)
         RemoveClassBrowser();
 
-    //-const bool parserPerWorkspace = cfg->ReadBool(_T("/parser_per_workspace"), false);
-    const bool parserPerWorkspace = false;//(ph 2021/08/26)
-    if (m_Parser == m_TempParser)
-    {
-        m_ParserPerWorkspace = parserPerWorkspace; //always false for clangd
-        return;
-    }
-
-////    RemoveObsoleteParsers();
-
-    // re-parse if settings changed
-    ParserOptions opts = m_Parser->Options();
-    m_Parser->ReadOptions();
-    bool reparse = false;
-    cbProject* project = GetActiveEditorProject();
-    if (   opts.followLocalIncludes  != m_Parser->Options().followLocalIncludes
-        || opts.followGlobalIncludes != m_Parser->Options().followGlobalIncludes
-        || opts.wantPreprocessor     != m_Parser->Options().wantPreprocessor
-        || opts.parseComplexMacros   != m_Parser->Options().parseComplexMacros
-        || opts.logClangdClientCheck != m_Parser->Options().logClangdClientCheck
-        || opts.logClangdServerCheck != m_Parser->Options().logClangdServerCheck
-        || opts.logPluginInfoCheck   != m_Parser->Options().logPluginInfoCheck
-        || opts.logPluginDebugCheck  != m_Parser->Options().logPluginDebugCheck
-        || opts.LLVM_MasterPath      != m_Parser->Options().LLVM_MasterPath //(ph 2021/11/7)
-        || m_ParserPerWorkspace      != parserPerWorkspace ) //always false for clangd
-    {
-        // important options changed... flag for reparsing
-        if (cbMessageBox(_("You changed some class parser options. Do you want to "
-                           "reparse your projects now, using the new options?"),
-                         _("Reparse?"), wxYES_NO | wxICON_QUESTION) == wxID_YES)
-        {
-            reparse = true;
-        }
-    }
-
-    if (reparse)
-        ClearParsers();
-
-    //-m_ParserPerWorkspace = parserPerWorkspace; //always false for clangd
+    // re-read the .conf options
+    ParserOptions opts = m_ActiveParser->Options();
+    dynamic_cast<ParserBase*>(m_ActiveParser)->ReadOptions();
     m_ParserPerWorkspace = false;
-
-    if (reparse)
-        CreateParser(project);
+}
+// ----------------------------------------------------------------------------
+bool ParseManager::IsClassBrowserEnabled()
+// ----------------------------------------------------------------------------
+{
+    ConfigManager* cfg = Manager::Get()->GetConfigManager("clangd_client");
+    bool useSymbolBrowser = cfg->ReadBool(_T("/use_symbols_browser"), false);
+    return useSymbolBrowser;
 }
 // ----------------------------------------------------------------------------
 void ParseManager::ReparseCurrentProject()
@@ -866,9 +1342,9 @@ void ParseManager::ReparseCurrentProject()
     {
         TRACE(_T("ParseManager::ReparseCurrentProject: Calling DeleteParser() and CreateParser()"));
 
-        // Save the current parser options //(ph 2021/05/25)
-        ParserOptionsSave(m_Parser);
-        BrowserOptionsSave(m_Parser);
+        // Save the current parser options
+        ParserOptionsSave(m_ActiveParser);
+        BrowserOptionsSave(m_ActiveParser);
 
         DeleteParser(pProject);
         // The old options have just been overwritten by DeleteParser();
@@ -888,9 +1364,9 @@ void ParseManager::ReparseCurrentEditor()
     {
         TRACE(_T("ParseManager::ReparseCurrentProject: Calling DeleteParser() and CreateParser()"));
 
-        // Save the current parser options //(ph 2021/05/25)
-        ParserOptionsSave(m_Parser);
-        BrowserOptionsSave(m_Parser);
+        // Save the current parser options
+        ParserOptionsSave(m_ActiveParser);
+        BrowserOptionsSave(m_ActiveParser);
 
         DeleteParser(project);
         // The old options have just been overwritten by DeleteParser();
@@ -926,165 +1402,6 @@ void ParseManager::ReparseSelectedProject()
         }
     }
 }
-
-////// Here, we collect the "using namespace XXXX" directives
-////// Also, we locate the current caret in which function, then, add the function parameters to Token trie
-////// Also, the variables in the function body( local block ) was add to the Token trie
-////size_t ParseManager::MarkItemsByAI(ccSearchData* searchData,
-////                                   TokenIdxSet&  result,
-////                                   bool          reallyUseAI,
-////                                   bool          isPrefix,
-////                                   bool          caseSensitive,
-////                                   int           caretPos)
-////{
-////    result.clear();
-////
-////    if (!m_Parser->Done())
-////    {
-////        wxString msg(_("The Parser is still parsing files."));
-////        msg += m_Parser->NotDoneReason();
-////        CCLogger::Get()->DebugLog(msg);
-////        return 0;
-////    }
-////
-////    TRACE(_T("ParseManager::MarkItemsByAI_2()"));
-////
-////    TokenTree* tree = m_Parser->GetTempTokenTree();
-////
-////    CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
-////
-////    // remove old temporaries
-////    tree->Clear();
-////
-////    CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
-////
-////    RemoveLastFunctionChildren(m_Parser->GetTokenTree(), m_LastFuncTokenIdx);
-////
-////    // find "using namespace" directives in the file
-////    TokenIdxSet search_scope;
-////    ParseUsingNamespace(searchData, search_scope, caretPos);
-////
-////    // parse function's arguments
-////    ParseFunctionArguments(searchData, caretPos);
-////
-////    // parse current code block (from the start of function up to the cursor)
-////    ParseLocalBlock(searchData, search_scope, caretPos);
-////
-////    if (!reallyUseAI)
-////    {
-////        tree = m_Parser->GetTokenTree();
-////
-////        CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
-////
-////        // all tokens, no AI whatsoever
-////        for (size_t i = 0; i < tree->size(); ++i)
-////            result.insert(i);
-////
-////        CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
-////
-////        return result.size();
-////    }
-////
-////    // we have correctly collected all the tokens, so we will do the artificial intelligence search
-////    return AI(result, searchData, wxEmptyString, isPrefix, caseSensitive, &search_scope, caretPos);
-////}
-
-////size_t ParseManager::MarkItemsByAI(TokenIdxSet& result,
-////                                   bool         reallyUseAI,
-////                                   bool         isPrefix,
-////                                   bool         caseSensitive,
-////                                   int          caretPos)
-////{
-////    if (s_DebugSmartSense)
-////        CCLogger::Get()->DebugLog(wxString::Format(_T("MarkItemsByAI_1()")));
-////
-////    cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
-////    if (!editor)
-////        return 0;
-////
-////    ccSearchData searchData = { editor->GetControl(), editor->GetFilename() };
-////    if (!searchData.control)
-////        return 0;
-////
-////    TRACE(_T("ParseManager::MarkItemsByAI_1()"));
-////
-////    return MarkItemsByAI(&searchData, result, reallyUseAI, isPrefix, caseSensitive, caretPos);
-////}
-
-////int ParseManager::GetCallTips(wxArrayString& items, int& typedCommas, cbEditor* ed, int pos)
-////{
-////    items.Clear();
-////    typedCommas = 0;
-////    int commas = 0;
-////
-////    if (!ed || !m_Parser->Done())
-////    {
-////        items.Add(wxT("Parsing at the moment..."));
-////        return wxSCI_INVALID_POSITION;
-////    }
-////
-////    TRACE(_T("ParseManager::GetCallTips()"));
-////
-////    ccSearchData searchData = { ed->GetControl(), ed->GetFilename() };
-////    if (pos == wxNOT_FOUND)
-////        pos = searchData.control->GetCurrentPos();
-////    int nest = 0;
-////    while (--pos > 0)
-////    {
-////        const int style = searchData.control->GetStyleAt(pos);
-////        if (   searchData.control->IsString(style)
-////            || searchData.control->IsCharacter(style)
-////            || searchData.control->IsComment(style) )
-////        {
-////            continue;
-////        }
-////
-////        const wxChar ch = searchData.control->GetCharAt(pos);
-////        if (ch == _T(';'))
-////            return wxSCI_INVALID_POSITION;
-////        else if (ch == _T(','))
-////        {
-////            if (nest == 0)
-////                ++commas;
-////        }
-////        else if (ch == _T(')'))
-////            --nest;
-////        else if (ch == _T('('))
-////        {
-////            ++nest;
-////            if (nest > 0)
-////                break;
-////        }
-////    }// while
-////
-////    // strip un-wanted
-////    while (--pos > 0)
-////    {
-////        if (   searchData.control->GetCharAt(pos) <= _T(' ')
-////            || searchData.control->IsComment(searchData.control->GetStyleAt(pos)) )
-////        {
-////            continue;
-////        }
-////        break;
-////    }
-////
-////    const int start = searchData.control->WordStartPosition(pos, true);
-////    const int end = searchData.control->WordEndPosition(pos, true);
-////    const wxString target = searchData.control->GetTextRange(start, end);
-////    TRACE(_T("Sending \"%s\" for call-tip"), target.wx_str());
-////    if (target.IsEmpty())
-////        return wxSCI_INVALID_POSITION;
-////
-////    TokenIdxSet result;
-////    MarkItemsByAI(result, true, false, true, end);
-////
-////    ComputeCallTip(m_Parser->GetTokenTree(), result, items);
-////
-////    typedCommas = commas;
-////    TRACE(_T("ParseManager::GetCallTips: typedCommas=%d"), typedCommas);
-////    items.Sort();
-////    return end;
-////}
 
 // ----------------------------------------------------------------------------
 wxArrayString ParseManager::ParseProjectSearchDirs(const cbProject &project)
@@ -1150,8 +1467,8 @@ void ParseManager::SetProjectSearchDirs(cbProject &project, const wxArrayString 
 void ParseManager::CreateClassBrowser()
 // ----------------------------------------------------------------------------
 {
-    ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("clangd_client"));
-    if (m_ClassBrowser || !cfg->ReadBool(_T("/use_symbols_browser"), true))
+    ConfigManager* cfg = Manager::Get()->GetConfigManager("clangd_client");
+    if (m_ClassBrowser || !cfg->ReadBool(_T("/use_symbols_browser"), false))
         return;
 
     TRACE(_T("ParseManager::CreateClassBrowser: Enter"));
@@ -1184,12 +1501,132 @@ void ParseManager::CreateClassBrowser()
         Manager::Get()->GetProjectManager()->GetUI().GetNotebook()->AddPage(m_ClassBrowser, _("Symbols"));
         m_ClassBrowser->UpdateSash();
     }
+    wxAuiNotebook* pNotebook = Manager::Get()->GetProjectManager()->GetUI().GetNotebook();
+    Manager::Get()->GetProjectManager()->GetUI().GetNotebook()->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGED,  &ParseManager::OnAUIProjectPageChanged, this);
+    Manager::Get()->GetProjectManager()->GetUI().GetNotebook()->Bind(wxEVT_AUINOTEBOOK_PAGE_CHANGING, &ParseManager::OnAUIProjectPageChanging, this);
+    n_SymbolsPageIdx = pNotebook->GetPageCount() - 1; //assumes index and last added page is same
 
     // Dreaded DDE-open bug related: do not touch unless for a good reason
     // TODO (Morten): ? what's bug? I test it, it's works well now.
-    m_ClassBrowser->SetParser(m_Parser); // Also updates class browser
+    m_ClassBrowser->SetParser(m_ActiveParser); // Also updates class browser
+
+    RefreshSymbolsTab();
 
     TRACE(_T("ParseManager::CreateClassBrowser: Leave"));
+}
+// ----------------------------------------------------------------------------
+void ParseManager::OnAUIProjectPageChanged(wxAuiNotebookEvent& event)
+// ----------------------------------------------------------------------------
+{
+    // Handle the page changed event here and clear the local page changing status info
+    event.Skip();
+
+    int selectedPage = event.GetSelection();
+    wxString pageTitle = Manager::Get()->GetProjectManager()->GetUI().GetNotebook()->GetPageText(selectedPage);
+    n_IsSymbolsTabSelected = false;
+    n_SkipNextSymbolsChangePageCall = false;
+
+    // Only update Symbol browser window if it has focus.
+    // Check again, wxWidgets focus event can be really slow sometimes
+    // Experience shows this routine is faster than wxEVT_SET/KILL_FOCUS event.
+    //if (isSymbolsTabFocused)
+    {
+        ProjectManager* pPrjMgr = Manager::Get()->GetProjectManager();
+        wxWindow* pCurrentPage = pPrjMgr->GetUI().GetNotebook()->GetCurrentPage();
+        int pageIndex = pPrjMgr->GetUI().GetNotebook()->GetPageIndex(pCurrentPage);
+        pageTitle = pPrjMgr->GetUI().GetNotebook()->GetPageText(pageIndex);
+        if (pCurrentPage == GetClassBrowser())
+        {
+            if ( pCurrentPage->GetScreenRect().Contains( wxGetMousePosition()) )
+                SetSymbolsWindowHasFocus(true);
+            else SetSymbolsWindowHasFocus(false);
+        }
+    }
+
+}
+// ----------------------------------------------------------------------------
+void ParseManager::OnAUIProjectPageChanging(wxAuiNotebookEvent& event)
+// ----------------------------------------------------------------------------
+{
+    // Handle the page change/click event here
+    // using this even allows us to catch page changes as well as a single dclick on the page tab
+    // **BUG**
+    // This event is being call twice in succession (others experience it also)
+    // when switching from one tab to another, but only once when just clicking the active tab.
+    // https://forums.wxwidgets.org/viewtopic.php?t=16795
+
+    event.Skip();
+
+    // When this is the second call of a page change, ( a bug) ignore it.
+    if (n_SkipNextSymbolsChangePageCall)
+    {
+        n_SkipNextSymbolsChangePageCall = false;
+        return;
+    }
+
+    wxWindow* pCurrentPage =  Manager::Get()->GetProjectManager()->GetUI().GetNotebook()->GetCurrentPage();
+    int currentPageIdx = Manager::Get()->GetProjectManager()->GetUI().GetNotebook()->GetPageIndex(pCurrentPage);
+
+    int selectedPage = event.GetSelection();
+    // if currentPageIdx and selectedPage the same, this is a once off tab click
+    // if currentPageIdx and selectedPage differ, this is a change to another tab
+    bool isPageActivation = false;
+    if (currentPageIdx == selectedPage)
+        isPageActivation = true;
+    if (not isPageActivation)  //this is a page change which happens twice ( a bug)
+    {
+        n_SkipNextSymbolsChangePageCall = true; //ignore the next superfluous page change call
+    }
+    wxString pageTitle = Manager::Get()->GetProjectManager()->GetUI().GetNotebook()->GetPageText(selectedPage);
+    if (pageTitle == _("Symbols") and Manager::Get()->GetProjectManager()->GetActiveProject())
+    {
+        n_IsSymbolsTabSelected = true;  //say the Sysmbols tab is selected
+        SetSymbolsWindowHasFocus(true);
+        UpdateClassBrowser();
+    }
+    else SetSymbolsWindowHasFocus(false);
+    // alway reset the selection status to avoid confusing other's calls to UpdateClassBrowser()
+    n_IsSymbolsTabSelected = false;
+}
+// ----------------------------------------------------------------------------
+void ParseManager::RefreshSymbolsTab()
+// ----------------------------------------------------------------------------
+{
+
+    // When the Symbols tab is disabled from the options dialog and then
+    // re-enabled, it never displays its data in the Symbols tab again, even
+    // though the data is acutally there. To display the data, the panel holding the
+    // Symbols data panel has to be resized. This has got to be some sort of wxAUI bug.
+    // To solve the problem, this function jiggles the height of the notebook page.
+
+    if (Manager::IsAppShuttingDown())
+        return;
+
+    cbAuiNotebook* pNotebook = Manager::Get()->GetProjectManager()->GetUI().GetNotebook();
+    int pageKnt = pNotebook->GetPageCount();
+    int pageID = -1;
+    for (int ii=0; ii<pageKnt; ++ii)
+    {
+        wxString tabtext = pNotebook->GetPageText(ii);
+        if (tabtext == _("Symbols") )
+        {
+            pageID = ii;
+            break;
+        }
+    }
+    if (pageID == -1) return;
+    wxWindow* pSymbolsPage = pNotebook->GetPage(pageID);
+    if (pSymbolsPage)
+    {
+        // calling wxWindow Update(),Refresh(). Layout(), etc did not work
+        // But jiggling the window up and down does.
+        wxSize wsize = pSymbolsPage->GetSize();
+        wsize.SetHeight(wsize.GetHeight()-1);
+        pSymbolsPage->SetSize(wsize);
+        wsize.SetHeight(wsize.GetHeight()+1);
+        pSymbolsPage->SetSize(wsize);
+    }
+    return;
 }
 // ----------------------------------------------------------------------------
 void ParseManager::RemoveClassBrowser(cb_unused bool appShutDown)
@@ -1212,27 +1649,120 @@ void ParseManager::RemoveClassBrowser(cb_unused bool appShutDown)
         if (idx != -1)
             Manager::Get()->GetProjectManager()->GetUI().GetNotebook()->RemovePage(idx);
     }
+
     m_ClassBrowser->Destroy();
     m_ClassBrowser = NULL;
 }
 // ----------------------------------------------------------------------------
-void ParseManager::UpdateClassBrowser()
+void ParseManager::UpdateClassBrowser(bool force)
 // ----------------------------------------------------------------------------
 {
-    if (not m_ClassBrowser)
-          return;
+
+    //Note, This function must NOT be called when Re-enabling "Disable Symbol browser"
+    // because m_ActiveParser->Done() returns false and the ClassBrowser UI Symbols tab
+    // will not get updated and will cause crashes using stale pointeers.
+    // UpdateClassBrowserView() is called directly from the CdreateClassBrowser() function.
 
     TRACE(_T("ParseManager::UpdateClassBrowser()"));
 
-    if ( m_Parser != m_TempParser
-        && m_Parser->Done()
-        && (not Manager::IsAppShuttingDown()) )
+    // Guarantee that this function is not re-entrant
+    if (n_UpdateClassBrowserBusy)
+        return;
+    struct UpdateClassBrowserBusy_t
     {
-        m_ClassBrowser->UpdateClassBrowserView();
+        UpdateClassBrowserBusy_t() {n_UpdateClassBrowserBusy = true;}
+        ~UpdateClassBrowserBusy_t() {n_UpdateClassBrowserBusy = false;}
+    } updateClassBrowserBusy ;
+
+    if ( Manager::IsAppShuttingDown() )
+        return;
+    // Dont update symbols window when debugger is running
+    if (IsDebuggerRunning())
+        return;
+    // If no ClassBrowser, bail
+    if (not m_ClassBrowser)
+          return;
+
+    // If user is using the Symbols tab delay the update.
+    if (not force)
+    {
+        if (not IsOkToUpdateClassBrowserView())
+            return;
+
+        if ( m_ActiveParser != m_TempParser
+            && m_ActiveParser->Done() )
+        {
+            //-s_ClassBrowserCaller = wxString::Format("%s:%d",__FUNCTION__, __LINE__);
+            m_ClassBrowser->UpdateClassBrowserView();
+        }
     }
+    else // update is being forced (probably from workspace close to clear the Symbols tree)
+        m_ClassBrowser->UpdateClassBrowserView(/*checkHeaderSwap*/false, /*forceupdate*/force);
 }
 // ----------------------------------------------------------------------------
-void ParseManager::GetPriorityFilesForParsing(StringList& localSourcesList, cbProject* pProject)     //(ph 2021/11/11)
+bool ParseManager::IsOkToUpdateClassBrowserView()
+// ----------------------------------------------------------------------------
+{
+    static size_t startMillisTOD;
+
+    // Dont update Sysmbols when debugger is running
+    if (IsDebuggerRunning())
+        return false;
+
+    bool isSymbolsTabFocused = GetClassBrowser() ? GetSymbolsWindowHasFocus() : false;
+    bool isUpdatingClassBrowserBusy = GetUpdatingClassBrowserBusy();
+    isSymbolsTabFocused = isSymbolsTabFocused or n_IsSymbolsTabSelected;
+    // Only update Symbol browser window if it has focus.
+    // Check again, wxWidgets focus event can be really slow sometimes
+    // Experience shows this routine is faster than wxEVT_SET/KILL_FOCUS event.
+    if (not isSymbolsTabFocused)
+    {
+        // See if the mouse is inside the Symbols tree window
+        ProjectManager* pPrjMgr = Manager::Get()->GetProjectManager();
+        wxWindow* pCurrentPage = pPrjMgr->GetUI().GetNotebook()->GetCurrentPage();
+        int pageIndex = pPrjMgr->GetUI().GetNotebook()->GetPageIndex(pCurrentPage);
+        wxString pageTitle = pPrjMgr->GetUI().GetNotebook()->GetPageText(pageIndex);
+        if (pCurrentPage == GetClassBrowser())
+        {
+            if ( pCurrentPage->GetScreenRect().Contains( wxGetMousePosition()) )
+                isSymbolsTabFocused = true;
+            else isSymbolsTabFocused = false;
+        }
+    }
+
+    bool isBusyClassBrowserBuilderThread = GetClassBrowser() ? GetClassBrowser()->IsBusyClassBrowserBuilderThread() : false;
+
+    if (isBusyClassBrowserBuilderThread)
+    {
+        if (not startMillisTOD)
+            startMillisTOD = GetNowMilliSeconds(); //remember the start busy time-of-day
+        size_t durationMillis = GetDurationMilliSeconds(startMillisTOD);
+        // Somehow ClassBrowserBuilderThread::m_IsBusy is getting stuck at busy count == 1;
+        // The following insures it gets unstuck until the problem is found.
+        if ((durationMillis > 3000) and (not IsDebuggerRunning()) )
+        {
+            startMillisTOD = 0; //clear to get a new busy tod
+            if (GetClassBrowser()->GetClassBrowserBuilderThread())
+            {
+                int knt = GetClassBrowser()->GetClassBrowserBuilderThread()->GetIsBusy();
+                wxString msg = wxString::Format(_("ClassBrowserBuilderThread::m_IsBusy is stuck at %d for %d msec"), knt, int(durationMillis) );
+                // FIXME (ph#): What should be done? clear it or what?
+                //-GetClassBrowser()->GetClassBrowserBuilderThread()->SetIsBusy(false);
+                CCLogger::Get()->DebugLogError(msg);
+
+            }
+        }
+        return false; // say not ok to update
+    }
+
+    if ((not isSymbolsTabFocused) or isBusyClassBrowserBuilderThread or isUpdatingClassBrowserBusy)
+        return false; //cannot update, Symbols tab is unfocused or builderthread is busy or already updating
+
+    startMillisTOD = 0; //clear busy time when is Ok to update classBrowser tree;
+    return true;
+}
+// ----------------------------------------------------------------------------
+void ParseManager::GetPriorityFilesForParsing(StringList& localSourcesList, cbProject* pProject)
 // ----------------------------------------------------------------------------
 {
     EditorManager* pEdMgr = Manager::Get()->GetEditorManager();
@@ -1255,20 +1785,13 @@ void ParseManager::GetPriorityFilesForParsing(StringList& localSourcesList, cbPr
             // For LSP, file must belong to a project, because LSP needs target compiler parameters.
             if (not pFilesProject) break;
             if (pFilesProject != pProject) break; //file doesnt belong to this project
-            ParserCommon::EFileType ft = ParserCommon::FileType(pEditor->GetShortName()); //(ph 2022/06/01)
+            ParserCommon::EFileType ft = ParserCommon::FileType(pEditor->GetShortName());
             //-if ( ft != ftHeader && ft != ftSource && ft != ftTemplateSource) // only parse source/header files
             if (ft == ParserCommon::ftOther)
                 break;
 
             // add file to background parsing queue
             localSourcesList.push_back(filename);
-
-            // The following is wasted work since the file will be opened and parsed anyway
-            // when the use requests goto decl/defs.
-            //// add associated .h or .cpp file for quick got decl/defs
-            ////wxString hdrOrSrcFile = GetSourceOrHeaderForFile((pProject, filename);
-            ////if (hdrOrSrcFile.Length())
-            ////    localSourcesList.push_back(hdrOrSrcFile);
 
             break;
         } //endif switch
@@ -1278,7 +1801,7 @@ void ParseManager::GetPriorityFilesForParsing(StringList& localSourcesList, cbPr
         // -------------------------------------------------------
         for (int ii=0; ii< pEdMgr->GetEditorsCount(); ++ii)
         {
-            cbEditor* pEditor = pEdMgr->GetBuiltinEditor(ii);
+            pEditor = pEdMgr->GetBuiltinEditor(ii);
             if (pEditor)
             {
                 // don't re-list an already listed editor file
@@ -1297,8 +1820,8 @@ void ParseManager::GetPriorityFilesForParsing(StringList& localSourcesList, cbPr
                 if (not pFilesProject) continue;
                 if (pFilesProject != pProject) continue;
                 // only parse source/header files
-                ParserCommon::EFileType ft = ParserCommon::FileType(pEditor->GetShortName());             //(ph 2022/06/01)
-                if ( (ft != ParserCommon::ftHeader) && (ft != ParserCommon::ftSource)                     //(ph 2022/06/01)
+                ParserCommon::EFileType ft = ParserCommon::FileType(pEditor->GetShortName());
+                if ( (ft != ParserCommon::ftHeader) && (ft != ParserCommon::ftSource)
                     && (FileTypeOf(pEditor->GetShortName()) != ftTemplateSource) )
                     continue;
 
@@ -1309,7 +1832,7 @@ void ParseManager::GetPriorityFilesForParsing(StringList& localSourcesList, cbPr
     }
 }
 // ----------------------------------------------------------------------------
-bool ParseManager::DoFullParsing(cbProject* project, ParserBase* parser)
+bool ParseManager::DoFullParsing(cbProject* project, Parser* parser)
 // ----------------------------------------------------------------------------
 {
     //-wxStopWatch timer;
@@ -1330,8 +1853,8 @@ bool ParseManager::DoFullParsing(cbProject* project, ParserBase* parser)
                                    project->GetBasePath(), parser);
         }
 
-        AddCompilerAndIncludeDirs(project, parser); //(ph 2021/11/4)
-        //(ph 2021/11/4) // **debugging*
+        AddCompilerAndIncludeDirs(project, parser);
+         // **debugging*
         for (size_t ii=0; ii<parser->GetIncludeDirs().Count(); ++ii)
         {
             if (ii == 0 ) CCLogger::Get()->DebugLog("IncludeDirs array:");
@@ -1341,14 +1864,14 @@ bool ParseManager::DoFullParsing(cbProject* project, ParserBase* parser)
     }//end if project
 
     //FIXME (ph#): ShowInheritance config setting and context menu setting is out of sync. Only saved on exit.
-    ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("clangd_client"));     //(ph 2021/05/24)
+    ConfigManager* cfg = Manager::Get()->GetConfigManager("clangd_client");
     bool cfgShowInheritance = cfg->ReadBool(_T("/browser_show_inheritance"),    false);
     BrowserOptions& options = parser->ClassBrowserOptions();
     if (cfgShowInheritance or options.showInheritance) cfgShowInheritance = true;
 
     StringList localSources;
 
-    if (project)  //LSP sorts the filenames by modification time //(ph 2021/04/16)
+    if (project)  //LSP sorts the filenames by modification time
     {
         // Note: Windows 10 file access time is not updated when the volume is > 128 Gig
         //  unless the user has issued "fsutil behavior set disablelastaccess <0-3>"
@@ -1362,7 +1885,7 @@ bool ParseManager::DoFullParsing(cbProject* project, ParserBase* parser)
         //  https://www.tenforums.com/tutorials/139015-enable-disable-ntfs-last-access-time-stamp-updates-windows-10-a.html
         // So here, we sort by modification time since read access time is usually invalid.
 
-        // For LSP, sort the filenames by modification time //(ph 2021/04/16)
+        // For LSP, sort the filenames by modification time
         // so that the latest modified files get parsed first.
         std::multimap<wxDateTime,wxString>sortedSources;
         for (FilesList::const_iterator fl_it = project->GetFilesList().begin();
@@ -1371,7 +1894,7 @@ bool ParseManager::DoFullParsing(cbProject* project, ParserBase* parser)
             ProjectFile* pf = *fl_it;
             if (!pf)
                 continue;
-            // If the file is already open, it'll be skipped later by OnBatchTimer(). //(ph 2021/06/11)
+            // If the file is already open, it'll be skipped later by OnBatchTimer().
             // It needs to be included so that it's header/source is background parsed
             // Sort the source files by recently "file modified time".
             ParserCommon::EFileType ft = ParserCommon::FileType(pf->relativeFilename);
@@ -1431,6 +1954,13 @@ bool ParseManager::DoFullParsing(cbProject* project, ParserBase* parser)
         //    wxString msg = wxString::Format("%s adding file to parser: %s", __FUNCTION__, entry);
         //    CCLogger::Get()->DebugLog(DebugLog(msg);
         //}
+        //    // **Debugging**
+        //    for (const wxString& entry : localSources)
+        //    {
+        //        wxString msg = wxString::Format("%s adding file to parser: %s", __FUNCTION__, entry);
+        //        CCLogger::Get()->DebugLog(msg);
+        //    }
+
         // local source files added to Parser
         parser->AddBatchParse(localSources);
     }
@@ -1440,10 +1970,10 @@ bool ParseManager::DoFullParsing(cbProject* project, ParserBase* parser)
     return true;
 }
 // ----------------------------------------------------------------------------
-bool ParseManager::SwitchParser(cbProject* project, ParserBase* parser)
+bool ParseManager::SwitchParser(cbProject* project, Parser* parser)
 // ----------------------------------------------------------------------------
 {
-    if (!parser || parser == m_Parser || GetParserByProject(project) != parser)
+    if (!parser || parser == m_ActiveParser || GetParserByProject(project) != parser)
     {
         TRACE(_T("ParseManager::SwitchParser: No need to / cannot switch."));
         return false;
@@ -1461,11 +1991,11 @@ bool ParseManager::SwitchParser(cbProject* project, ParserBase* parser)
     return true;
 }
 // ----------------------------------------------------------------------------
-void ParseManager::SetParser(ParserBase* parser)
+void ParseManager::SetParser(Parser* parser)
 // ----------------------------------------------------------------------------
 {
     // if the active parser is the same as the old active parser, nothing need to be done
-    if (m_Parser == parser)
+    if (m_ActiveParser == parser)
         return;
 
     #if defined(cbDEBUG)
@@ -1474,23 +2004,23 @@ void ParseManager::SetParser(ParserBase* parser)
         wxString fromProject = "*NONE*";
         wxString toProject = "*NONE*";
         // The parser and project pointers can be null; Esp., for the TempParser
-        fromProject = (m_Parser and ((Parser*)m_Parser)->GetParsersProject()) ? ((Parser*)m_Parser)->GetParsersProject()->GetTitle() : "*NONE*";
+        fromProject = (m_ActiveParser and ((Parser*)m_ActiveParser)->GetParsersProject()) ? ((Parser*)m_ActiveParser)->GetParsersProject()->GetTitle() : "*NONE*";
         toProject   = (  parser and ((Parser*)  parser)->GetParsersProject()) ? ((Parser*)  parser)->GetParsersProject()->GetTitle() : "*NONE*";
-        wxString msg = wxString::Format("Switching parser/project from %s to %s", fromProject, toProject); //(ph 2022/06/4)
+        wxString msg = wxString::Format("Switching parser/project from %s to %s", fromProject, toProject);
         CCLogger::Get()->DebugLog(msg);
     }
     #endif
 
     // a new parser is active, so remove the old parser's local variable tokens.
     // if m_Parser == nullptr, this means the active parser is already deleted.
-    if (m_Parser)
-        RemoveLastFunctionChildren(m_Parser->GetTokenTree(), m_LastFuncTokenIdx);
+    if (m_ActiveParser)
+        RemoveLastFunctionChildren(m_ActiveParser->GetTokenTree(), m_LastFuncTokenIdx);
 
     // refresh code completion related variables
     InitCCSearchVariables();
 
     // switch the active parser
-    m_Parser = parser;
+    m_ActiveParser = parser;
 
     if (m_ClassBrowser)
         m_ClassBrowser->SetParser(parser); // Also updates class browser
@@ -1512,61 +2042,11 @@ void ParseManager::ClearParsers()
             ;
     }
 }
-////// ----------------------------------------------------------------------------
-////void ParseManager::RemoveObsoleteParsers()
-////// ----------------------------------------------------------------------------
-////{
-////    // For number of active parsers that exceed 'settings: max parsers allowed',
-////    // removes/deletes parsers that are not associated with the current editors file
-////
-////    cbAssertNonFatal(0 && "RemoveObsoleteParsers() should be removed!");
-////    return;
-////
-////    TRACE(_T("ParseManager::RemoveObsoleteParsers: Enter"));
-////
-////    ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("clangd_client"));
-////    const size_t maxParsers = cfg->ReadInt(_T("/max_parsers"), 5);
-////    wxArrayString removedProjectNames;
-////    std::pair<cbProject*, ParserBase*> info = GetParserInfoByCurrentEditor();
-////
-////    while (m_ParserList.size() > maxParsers)
-////    {
-////        bool deleted = false;
-////        for (ParserList::const_iterator it = m_ParserList.begin(); it != m_ParserList.end(); ++it)
-////        {
-////            if (it->second == info.second)
-////                continue;
-////
-////            wxString prj = (it->first ? it->first->GetTitle() : _T("*NONE*"));
-////            if ( DeleteParser(it->first) )
-////            {
-////                // Please note that DeleteParser() may erase one element of the m_ParserList, so
-////                // do NOT use the constant iterator here again, as the element pointed by it may be
-////                // destroyed in DeleteParser().
-////                removedProjectNames.Add(prj);
-////                deleted = true;
-////                break;
-////            }
-////        }
-////
-////        if (not deleted)
-////            break;
-////    }
-////
-////    for (size_t i = 0; i < removedProjectNames.GetCount(); ++i)
-////    {
-////        wxString log(wxString::Format(_("ParseManager::RemoveObsoleteParsers:Removed obsolete parser of '%s'"), removedProjectNames[i].wx_str()));
-////        CCLogger::Get()->Log(log);
-////        CCLogger::Get()->DebugLog(log);
-////    }
-////
-////    TRACE(_T("ParseManager::RemoveObsoleteParsers: Leave"));
-////}
 // ----------------------------------------------------------------------------
-std::pair<cbProject*, ParserBase*> ParseManager::GetParserInfoByCurrentEditor()
+std::pair<cbProject*, Parser*> ParseManager::GetParserInfoByCurrentEditor()
 // ----------------------------------------------------------------------------
 {
-    std::pair<cbProject*, ParserBase*> info(nullptr, nullptr);
+    std::pair<cbProject*, Parser*> info(nullptr, nullptr);
     cbEditor* editor = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
 
     if ( editor ) //No need to check editor->GetFilename, because a built-in editor always have a filename
@@ -1581,147 +2061,12 @@ std::pair<cbProject*, ParserBase*> ParseManager::GetParserInfoByCurrentEditor()
 void ParseManager::SetCBViewMode(const BrowserViewMode& mode)
 // ----------------------------------------------------------------------------
 {
-    m_Parser->ClassBrowserOptions().showInheritance = (mode == bvmInheritance) ? true : false;
+    m_ActiveParser->ClassBrowserOptions().showInheritance = (mode == bvmInheritance) ? true : false;
+    s_ClassBrowserCaller = wxString::Format("%s:%d",__FUNCTION__, __LINE__);
     UpdateClassBrowser();
 }
 
 // helper funcs
-
-////// Start an Artificial Intelligence (!) sequence to gather all the matching tokens..
-////// The actual AI is in FindAIMatches() below...
-//// ----------------------------------------------------------------------------
-////size_t ParseManager::AI(TokenIdxSet&    result,
-//// ----------------------------------------------------------------------------
-////                        ccSearchData*   searchData,
-////                        const wxString& lineText,
-////                        bool            isPrefix,
-////                        bool            caseSensitive,
-////                        TokenIdxSet*    search_scope,
-////                        int             caretPos)
-////{
-////    m_LastAISearchWasGlobal = false;
-////    m_LastAIGlobalSearch.Clear();
-////
-////    int pos = caretPos == -1 ? searchData->control->GetCurrentPos() : caretPos;
-////    if (pos < 0 || pos > searchData->control->GetLength())
-////        return 0;
-////
-////    int line = searchData->control->LineFromPosition(pos);
-////
-////    // Get the actual search text, such as "objA.m_aaa.m_bbb"
-////    wxString actual_search(lineText);
-////    if (actual_search.IsEmpty())
-////    {
-////        // Get the position at the start of current line
-////        const int startPos = searchData->control->PositionFromLine(line);
-////        actual_search = searchData->control->GetTextRange(startPos, pos).Trim();
-////    }
-////
-////    // Do the whole job here
-////    if (s_DebugSmartSense)
-////    {
-////        CCLogger::Get()->DebugLog(_T("AI() ========================================================="));
-////        CCLogger::Get()->DebugLog(wxString::Format(_T("AI() Doing AI for '%s':"), actual_search.wx_str()));
-////    }
-////    TRACE(_T("ParseManager::AI()"));
-////
-////    TokenTree* tree = m_Parser->GetTokenTree();
-////
-////    // find current function's namespace so we can include local scope's tokens
-////    // we ' ll get the function's token (all matches) and add its parent namespace
-////    TokenIdxSet proc_result;
-////    size_t found_at = FindCurrentFunctionToken(searchData, proc_result, pos);
-////
-////    TokenIdxSet scope_result;
-////    if (found_at)
-////        FindCurrentFunctionScope(tree, proc_result, scope_result);
-////
-////    // add additional search scopes???
-////    // for example, we are here:
-////    /*  void ClassA::FunctionB(int paraC){
-////            m_aaa
-////    */
-////    // then, ClassA should be added as a search_scope, the global scope should be added too.
-////
-////    // if search_scope is already defined, then, add scope_result to search_scope
-////    // otherwise we just set search_scope as scope_result
-////    if (!search_scope)
-////        search_scope = &scope_result;
-////    else
-////    {
-////        // add scopes, "tis" refer to "token index set"
-////        for (TokenIdxSet::const_iterator tis_it = scope_result.begin(); tis_it != scope_result.end(); ++tis_it)
-////            search_scope->insert(*tis_it);
-////    }
-////
-////    // remove non-namespace/class tokens
-////    CleanupSearchScope(tree, search_scope);
-////
-////    // find all other matches
-////    std::queue<ParserComponent> components;
-////    BreakUpComponents(actual_search, components);
-////
-////    m_LastAISearchWasGlobal = components.size() <= 1;
-////    if (!components.empty())
-////        m_LastAIGlobalSearch = components.front().component;
-////
-////    ResolveExpression(tree, components, *search_scope, result, caseSensitive, isPrefix);
-////
-////    if (s_DebugSmartSense)
-////        CCLogger::Get()->DebugLog(wxString::Format(_T("AI() AI leave, returned %lu results"),static_cast<unsigned long>(result.size())));
-////
-////    return result.size();
-////}
-
-////// find a function where current caret located.
-////// We need to find extra class scope, otherwise, we will fail to do the cc in a class declaration
-////size_t ParseManager::FindCurrentFunctionToken(ccSearchData* searchData, TokenIdxSet& result, int caretPos)
-////{
-////    TokenIdxSet scope_result;
-////    wxString procName;
-////    wxString scopeName;
-////    FindCurrentFunctionStart(searchData, &scopeName, &procName, nullptr, caretPos);
-////
-////    if (procName.IsEmpty())
-////        return 0;
-////
-////    // add current scope
-////    if (!scopeName.IsEmpty())
-////    {
-////        // _namespace ends with double-colon (::). remove it
-////        scopeName.RemoveLast();
-////        scopeName.RemoveLast();
-////
-////        // search for namespace
-////        std::queue<ParserComponent> ns;
-////        BreakUpComponents(scopeName, ns);
-////
-////        CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
-////
-////        // No critical section needed in this recursive function!
-////        // All functions that call this recursive FindAIMatches function, should already entered a critical section.
-////        FindAIMatches(m_Parser->GetTokenTree(), ns, scope_result, -1,
-////                      true, true, false, tkNamespace | tkClass | tkTypedef);
-////
-////        CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
-////    }
-////
-////    // if no scope, use global scope
-////    if (scope_result.empty())
-////        scope_result.insert(-1);
-////
-////    CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
-////
-////    for (TokenIdxSet::const_iterator tis_it = scope_result.begin(); tis_it != scope_result.end(); ++tis_it)
-////    {
-////        GenerateResultSet(m_Parser->GetTokenTree(), procName, *tis_it, result,
-////                          true, false, tkAnyFunction | tkClass);
-////    }
-////
-////    CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
-////
-////    return result.size();
-////}
 
 // returns current function's position (not line) in the editor
 // ----------------------------------------------------------------------------
@@ -1771,11 +2116,11 @@ int ParseManager::FindCurrentFunctionStart(bool callerHasTreeLock,
     // we have all the tokens in the current file, then just do a loop on all
     // the tokens, see if the line is in the token's imp.
     TokenIdxSet result;
-    size_t num_results = m_Parser->FindTokensInFile(callerHasTreeLock, searchData->file, result, tkAnyFunction | tkClass);
+    size_t num_results = m_ActiveParser->FindTokensInFile(callerHasTreeLock, searchData->file, result, tkAnyFunction | tkClass);
     if (s_DebugSmartSense)
         CCLogger::Get()->DebugLog(wxString::Format(_T("FindCurrentFunctionStart() Found %lu results"), static_cast<unsigned long>(num_results)));
 
-    TokenTree* tree = m_Parser->GetTokenTree();
+    TokenTree* tree = m_ActiveParser->GetTokenTree();
 
     //CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
     cbAssert(callerHasTreeLock && "Caller must own TokenTree lock");
@@ -1808,7 +2153,11 @@ int ParseManager::FindCurrentFunctionStart(bool callerHasTreeLock,
                     if (s_DebugSmartSense)
                         CCLogger::Get()->DebugLog(_T("FindCurrentFunctionStart() Can't determine functions opening brace..."));
 
+                    // ----------------------------------------------
                     CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
+                    // ----------------------------------------------
+                    s_TokenTreeMutex_Owner = wxString();
+
                     return -1;
                 }
 
@@ -1835,329 +2184,8 @@ int ParseManager::FindCurrentFunctionStart(bool callerHasTreeLock,
     m_LastResult = -1;
     return -1;
 }
-
-////bool ParseManager::ParseUsingNamespace(ccSearchData* searchData, TokenIdxSet& search_scope, int caretPos)
-////{
-////    if (s_DebugSmartSense)
-////        CCLogger::Get()->DebugLog(_T("ParseUsingNamespace() Parse file scope for \"using namespace\""));
-////    TRACE(_T("ParseManager::ParseUsingNamespace()"));
-////
-////    int pos = caretPos == -1 ? searchData->control->GetCurrentPos() : caretPos;
-////    if (pos < 0 || pos > searchData->control->GetLength())
-////        return false;
-////
-////    // Get the buffer from begin of the editor to the current caret position
-////    wxString buffer = searchData->control->GetTextRange(0, pos);
-////
-////    return ParseBufferForUsingNamespace(buffer, search_scope);
-////}
-
-////bool ParseManager::ParseBufferForUsingNamespace(const wxString& buffer, TokenIdxSet& search_scope, bool bufferSkipBlocks)
-////{
-////    wxArrayString ns;
-////    m_Parser->ParseBufferForUsingNamespace(buffer, ns, bufferSkipBlocks);
-////
-////    TokenTree* tree = m_Parser->GetTokenTree();
-////
-////    CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
-////
-////    for (size_t i = 0; i < ns.GetCount(); ++i)
-////    {
-////        std::queue<ParserComponent> components;
-////        BreakUpComponents(ns[i], components);
-////
-////        int parentIdx = -1;
-////        while (!components.empty())
-////        {
-////            ParserComponent pc = components.front();
-////            components.pop();
-////
-////            int id = tree->TokenExists(pc.component, parentIdx, tkNamespace);
-////            if (id == -1)
-////            {
-////                parentIdx = -1;
-////                break;
-////            }
-////            parentIdx = id;
-////        }
-////
-////        if (s_DebugSmartSense && parentIdx != -1)
-////        {
-////            const Token* token = tree->at(parentIdx);
-////            if (token)
-////                CCLogger::Get()->DebugLog(wxString::Format(_T("ParseUsingNamespace() Found %s%s"),
-////                                            token->GetNamespace().wx_str(), token->m_Name.wx_str()));
-////        }
-////        search_scope.insert(parentIdx);
-////    }
-////
-////    CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
-////
-////    return true;
-////}
-
-////bool ParseManager::ParseFunctionArguments(ccSearchData* searchData, int caretPos)
-////{
-////    if (s_DebugSmartSense)
-////        CCLogger::Get()->DebugLog(_T("ParseFunctionArguments() Parse function arguments"));
-////    TRACE(_T("ParseManager::ParseFunctionArguments()"));
-////
-////    TokenIdxSet proc_result;
-////
-////    TokenTree* tree = m_Parser->GetTokenTree(); // the one used inside FindCurrentFunctionToken, FindAIMatches and GenerateResultSet
-////
-////    size_t found_at = FindCurrentFunctionToken(searchData, proc_result, caretPos);
-////    if (!found_at)
-////    {
-////        if (s_DebugSmartSense)
-////            CCLogger::Get()->DebugLog(_T("ParseFunctionArguments() Could not determine current function's namespace..."));
-////        TRACE(_T("ParseFunctionArguments() Could not determine current function's namespace..."));
-////        return false;
-////    }
-////
-////    const int pos = caretPos == -1 ? searchData->control->GetCurrentPos() : caretPos;
-////    const unsigned int curLine = searchData->control->LineFromPosition(pos) + 1;
-////
-////    bool locked = false;
-////    for (TokenIdxSet::const_iterator tis_it = proc_result.begin(); tis_it != proc_result.end(); ++tis_it)
-////    {
-////        wxString buffer;
-////        int initLine = -1;
-////        int tokenIdx = -1;
-////
-////        if (locked)
-////            CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
-////
-////        CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
-////        locked = true;
-////
-////        const Token* token = tree->at(*tis_it);
-////
-////        if (!token)
-////            continue;
-////        if (curLine < token->m_ImplLineStart || curLine > token->m_ImplLineEnd)
-////            continue;
-////
-////        if (s_DebugSmartSense)
-////            CCLogger::Get()->DebugLog(_T("ParseFunctionArguments() + Function match: ") + token->m_Name);
-////        TRACE(_T("ParseFunctionArguments() + Function match: ") + token->m_Name);
-////
-////        if (!token->m_Args.IsEmpty() && !token->m_Args.Matches(_T("()")))
-////        {
-////            buffer = token->m_Args;
-////            // Now we have something like "(int my_int, const TheClass* my_class, float f)"
-////            buffer.Remove(0, 1);              // remove (
-////            buffer.RemoveLast();              // remove )
-////            // Now we have                "int my_int, const TheClass* my_class, float f"
-////            buffer.Replace(_T(","), _T(";")); // replace commas with semi-colons
-////            // Now we have                "int my_int; const TheClass* my_class; float f"
-////            buffer << _T(';');                // aid parser ;)
-////            // Finally we have            "int my_int; const TheClass* my_class; float f;"
-////            buffer.Trim();
-////
-////            if (s_DebugSmartSense)
-////                CCLogger::Get()->DebugLog(wxString::Format(_T("ParseFunctionArguments() Parsing arguments: \"%s\""), buffer.wx_str()));
-////
-////            if (!buffer.IsEmpty())
-////            {
-////                const int textLength= searchData->control->GetLength();
-////                if (textLength == -1)
-////                    continue;
-////                int paraPos = searchData->control->PositionFromLine(token->m_ImplLine - 1);
-////                if (paraPos == -1)
-////                    continue;
-////                while (paraPos < textLength && searchData->control->GetCharAt(paraPos++) != _T('('))
-////                    ;
-////                while (paraPos < textLength && searchData->control->GetCharAt(paraPos++) < _T(' '))
-////                    ;
-////                initLine = searchData->control->LineFromPosition(paraPos) + 1;
-////                if (initLine == -1)
-////                    continue;
-////                tokenIdx = token->m_Index;
-////            }
-////        }
-////
-////        CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
-////        locked = false;
-////
-////        if (   !buffer.IsEmpty()
-////            && !m_Parser->ParseBuffer(buffer, false, false, true, searchData->file, tokenIdx, initLine)
-////            && s_DebugSmartSense)
-////        {
-////            CCLogger::Get()->DebugLog(_T("ParseFunctionArguments() Error parsing arguments."));
-////        }
-////    }
-////
-////    if (locked)
-////        CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
-////
-////    return true;
-////}
-
-////bool ParseManager::ParseLocalBlock(ccSearchData* searchData, TokenIdxSet& search_scope, int caretPos)
-////{
-////    if (s_DebugSmartSense)
-////        CCLogger::Get()->DebugLog(_T("ParseLocalBlock() Parse local block"));
-////    TRACE(_T("ParseManager::ParseLocalBlock()"));
-////
-////    int parentIdx = -1;
-////    int blockStart = FindCurrentFunctionStart(searchData, nullptr, nullptr, &parentIdx, caretPos);
-////    int initLine = 0;
-////    if (parentIdx != -1)
-////    {
-////        TokenTree* tree = m_Parser->GetTokenTree();
-////
-////        CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
-////
-////        const Token* parent = tree->at(parentIdx);
-////        if (parent && (parent->m_TokenKind & tkAnyFunction))
-////        {
-////            m_LastFuncTokenIdx = parent->m_Index;
-////            initLine = parent->m_ImplLineStart;
-////        }
-////
-////        CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
-////
-////        // only need to parse the function body, other type of Tokens' body such as class declaration
-////        // should not be parsed.
-////        if (!parent || !(parent->m_TokenKind & tkAnyFunction))
-////            return false;
-////    }
-////
-////    if (blockStart != -1)
-////    {
-////        cbStyledTextCtrl* stc = searchData->control;
-////        // if we are in a function body, then blockStart points to the '{', so we just skip the '{'.
-////        if (stc->GetCharAt(blockStart) == wxT('{'))
-////            ++blockStart;
-////        const int pos         = (caretPos == -1 ? stc->GetCurrentPos() : caretPos);
-////        const int line        = stc->LineFromPosition(pos);
-////        const int blockEnd    = stc->GetLineEndPosition(line);
-////        if (blockEnd < 0 || blockEnd > stc->GetLength())
-////        {
-////            if (s_DebugSmartSense)
-////            {
-////                CCLogger::Get()->DebugLog(wxString::Format(_T("ParseLocalBlock() ERROR blockEnd=%d and edLength=%d?!"),
-////                                            blockEnd, stc->GetLength()));
-////            }
-////            return false;
-////        }
-////
-////        if (blockStart >= blockEnd)
-////            blockStart = blockEnd;
-////
-//////        wxString buffer = searchData->control->GetTextRange(blockStart, blockEnd);
-////        wxString buffer;
-////        // condense out-of-scope braces {...}
-////        int scanPos = blockEnd;
-////        for (int curPos = pos; curPos > blockStart; --curPos)
-////        {
-////            if (stc->GetCharAt(curPos) != wxT('}'))
-////                continue;
-////            const int style = stc->GetStyleAt(curPos);
-////            if (   stc->IsString(style)
-////                || stc->IsCharacter(style)
-////                || stc->IsComment(style))
-////            {
-////                continue;
-////            }
-////            const int scopeStart = stc->BraceMatch(curPos);
-////            if (scopeStart < blockStart)
-////                break;
-////            buffer.Prepend(stc->GetTextRange(curPos, scanPos));
-////            int startLn = stc->LineFromPosition(scopeStart);
-////            int endLn   = stc->LineFromPosition(curPos);
-////            if (startLn < endLn) // maintain correct line numbers for parsed tokens
-////                buffer.Prepend( wxString(wxT('\n'), endLn - startLn) );
-////            scanPos = scopeStart + 1;
-////            curPos  = scopeStart;
-////
-////            // condense out-of-scope for/if/while declarations
-////            int prevCharIdx = scopeStart - 1;
-////            for (; prevCharIdx > blockStart; --prevCharIdx)
-////            {
-////                if (stc->IsComment(stc->GetStyleAt(prevCharIdx)))
-////                    continue;
-////                if (!wxIsspace(stc->GetCharAt(prevCharIdx)))
-////                    break;
-////            }
-////            if (stc->GetCharAt(prevCharIdx) != wxT(')'))
-////                continue;
-////            const int paramStart = stc->BraceMatch(prevCharIdx);
-////            if (paramStart < blockStart)
-////                continue;
-////            for (prevCharIdx = paramStart - 1; prevCharIdx > blockStart; --prevCharIdx)
-////            {
-////                if (stc->IsComment(stc->GetStyleAt(prevCharIdx)))
-////                    continue;
-////                if (!wxIsspace(stc->GetCharAt(prevCharIdx)))
-////                    break;
-////            }
-////            const wxString text = stc->GetTextRange(stc->WordStartPosition(prevCharIdx, true),
-////                                                    stc->WordEndPosition(  prevCharIdx, true));
-////            if (text == wxT("for"))
-////                buffer.Prepend(wxT("(;;){"));
-////            else if (text == wxT("if") || text == wxT("while") || text == wxT("catch"))
-////                buffer.Prepend(wxT("(0){"));
-////            else
-////                continue;
-////            startLn = stc->LineFromPosition(prevCharIdx);
-////            endLn   = stc->LineFromPosition(scopeStart);
-////            if (startLn < endLn)
-////                buffer.Prepend( wxString(wxT('\n'), endLn - startLn) );
-////            curPos  = stc->WordStartPosition(prevCharIdx, true);
-////            scanPos = stc->WordEndPosition(  prevCharIdx, true);
-////        }
-////        buffer.Prepend(stc->GetTextRange(blockStart, scanPos));
-////
-////        buffer.Trim();
-////
-////        ParseBufferForUsingNamespace(buffer, search_scope, false);
-////
-////        if (   !buffer.IsEmpty()
-////            && !m_Parser->ParseBuffer(buffer, false, false, true, searchData->file, m_LastFuncTokenIdx, initLine) )
-////        {
-////            if (s_DebugSmartSense)
-////                CCLogger::Get()->DebugLog(_T("ParseLocalBlock() ERROR parsing block:\n") + buffer);
-////        }
-////        else
-////        {
-////            if (s_DebugSmartSense)
-////            {
-////                CCLogger::Get()->DebugLog(wxString::Format(_T("ParseLocalBlock() Block:\n%s"), buffer.wx_str()));
-////                CCLogger::Get()->DebugLog(_T("ParseLocalBlock() Local tokens:"));
-////
-////                TokenTree* tree = m_Parser->GetTokenTree();
-////
-////                CC_LOCKER_TRACK_TT_MTX_LOCK(s_TokenTreeMutex)
-////
-////                for (size_t i = 0; i < tree->size(); ++i)
-////                {
-////                    const Token* token = tree->at(i);
-////                    if (token && token->m_IsTemp)
-////                    {
-////                        wxString log(wxString::Format(_T(" + %s (%d)"), token->DisplayName().wx_str(), token->m_Index));
-////                        const Token* parent = tree->at(token->m_ParentIndex);
-////                        if (parent)
-////                            log += wxString::Format(_T("; Parent = %s (%d)"), parent->m_Name.wx_str(), token->m_ParentIndex);
-////                        CCLogger::Get()->DebugLog(log);
-////                    }
-////                }
-////
-////                CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
-////            }
-////            return true;
-////        }
-////    }
-////    else
-////    {
-////        if (s_DebugSmartSense)
-////            CCLogger::Get()->DebugLog(_T("ParseLocalBlock() Could not determine current block start..."));
-////    }
-////    return false;
-////}
 // ----------------------------------------------------------------------------
-bool ParseManager::AddCompilerAndIncludeDirs(cbProject* project, ParserBase* parser)
+bool ParseManager::AddCompilerAndIncludeDirs(cbProject* project, Parser* parser)
 // ----------------------------------------------------------------------------
 {
     if (!parser)
@@ -2243,383 +2271,8 @@ bool ParseManager::AddCompilerAndIncludeDirs(cbProject* project, ParserBase* par
     TRACE(_T("ParseManager::AddCompilerDirs: Leave"));
     return true;
 }
-////bool ParseManager::AddCompilerDirs(cbProject* project, ParserBase* parser)
-////{
-////    if (!parser)
-////        return false;
-////
-////    TRACE(_T("ParseManager::AddCompilerDirs: Enter"));
-////
-////    // If there is no project, work on default compiler
-////    if (!project)
-////    {
-////        AddCompilerIncludeDirsToParser(CompilerFactory::GetDefaultCompiler(), parser);
-////        TRACE(_T("ParseManager::AddCompilerDirs: Leave"));
-////        return true;
-////    }
-////
-////    // Otherwise (if there is a project), work on the project's compiler...
-////    wxString base = project->GetBasePath();
-////    parser->AddIncludeDir(base); // add project's base path
-////    TRACE(_T("ParseManager::AddCompilerDirs: Adding project base dir to parser: ") + base);
-////
-////    // ...so we can access post-processed project's search dirs
-////    Compiler* compiler = CompilerFactory::GetCompiler(project->GetCompilerID());
-////    cb::shared_ptr<CompilerCommandGenerator> generator(compiler ? compiler->GetCommandGenerator(project) : nullptr);
-////
-////    // get project include search dirs
-////    if (   !parser->Options().platformCheck
-////        || (parser->Options().platformCheck && project->SupportsCurrentPlatform()) )
-////    {
-////        AddIncludeDirsToParser(project->GetIncludeDirs(), base, parser);
-////    }
-////
-////    // alloc array for project compiler AND "no. of targets" times target compilers
-////    int nCompilers = 1 + project->GetBuildTargetsCount();
-////    Compiler** Compilers = new Compiler* [nCompilers];
-////    memset(Compilers, 0, sizeof(Compiler*) * nCompilers);
-////    nCompilers = 0; // reset , use as insert index in the next for loop
-////
-////    // get targets include dirs
-////    for (int i = 0; i < project->GetBuildTargetsCount(); ++i)
-////    {
-////        ProjectBuildTarget* target = project->GetBuildTarget(i);
-////        if (!target) continue;
-////
-////        if (   !parser->Options().platformCheck
-////            || (parser->Options().platformCheck && target->SupportsCurrentPlatform()) )
-////        {
-////            // post-processed search dirs (from build scripts)
-////            if (compiler && generator)
-////                AddIncludeDirsToParser(generator->GetCompilerSearchDirs(target), base, parser);
-////
-////            // apply target vars
-//////            target->GetCustomVars().ApplyVarsToEnvironment();
-////            AddIncludeDirsToParser(target->GetIncludeDirs(), base, parser);
-////
-////            // get the compiler
-////            wxString CompilerIndex = target->GetCompilerID();
-////            Compiler* tgtCompiler = CompilerFactory::GetCompiler(CompilerIndex);
-////            if (tgtCompiler)
-////            {
-////                Compilers[nCompilers] = tgtCompiler;
-////                ++nCompilers;
-////            }
-////        } // if (target)
-////    } // end loop over the targets
-////
-////    // add the project compiler to the array of compilers
-////    if (compiler)
-////    {   // note it might be possible that this compiler is already in the list
-////        // no need to worry since the compiler list of the parser will filter out duplicate
-////        // entries in the include dir list
-////        Compilers[nCompilers++] = compiler;
-////    }
-////
-////    // add compiler include dirs
-////    for (int idxCompiler = 0; idxCompiler < nCompilers; ++idxCompiler)
-////        AddCompilerIncludeDirsToParser(Compilers[idxCompiler], parser);
-////
-////    if (!nCompilers)
-////        CCLogger::Get()->DebugLog(_T("ParseManager::AddCompilerDirs: No compilers found!"));
-////
-////    delete [] Compilers;
-////    TRACE(_T("ParseManager::AddCompilerDirs: Leave"));
-////    return true;
-////}
-
-////bool ParseManager::AddCompilerPredefinedMacros(cbProject* project, ParserBase* parser)
-////{
-////    if (!parser)
-////        return false;
-////
-////    if (!parser->Options().wantPreprocessor)
-////        return false;
-////
-////    TRACE(_T("ParseManager::AddCompilerPredefinedMacros: Enter"));
-////
-////    // Default compiler is used for for single file parser (non project)
-////    wxString compilerId = project ? project->GetCompilerID() : CompilerFactory::GetDefaultCompilerID();
-////
-////    wxString defs;
-////    // gcc
-////    if (compilerId.Contains(_T("gcc")))
-////    {
-////        if ( !AddCompilerPredefinedMacrosGCC(compilerId, project, defs, parser) )
-////            return false;
-////    }
-////    // vc
-////    else if (compilerId.StartsWith(_T("msvc")))
-////    {
-////        if ( !AddCompilerPredefinedMacrosVC(compilerId, defs, parser) )
-////          return false;
-////    }
-////
-////    TRACE(_T("ParseManager::AddCompilerPredefinedMacros: Add compiler predefined preprocessor macros:\n%s"), defs.wx_str());
-////    parser->AddPredefinedMacros(defs);
-////
-////    TRACE(_T("ParseManager::AddCompilerPredefinedMacros: Leave"));
-////    if ( defs.IsEmpty() )
-////        return false;
-////
-////    return true;
-////}
-
-////bool ParseManager::AddCompilerPredefinedMacrosGCC(const wxString& compilerId, cbProject* project, wxString& defs, ParserBase* parser)
-////{
-////    Compiler* compiler = CompilerFactory::GetCompiler(compilerId);
-////    if (!compiler)
-////        return false;
-////
-////    if (parser->Options().platformCheck && !compiler->SupportsCurrentPlatform())
-////    {
-////        TRACE(_T("ParseManager::AddCompilerPredefinedMacrosGCC: Not supported on current platform!"));
-////        return false;
-////    }
-////
-////    wxString sep = (platform::windows ? _T("\\") : _T("/"));
-////    wxString cpp_compiler = compiler->GetMasterPath() + sep + _T("bin") + sep + compiler->GetPrograms().CPP;
-////    Manager::Get()->GetMacrosManager()->ReplaceMacros(cpp_compiler);
-////
-////    static std::map<wxString, wxString> gccDefsMap;
-////    if ( gccDefsMap[cpp_compiler].IsEmpty() )
-////    {
-////        // Check if user set language standard version to use
-////        wxString standard = GetCompilerStandardGCC(compiler, project);
-////
-////        // Different command on Windows and other OSes
-////#ifdef __WXMSW__
-////        const wxString args(wxString::Format(_T(" -E -dM -x c++ %s nul"), standard.wx_str()) );
-////#else
-////        const wxString args(wxString::Format(_T(" -E -dM -x c++ %s /dev/null"), standard.wx_str()) );
-////#endif
-////
-////        wxArrayString output, error;
-////        if ( !SafeExecute(compiler->GetMasterPath(), compiler->GetPrograms().CPP, args, output, error) )
-////            return false;
-////
-////        // wxExecute can be a long action and C::B might have been shutdown in the meantime...
-////        if ( Manager::IsAppShuttingDown() )
-////            return false;
-////
-////        wxString& gccDefs = gccDefsMap[cpp_compiler];
-////        for (size_t i = 0; i < output.Count(); ++i)
-////            gccDefs += output[i] + _T("\n");
-////
-////        CCLogger::Get()->DebugLog(_T("ParseManager::AddCompilerPredefinedMacrosGCC: Caching predefined macros for compiler '")
-////                                  + cpp_compiler + _T("':\n") + gccDefs);
-////    }
-////
-////    defs = gccDefsMap[cpp_compiler];
-////
-////    return true;
-////}
-
-////wxString ParseManager::GetCompilerStandardGCC(Compiler* compiler, cbProject* project)
-////{
-////    // Check if user set language standard version to use
-////    // 1.) Global compiler settings are first to search in
-////    wxString standard = GetCompilerUsingStandardGCC(compiler->GetCompilerOptions());
-////    if (standard.IsEmpty() && project)
-////    {
-////        // 2.) Project compiler setting are second
-////        standard = GetCompilerUsingStandardGCC(project->GetCompilerOptions());
-////
-////        // 3.) And targets are third in row to look for standard
-////        // NOTE: If two targets use different standards, only the one we
-////        //       encounter first (eg. c++98) will be used, and any other
-////        //       disregarded (even if it would be c++1y)
-////        if (standard.IsEmpty())
-////        {
-////            for (int i=0; i<project->GetBuildTargetsCount(); ++i)
-////            {
-////                ProjectBuildTarget* target = project->GetBuildTarget(i);
-////                standard = GetCompilerUsingStandardGCC(target->GetCompilerOptions());
-////
-////                if (!standard.IsEmpty())
-////                    break;
-////            }
-////        }
-////    }
-////    return standard;
-////}
-
-////wxString ParseManager::GetCompilerUsingStandardGCC(const wxArrayString& compilerOptions)
-////{
-////    wxString standard;
-////    for (wxArrayString::size_type i=0; i<compilerOptions.Count(); ++i)
-////    {
-////        if (compilerOptions[i].StartsWith(_T("-std=")))
-////        {
-////            standard = compilerOptions[i];
-////            CCLogger::Get()->DebugLog(wxString::Format(_T("ParseManager::GetCompilerUsingStandardGCC: Using language standard: %s"), standard.wx_str()));
-////            break;
-////        }
-////    }
-////    return standard;
-////}
-
-////bool ParseManager::AddCompilerPredefinedMacrosVC(const wxString& compilerId, wxString& defs, ParserBase* parser)
-////{
-////    static wxString vcDefs;
-////    static bool     firstExecute = true;
-////
-////    if (!firstExecute)
-////    {
-////        defs = vcDefs;
-////        return true;
-////    }
-////
-////    firstExecute = false;
-////    Compiler* compiler = CompilerFactory::GetCompiler(compilerId);
-////    if (!compiler)
-////        return false;
-////
-////    if (parser->Options().platformCheck && !compiler->SupportsCurrentPlatform())
-////    {
-////        TRACE(_T("ParseManager::AddCompilerPredefinedMacrosVC: Not supported on current platform!"));
-////        return false;
-////    }
-////
-////    wxArrayString output, error;
-////    if ( !SafeExecute(compiler->GetMasterPath(), compiler->GetPrograms().C, wxEmptyString, output, error) )
-////        return false;
-////
-////    // wxExecute can be a long action and C::B might have been shutdown in the meantime...
-////    if ( Manager::IsAppShuttingDown() )
-////        return false;
-////
-////    if (error.IsEmpty())
-////    {
-////        TRACE(_T("ParseManager::AddCompilerPredefinedMacrosVC: Can't get pre-defined macros for MSVC."));
-////        return false;
-////    }
-////
-////    wxString compilerVersionInfo = error[0];
-////    wxString tmp(_T("Microsoft (R) "));
-////    int pos = compilerVersionInfo.Find(tmp);
-////    if (pos != wxNOT_FOUND)
-////    {
-////        // in earlier versions of MSVC the compiler shows "32 bit" or "64 bit"
-////        // in more recent MSVC version the architecture (x86 or x64) is shown instead
-////        wxString bit = compilerVersionInfo.Mid(pos + tmp.Length(), 2);
-////        if      ( (bit.IsSameAs(_T("32"))) || compilerVersionInfo.Contains(_T("x86")) )
-////            defs += _T("#define _WIN32") _T("\n");
-////        else if ( (bit.IsSameAs(_T("64"))) || compilerVersionInfo.Contains(_T("x64")) )
-////            defs += _T("#define _WIN64") _T("\n");
-////    }
-////
-////    tmp = _T("Compiler Version ");
-////    pos = compilerVersionInfo.Find(tmp);
-////    if (pos != wxNOT_FOUND)
-////    {
-////        wxString ver = compilerVersionInfo.Mid(pos + tmp.Length(), 4); // is i.e. 12.0
-////        pos = ver.Find(_T('.'));
-////        if (pos != wxNOT_FOUND)
-////        {
-////            // out of "12.0" make "1200" for the #define
-////            ver[pos]     = ver[pos + 1]; // move the mintor version first number to the dot position
-////            ver[pos + 1] = _T('0');      // add another zero at the end
-////            defs += _T("#define _MSC_VER ") + ver;
-////            // Known to now (see https://en.wikipedia.org/wiki/Visual_C%2B%2B):
-////            // MSVC++ 12.0 _MSC_VER = 1800 (Visual Studio 2013)
-////            // MSVC++ 11.0 _MSC_VER = 1700 (Visual Studio 2012)
-////            // MSVC++ 10.0 _MSC_VER = 1600 (Visual Studio 2010)
-////            // MSVC++ 9.0  _MSC_VER = 1500 (Visual Studio 2008)
-////            // MSVC++ 8.0  _MSC_VER = 1400 (Visual Studio 2005)
-////            // MSVC++ 7.1  _MSC_VER = 1310 (Visual Studio 2003)
-////            // MSVC++ 7.0  _MSC_VER = 1300
-////            // MSVC++ 6.0  _MSC_VER = 1200
-////            // MSVC++ 5.0  _MSC_VER = 1100
-////        }
-////    }
-////
-////    defs = vcDefs;
-////    return true;
-////}
-
-////bool ParseManager::AddProjectDefinedMacros(cbProject* project, ParserBase* parser)
-////{
-////    if (!parser)
-////        return false;
-////
-////    if (!project)
-////        return true;
-////
-////    TRACE(_T("ParseManager::AddProjectDefinedMacros: Enter"));
-////
-////    wxString compilerId = project->GetCompilerID();
-////    wxString defineCompilerSwitch(wxEmptyString);
-////    if (compilerId.Contains(_T("gcc")))
-////        defineCompilerSwitch = _T("-D");
-////    else if (compilerId.StartsWith(_T("msvc")))
-////        defineCompilerSwitch = _T("/D");
-////
-////    if (defineCompilerSwitch.IsEmpty())
-////        return false; // no compiler options, return false
-////
-////    wxString defs;
-////    wxArrayString opts;
-////    if (   !parser->Options().platformCheck
-////        || (parser->Options().platformCheck && project->SupportsCurrentPlatform()) )
-////    {
-////        opts = project->GetCompilerOptions();
-////    }
-////
-////    ProjectBuildTarget* target = project->GetBuildTarget(project->GetActiveBuildTarget());
-////    if (target != NULL)
-////    {
-////        if (   !parser->Options().platformCheck
-////            || (parser->Options().platformCheck && target->SupportsCurrentPlatform()) )
-////        {
-////            wxArrayString targetOpts = target->GetCompilerOptions();
-////            for (size_t i = 0; i < targetOpts.GetCount(); ++i)
-////                opts.Add(targetOpts[i]);
-////        }
-////    }
-////    // In case of virtual targets, collect the defines from all child targets.
-////    wxArrayString targets = project->GetExpandedVirtualBuildTargetGroup(project->GetActiveBuildTarget());
-////    for (size_t i = 0; i < targets.GetCount(); ++i)
-////    {
-////        target = project->GetBuildTarget(targets[i]);
-////        if (target != NULL)
-////        {
-////            if (   !parser->Options().platformCheck
-////                || (parser->Options().platformCheck && target->SupportsCurrentPlatform()) )
-////            {
-////                wxArrayString targetOpts = target->GetCompilerOptions();
-////                for (size_t j = 0; j < targetOpts.GetCount(); ++j)
-////                    opts.Add(targetOpts[j]);
-////            }
-////        }
-////    }
-////
-////    for (size_t i = 0; i < opts.GetCount(); ++i)
-////    {
-////        wxString def = opts[i];
-////        Manager::Get()->GetMacrosManager()->ReplaceMacros(def);
-////        if ( !def.StartsWith(defineCompilerSwitch) )
-////            continue;
-////
-////        def = def.Right(def.Length() - defineCompilerSwitch.Length());
-////        int pos = def.Find(_T('='));
-////        if (pos != wxNOT_FOUND)
-////            def[pos] = _T(' ');
-////
-////        defs += _T("#define ") + def + _T("\n");
-////    }
-////
-////    TRACE(_T("Add project and current build target defined preprocessor macros:\n%s"), defs.wx_str());
-////    parser->AddPredefinedMacros(defs);
-////    TRACE(_T("ParseManager::AddProjectDefinedMacros: Leave"));
-////    if ( defs.IsEmpty() )
-////        return false;
-////
-////    return true;
-////}
-
 // ----------------------------------------------------------------------------
-void ParseManager::AddCompilerIncludeDirsToParser(const Compiler* compiler, ParserBase* parser)
+void ParseManager::AddCompilerIncludeDirsToParser(const Compiler* compiler, Parser* parser)
 // ----------------------------------------------------------------------------
 {
     if (!compiler || !parser) return;
@@ -2713,7 +2366,7 @@ const wxArrayString& ParseManager::GetGCCCompilerDirs(const wxString& cpp_path, 
     return dirs[cpp_compiler];
 }
 
-void ParseManager::AddGCCCompilerDirs(const wxString& masterPath, const wxString& compilerCpp, ParserBase* parser)
+void ParseManager::AddGCCCompilerDirs(const wxString& masterPath, const wxString& compilerCpp, Parser* parser)
 {
     const wxArrayString& gccDirs = GetGCCCompilerDirs(masterPath, compilerCpp);
     TRACE(_T("ParseManager::AddGCCCompilerDirs: Adding %lu cached gcc dirs to parser..."), static_cast<unsigned long>(gccDirs.GetCount()));
@@ -2724,7 +2377,7 @@ void ParseManager::AddGCCCompilerDirs(const wxString& masterPath, const wxString
     }
 }
 
-void ParseManager::AddIncludeDirsToParser(const wxArrayString& dirs, const wxString& base, ParserBase* parser)
+void ParseManager::AddIncludeDirsToParser(const wxArrayString& dirs, const wxString& base, Parser* parser)
 {
     for (unsigned int i = 0; i < dirs.GetCount(); ++i)
     {
@@ -2794,175 +2447,6 @@ bool ParseManager::SafeExecute(const wxString& app_path, const wxString& app, co
 
     return true;
 }
-////// ----------------------------------------------------------------------------
-////void ParseManager::OnParserStart(wxCommandEvent& event)
-////// ----------------------------------------------------------------------------
-////{
-////    TRACE(_T("ParseManager::OnParserStart: Enter"));
-////
-////    cbProject* project = static_cast<cbProject*>(event.GetClientData());
-////    wxString   prj     = (project ? project->GetTitle() : _T("*NONE*"));
-////    const ParserCommon::ParserState state = static_cast<ParserCommon::ParserState>(event.GetInt());
-////
-////    switch (state)
-////    {
-////        case ParserCommon::ptCreateParser:
-////            CCLogger::Get()->DebugLog(wxString::Format(_("ParseManager::OnParserStart: Starting batch parsing for project '%s'..."), prj.wx_str()));
-////            {
-////                std::pair<cbProject*, ParserBase*> info = GetParserInfoByCurrentEditor();
-////                if (info.second && m_Parser != info.second)
-////                {
-////                    CCLogger::Get()->DebugLog(_T("ParseManager::OnParserStart: Start switch from OnParserStart::ptCreateParser"));
-////                    SwitchParser(info.first, info.second); // Calls SetParser() which also calls UpdateClassBrowserView()
-////                }
-////            }
-////            break;
-////
-////        case ParserCommon::ptAddFileToParser:
-////            CCLogger::Get()->DebugLog(wxString::Format(_("ParseManager::OnParserStart: Starting add file parsing for project '%s'..."), prj.wx_str()));
-////            break;
-////
-////        case ParserCommon::ptReparseFile:
-////            CCLogger::Get()->DebugLog(wxString::Format(_("ParseManager::OnParserStart: Starting re-parsing for project '%s'..."), prj.wx_str()));
-////            break;
-////
-////        case ParserCommon::ptUndefined:
-////            if (event.GetString().IsEmpty())
-////                CCLogger::Get()->DebugLog(wxString::Format(_("ParseManager::OnParserStart: Batch parsing error in project '%s'"), prj.wx_str()));
-////            else
-////                CCLogger::Get()->DebugLog(wxString::Format(_("ParseManager::OnParserStart: %s in project '%s'"), event.GetString().wx_str(), prj.wx_str()));
-////            return;
-////
-////        default:
-////            break;
-////    }
-////
-////    event.Skip();
-////
-////    TRACE(_T("ParseManager::OnParserStart: Leave"));
-////}
-
-////// ----------------------------------------------------------------------------
-////void ParseManager::OnParserEnd(wxCommandEvent& event)
-////// ----------------------------------------------------------------------------
-////{
-////    TRACE(_T("ParseManager::OnParserEnd: Enter"));
-////
-////    ParserBase* parser = reinterpret_cast<ParserBase*>(event.GetEventObject());
-////    cbProject* project = static_cast<cbProject*>(event.GetClientData());
-////    wxString prj = (project ? project->GetTitle() : _T("*NONE*"));
-////    const ParserCommon::ParserState state = static_cast<ParserCommon::ParserState>(event.GetInt());
-////
-////    switch (state)
-////    {
-////        case ParserCommon::ptCreateParser:
-////            {
-////                wxString log(wxString::Format(_("ParseManager::OnParserEnd: Project '%s' parsing stage done!"), prj.wx_str()));
-////                CCLogger::Get()->Log(log);
-////                CCLogger::Get()->DebugLog(log);
-////            }
-////            break;
-////
-////        case ParserCommon::ptAddFileToParser:
-////            break;
-////
-////        case ParserCommon::ptReparseFile:
-////            if (parser != m_Parser)
-////            {
-////                std::pair<cbProject*, ParserBase*> info = GetParserInfoByCurrentEditor();
-////                if (info.second && info.second != m_Parser)
-////                {
-////                    CCLogger::Get()->DebugLog(_T("ParseManager::OnParserEnd: Start switch from OnParserEnd::ptReparseFile"));
-////                    SwitchParser(info.first, info.second); // Calls SetParser() which also calls UpdateClassBrowserView()
-////                }
-////            }
-////            break;
-////
-////        case ParserCommon::ptUndefined:
-////            CCLogger::Get()->DebugLog(wxString::Format(_T("ParseManager::OnParserEnd: Parser event handling error of project '%s'"), prj.wx_str()));
-////            return;
-////
-////        default:
-////            break;
-////    }
-////
-////    if (!event.GetString().IsEmpty())
-////        CCLogger::Get()->DebugLog(event.GetString());
-////
-////    UpdateClassBrowser();
-////
-////    // In this case, the parser will record all the cbprojects' token, so this will start parsing
-////    // the next cbproject.
-////    TRACE(_T("ParseManager::OnParserEnd: Starting m_TimerParsingOneByOne."));
-////    m_TimerParsingOneByOne.Start(500, wxTIMER_ONE_SHOT);
-////
-////    // both ParseManager and CodeCompletion class need to handle this event
-////    event.Skip();
-////    TRACE(_T("ParseManager::OnParserEnd: Leave"));
-////}
-
-////void ParseManager::OnParsingOneByOneTimer(cb_unused wxTimerEvent& event)
-////{
-////    TRACE(_T("ParseManager::OnParsingOneByOneTimer: Enter"));
-////
-////    std::pair<cbProject*, ParserBase*> info = GetParserInfoByCurrentEditor();
-////    if (m_ParserPerWorkspace)
-////    {
-////        // If there is no parser and an active editor file can be obtained, parse the file according the active project
-////        if (!info.second && Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor())
-////        {
-////            // NOTE (Morten#1#): Shouldn't this actually be a temp parser??? I think this screws things with re-opening files on load of a projects...
-////            AddProjectToParser(info.first);
-////            CCLogger::Get()->DebugLog(_T("ParseManager::OnParsingOneByOneTimer: Add foreign active editor to current active project's parser."));
-////        }
-////        // Otherwise, there is a parser already present
-////        else
-////        {
-////            // First: try to parse the active project (if any)
-////            cbProject* activeProject = Manager::Get()->GetProjectManager()->GetActiveProject();
-////            if (m_ParsedProjects.find(activeProject) == m_ParsedProjects.end())
-////            {
-////                AddProjectToParser(activeProject);
-////                CCLogger::Get()->DebugLog(_T("ParseManager::OnParsingOneByOneTimer: Add new (un-parsed) active project to parser."));
-////            }
-////            // Else: add remaining projects one-by-one (if any)
-////            else
-////            {
-////                ProjectsArray* projs = Manager::Get()->GetProjectManager()->GetProjects();
-////                // loop on the whole workspace, and only add a new project to the parser
-////                // here the "new" means a project haven't been parsed. Once it was parsed, it is
-////                // added to the m_ParsedProjects
-////                for (size_t i = 0; i < projs->GetCount(); ++i)
-////                {
-////                    // Only add, if the project is not already parsed
-////                    if (m_ParsedProjects.find(projs->Item(i)) == m_ParsedProjects.end())
-////                    {
-////                        // AddProjectToParser return true means there are something need to parse, otherwise, it is false
-////                        if (!AddProjectToParser(projs->Item(i)))
-////                        {
-////                            CCLogger::Get()->Log(_T("ParseManager::OnParsingOneByOneTimer: nothing need to parse in this project, try next project."));
-////                            continue;
-////                        }
-////
-////                        CCLogger::Get()->DebugLog(_T("ParseManager::OnParsingOneByOneTimer: Add additional (next) project to parser."));
-////                        break;
-////                    }
-////                }
-////            }
-////        }
-////    }
-////    else if (info.first && !info.second)
-////    {
-////        info.second = CreateParser(info.first);
-////        if (info.second && info.second != m_Parser)
-////        {
-////            CCLogger::Get()->DebugLog(_T("ParseManager::OnParsingOneByOneTimer: Start switch from OnParsingOneByOneTimer"));
-////            SwitchParser(info.first, info.second); // Calls SetParser() which also calls UpdateClassBrowserView()
-////        }
-////    }
-////    TRACE(_T("ParseManager::OnParsingOneByOneTimer: Leave"));
-////}
-
 // ----------------------------------------------------------------------------
 void ParseManager::OnEditorActivated(EditorBase* editor)
 // ----------------------------------------------------------------------------
@@ -2986,7 +2470,7 @@ void ParseManager::OnEditorActivated(EditorBase* editor)
             RemoveFileFromParser(NULL, activatedFile);
     }
 
-    ParserBase* parser = GetParserByProject(project);
+    Parser* parser = GetParserByProject(project);
     if (!parser)
     {
         ParserCommon::EFileType ft = ParserCommon::FileType(activatedFile);
@@ -3000,7 +2484,7 @@ void ParseManager::OnEditorActivated(EditorBase* editor)
             }
         }
         else
-            parser = m_TempParser; // do *not* use SetParser(m_TempParser)
+            parser = m_TempParser;
     }
     else if (!project)
     {
@@ -3014,7 +2498,7 @@ void ParseManager::OnEditorActivated(EditorBase* editor)
         }
     }
 
-    if (parser != m_Parser)
+    if (parser != m_ActiveParser)
     {
         CCLogger::Get()->DebugLog(_T("Start switch from OnEditorActivatedTimer"));
         SwitchParser(project, parser); // Calls SetParser() which also calls UpdateClassBrowserView()
@@ -3022,11 +2506,17 @@ void ParseManager::OnEditorActivated(EditorBase* editor)
 
     if (m_ClassBrowser)
     {
-        if (m_Parser->ClassBrowserOptions().displayFilter == bdfFile)
+        if (m_ActiveParser->ClassBrowserOptions().displayFilter == bdfFile)
+        {
+            s_ClassBrowserCaller = wxString::Format("%s:%d",__FUNCTION__, __LINE__);
             m_ClassBrowser->UpdateClassBrowserView(true); // check header and implementation file swap
+        }
         else if (   m_ParserPerWorkspace // project view only available in case of one parser per WS //m_ParserPerWorkspace always false for clangd
-                 && m_Parser->ClassBrowserOptions().displayFilter == bdfProject)
+                 && m_ActiveParser->ClassBrowserOptions().displayFilter == bdfProject)
+        {
+            s_ClassBrowserCaller = wxString::Format("%s:%d",__FUNCTION__, __LINE__);
             m_ClassBrowser->UpdateClassBrowserView();
+        }
     }
 }
 // ----------------------------------------------------------------------------
@@ -3087,6 +2577,12 @@ bool ParseManager::InstallClangdProxyProject()
     wxFileSystem::AddHandler(new wxZipFSHandler);
 
     bool done = true;
+
+    // Fix 1.2.64 23/03/14 Remove "<Extensions>" from the proxproject.cbp to avoid
+    // CB issuing the LoadHook calls and confusing other plugins (like wxSmith).
+    if (wxFileExists(userDataFolder + "/CC_ProxyProject.cbp"))
+        wxRemove(userDataFolder + "/CC_ProxyProject.cbp");
+
     if (not wxFileExists(userDataFolder + "/CC_ProxyProject.cbp"))
     {
         done = false;
@@ -3097,7 +2593,7 @@ bool ParseManager::InstallClangdProxyProject()
           wxInputStream* in = zip->GetStream();
           if ( in != NULL )
           {
-            wxFileOutputStream out( userDataFolder + "CC_ProxyProject.cbp" );
+            wxFileOutputStream out( userDataFolder + "/CC_ProxyProject.cbp" );
             out.Write(*in);
             out.Close();
             done = true;
@@ -3117,7 +2613,7 @@ void ParseManager::SetProxyProject(cbProject* pActiveProject)
     // We'll add all opened non-project files to this proxy.
     // This allows us to manage non-project files without mangling the active cbProject.
 
-    wxString msg = "Creating ProxyProject/Clangd_clinet/Parser for non-project files.";
+    wxString msg = "Creating ProxyProject/client/Parser for non-project files.";
     CCLogger::Get()->DebugLog(msg);
 
     if (not m_pProxyProject)
@@ -3182,7 +2678,7 @@ void ParseManager::SetProxyProject(cbProject* pActiveProject)
     //This is what happens: m_ParserList.push_back(std::make_pair(m_pProxyProject, pProxyParser));
     // ProxyProject will now look like a regular cbProject to the parsers and clangd_client.
     // We'll be able to add and remove non-project files to the hidden cbProject.
-    ParserBase* pProxyParser = CreateParser(m_pProxyProject, false);
+    Parser* pProxyParser = CreateParser(m_pProxyProject, false);
 
     if (pProxyParser) m_pProxyParser = pProxyParser;
 
@@ -3228,18 +2724,149 @@ void ParseManager::SetProxyProject(cbProject* pActiveProject)
     return;
 }
 // ----------------------------------------------------------------------------
+void ParseManager::SetPluginIsShuttingDown()
+// ----------------------------------------------------------------------------
+{
+    m_PluginIsShuttingDown = true;
+
+    ParserList::iterator parserList_it = m_ParserList.begin();
+    for (; parserList_it != m_ParserList.end(); ++parserList_it)
+    {
+        Parser* pParser = parserList_it->second;
+        if (pParser and pParser->GetIdleCallbackHandler())
+            pParser->GetIdleCallbackHandler()->SetPluginIsShuttingDown();
+    }
+}
+// Get pointer to Idle callbacks
+// ----------------------------------------------------------------------------
+IdleCallbackHandler* ParseManager::GetIdleCallbackHandler(cbProject* pProject)
+// ----------------------------------------------------------------------------
+{
+    cbAssertNonFatal(pProject && "pProject is null");
+    Parser* pParser = pProject ? GetParserByProject(pProject) : nullptr;
+    cbAssertNonFatal(pParser && "Project has no pParser");
+    if ((not pProject ) or (not pParser))
+        return nullptr;
+    return pParser->GetIdleCallbackHandler();
+}
+// ----------------------------------------------------------------------------
 void ParseManager::ClearAllIdleCallbacks()
 // ----------------------------------------------------------------------------
 {
-    // clear any Idle time callbacks //(ph 2022/08/01)
+    // clear any Idle time callbacks
     if (m_ParserList.size())
     {
-        ParserList::iterator parserList_it = m_ParserList.begin();  //(ph 2022/08/01)
+        ParserList::iterator parserList_it = m_ParserList.begin();
         for (; parserList_it != m_ParserList.end(); ++parserList_it)
         {
-            ParserBase* pParserBase = parserList_it->second;
-            if (pParserBase and pParserBase->GetIdleCallbackHandler())
-                pParserBase->GetIdleCallbackHandler()->ClearIdleCallbacks();
+            Parser* pParser = parserList_it->second;
+            if (pParser and pParser->GetIdleCallbackHandler())
+                pParser->GetIdleCallbackHandler()->ClearIdleCallbacks();
         }
     }
+}
+// ----------------------------------------------------------------------------
+bool ParseManager::GetUseCCIconsOption()
+// ----------------------------------------------------------------------------
+{
+    ConfigManager* cfg = Manager::Get()->GetConfigManager("clangd_client");
+    bool useIcons = cfg->ReadBool("/useCompletionIcons_Check", false);
+    return useIcons;
+}
+// ----------------------------------------------------------------------------
+bool ParseManager::DoShowDiagnostics(wxString filename, int line)  //(Christo 2024/03/30)
+// ----------------------------------------------------------------------------
+{
+    typedef std::vector<std::pair<int, wxString>> InnerMap_t;
+    bool ret = false;
+    wxString diagnostics;
+
+    { // <== codeblock == to contain mutex lock
+        std::lock_guard<std::mutex> lock(m_diagnosticsCacheMutex);
+        DiagnosticsCache_t::const_iterator itr = m_diagnosticsCache.find(filename);
+        if (itr != m_diagnosticsCache.end())
+        {
+            const InnerMap_t& innermap = itr->second;
+            for (InnerMap_t::const_iterator it = innermap.begin(); it != innermap.end(); ++it)
+            {
+                if (it->first == line)
+                {
+                    diagnostics = it->second;
+                    ret = true;
+                    break;
+                }
+            }
+        }
+    } // <== end codeblock == releases mutex lock
+
+    if (ret)
+    {
+        if (not (diagnostics.Contains("(fix available)") or (diagnostics.Contains("(fixes available)"))))
+        {
+            cbMessageBox(diagnostics, _("LSP Diagnostics"));
+        }
+        else
+        {
+            int answer = wxMessageBox( diagnostics + "\nApply Fix?", wxT("LSP Diagnostics"), wxYES_DEFAULT|wxYES_NO);
+            if (answer == wxYES)
+            {
+                const int idRequestCodeActionAppy = XRCID("idRequestCodeActionApply");
+                wxCommandEvent evt(wxEVT_COMMAND_MENU_SELECTED, idRequestCodeActionAppy);
+                evt.SetString(filename + "|" + wxString::Format(wxT("%i"),line +1) +"|"+ diagnostics);
+                Manager::Get()->GetAppFrame()->GetEventHandler()->AddPendingEvent(evt);
+            }
+        }
+    }
+    return ret;
+}
+
+// ----------------------------------------------------------------------------
+void ParseManager::InsertDiagnostics(wxString filename, std::vector<std::pair<int, wxString>> diagnostics)  //(Christo 2024/03/30)
+// ----------------------------------------------------------------------------
+{
+    std::lock_guard < std::mutex > lock(m_diagnosticsCacheMutex);
+    m_diagnosticsCache[filename] = diagnostics;
+}
+
+// ----------------------------------------------------------------------------
+bool ParseManager::HasDiagnostics(wxString filename)
+// ----------------------------------------------------------------------------
+{
+    std::lock_guard < std::mutex > lock(m_diagnosticsCacheMutex);
+    const auto &itr = m_diagnosticsCache.find(filename);
+    if (itr != m_diagnosticsCache.end())
+    {
+        return true;
+    }
+    return false;
+}
+// ----------------------------------------------------------------------------
+void ParseManager::ClearDiagnostics(wxString filename)  //(Christo 2024/03/30)
+// ----------------------------------------------------------------------------
+{
+    std::lock_guard < std::mutex > lock(m_diagnosticsCacheMutex);
+    wxString ret;
+    const auto &itr = m_diagnosticsCache.find(filename);
+    if (itr != m_diagnosticsCache.end())
+    {
+        m_diagnosticsCache.erase(itr);
+    }
+}
+// ----------------------------------------------------------------------------
+std::unordered_map<cbProject*,ParserBase*> * ParseManager::GetActiveParsers()  //(svn 13612 bkport)
+// ----------------------------------------------------------------------------
+{
+ // First, clear the contents of m_ActiveParserList
+    m_ActiveParserList.clear();
+
+    // Then, copy the contents of m_ParserList to m_ActiveParserList
+    for (const auto& pair : m_ParserList)
+    {
+        // Don't count the ProxyProjec
+        cbProject* pProject = pair.first;
+        if (pProject and (pProject->GetTitle() == "~ProxyProject~")) continue;
+        m_ActiveParserList.insert(pair);
+    }
+
+    return &m_ActiveParserList;
 }

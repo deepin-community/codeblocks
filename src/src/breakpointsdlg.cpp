@@ -4,7 +4,7 @@
  *
  * $Revision: 12948 $
  * $Id: breakpointsdlg.cpp 12948 2022-10-05 07:48:15Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/breakpointsdlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/breakpointsdlg.cpp $
  */
 
 #include "sdk.h"

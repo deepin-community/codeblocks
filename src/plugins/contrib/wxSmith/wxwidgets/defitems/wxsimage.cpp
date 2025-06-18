@@ -34,7 +34,7 @@ wxsImage::wxsImage(wxsItemResData *Data) :
     wxsTool(Data, &Reg.Info, 0, 0)
 {
     int         n;
-    wxString    ss, tt;
+    wxString    ss;
     wxFileName  fn;
 
     // nothing selected yet
@@ -61,11 +61,9 @@ wxsImage::wxsImage(wxsItemResData *Data) :
  */
 void wxsImage::OnBuildCreatingCode()
 {
-    wxString    inc;
     wxString    vname;                  // this variable name
     wxString    bname;                  // name of the bitmap variable
     wxString    xname;                  // XPM data block name
-    wxString    ss, tt;                 // general use
 
     // have we already been here?
     if(m_IsBuilt) {
@@ -111,11 +109,11 @@ void wxsImage::OnBuildCreatingCode()
 
 /*! \brief Enumerate the tool's properties.
  *
- * \param flags long    The control flags.
+ * \param _Flags long    The control flags.
  * \return void
  *
  */
-void wxsImage::OnEnumToolProperties(cb_unused long Flags)
+void wxsImage::OnEnumToolProperties(cb_unused long _Flags)
 {
     // starting a new build cycle
     m_IsBuilt = false;
@@ -123,7 +121,7 @@ void wxsImage::OnEnumToolProperties(cb_unused long Flags)
 
     // details
     WXS_IMAGE(wxsImage, m_ImageData, _("Image"), _T("image"));
-    WXS_ARRAYSTRING(wxsImage, m_ImageData, _("Image as Text"), _T("image_text"), _("item2"));
+    WXS_ARRAYSTRING(wxsImage, m_ImageData, _("Image as Text"), _T("image_text"), "item2");
     WXS_BOOL(wxsImage, m_Include, _("Use Include File"), _T("use_include"), false);
 };
 

@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12247 $
-* $Id: wxstoolbaritem.cpp 12247 2020-12-22 14:00:02Z fuscated $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/defitems/wxstoolbaritem.cpp $
+* $Revision: 13547 $
+* $Id: wxstoolbaritem.cpp 13547 2024-09-14 04:35:04Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/defitems/wxstoolbaritem.cpp $
 */
 
 #include "wxstoolbaritem.h"
@@ -142,9 +142,8 @@ void wxsToolBarItem::OnBuildCreatingCode()
     }
 }
 
-void wxsToolBarItem::OnEnumToolProperties(cb_unused long Flags)
+void wxsToolBarItem::OnEnumToolProperties(cb_unused long _Flags)
 {
-
     switch ( m_Type )
     {
         case Normal:

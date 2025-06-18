@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 13003 $
- * $Id: symtabexec.cpp 13003 2022-11-08 08:50:45Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/symtab/symtabexec.cpp $
+ * $Revision: 13103 $
+ * $Id: symtabexec.cpp 13103 2022-12-09 14:16:20Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/symtab/symtabexec.cpp $
  */
 
 #include "sdk.h"
@@ -361,9 +361,7 @@ int SymTabExecDlg::ExecuteMulti(struct_config &config, wxString cmd)
     }// for
     if (!something_found)
     {
-      wxString msg;
-      msg << _("The search for \"") << the_symbol
-          << _("\" produced no results.");
+      const wxString msg(wxString::Format(_("The search for \"%s\" produced no results."), the_symbol));
       cbMessageBox(msg, _("Info"), wxICON_INFORMATION | wxOK,
                    (wxWindow*)Manager::Get()->GetAppWindow());
     }
@@ -504,7 +502,7 @@ int SymTabExecDlg::ParseOutputSuccess(wxString lib, wxString filter)
     return 0;
   }
 
-	Manager::Get()->GetLogManager()->DebugLog(F(_T("SymTab: Parsing %lu items..."), static_cast<unsigned long>(count)));
+	Manager::Get()->GetLogManager()->DebugLog(wxString::Format("SymTab: Parsing %zu items...", count));
 
   wxProgressDialog* progress = nullptr;
   if (count>2000) // avoid flickering for small libs

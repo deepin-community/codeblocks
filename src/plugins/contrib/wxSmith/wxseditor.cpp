@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12524 $
-* $Id: wxseditor.cpp 12524 2021-09-04 11:32:54Z fuscated $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxseditor.cpp $
+* $Revision: 13381 $
+* $Id: wxseditor.cpp 13381 2023-10-27 12:55:51Z wh11204 $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxseditor.cpp $
 */
 
 #include "wxseditor.h"
@@ -39,6 +39,6 @@ wxsEditor::~wxsEditor()
     if ( m_Resource )
     {
         m_Resource->EditorClosed();
-        m_Resource = 0;
+        m_Resource = nullptr;
     }
 }

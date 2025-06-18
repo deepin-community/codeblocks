@@ -4,7 +4,7 @@
  *
  * $Revision: 12708 $
  * $Id: configmanager-revision.cpp 12708 2022-02-08 08:42:14Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/configmanager-revision.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/configmanager-revision.cpp $
  */
 
 /* ------------------------------------------------------------------------------------------------------------------

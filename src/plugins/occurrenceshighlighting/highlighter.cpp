@@ -4,7 +4,7 @@
  *
  * $Revision: 11356 $
  * $Id: highlighter.cpp 11356 2018-03-31 21:50:19Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/occurrenceshighlighting/highlighter.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/occurrenceshighlighting/highlighter.cpp $
  */
 
 #include "highlighter.h"

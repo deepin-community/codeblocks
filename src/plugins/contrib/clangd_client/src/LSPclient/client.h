@@ -41,7 +41,7 @@
 #include "configmanager.h"
 #include "encodingdetector.h"
 
-#include "codecompletion/parser/parser.h" //(ph 2022/03/30)
+#include "codecompletion/parser/parser.h"
 
 class TextCtrlLogger;
 
@@ -127,7 +127,7 @@ class LanguageClient : public JsonTransport
             params.wantDiagnostics = wantDiagnostics;
             SendNotify("textDocument/didChange", params);
         }
-        //(ph 2021/02/11)
+        //(cb 2021/02/11)
         void NotifyDidChangeConfiguration(ConfigurationSettings &settings) {
             DidChangeConfigurationParams params;
             params.settings = std::move(settings);
@@ -319,7 +319,7 @@ class LanguageClient : public JsonTransport
             params.settings = std::move(settings);
             return SendRequest("workspace/didChangeConfiguration", std::move(params));
         }
-        RequestID SemanticTokensByID(DocumentUri uri, std::string reqID) {         //(ph 2021/03/16)
+        RequestID SemanticTokensByID(DocumentUri uri, std::string reqID) { //(cb 2021/03/16)
             DocumentSymbolParams params;
             params.textDocument.uri = std::move(uri);
             return SendRequestByID("textDocument/semanticTokens/full", reqID, std::move(params));
@@ -376,14 +376,23 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
         bool            m_LSP_initialized = false;
         bool            m_LSP_responseStatus = false;
 
-        // FIXME (ph#): This is no longer needed since clangd version 12
-        ////-int             m_LSP_CompileCommandsChangedTime = 0; //contains eon time-of-day in milliseconds
+        // Project needs to remove .cache and compile_commands.json at close
+        // probably because they were copied when the project moved.
+        std::vector<wxString> m_vProjectNeedsCleanup; //project .cbp full path names
 
         wxArrayString   m_LSP_aIgnoredDiagnostics;
 
         //-std::map<cbEditor*,int> m_ParseStartMillsTODmap; //key:cbEditor* value: millisecs TOD time-of-eon
 
         static LSPDiagnosticsResultsLog* m_pDiagnosticsLog;
+        //(christo 2024/06/26)
+        json jdb = json::array();
+
+        std::vector<wxString> m_CompileCommandsFiles;
+
+        bool m_compileCommandsPopulated{false};
+        //(christo 2024/06/26)end
+
 
         // Default completion max busy time allowed is 2 secs
         // Set the current time + time allowed to be busy
@@ -421,10 +430,10 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
 
         int  GetCompilationDatabaseEntry(wxArrayString& returnArray, cbProject* pProject, wxString filename);
         void UpdateCompilationDatabase(cbProject* pProject, wxString filename);
-        bool AddFileToCompileDBJson(cbProject* pProject, ProjectBuildTarget* pTarget, const wxString& argFullFilePath, json* pJson);    //(ph 2021/01/4)
+        bool AddFileToCompileDBJson(cbProject* pProject, ProjectBuildTarget* pTarget, const wxString& argFullFilePath, json* pJson);
         wxArrayString GetCompileFileCommand(ProjectBuildTarget* target, ProjectFile* pf) const ;
         size_t GetCompilerDriverIncludesByFile(wxArrayString& resultArray, cbProject* pProject, wxString filename);
-        wxString CreateLSPClientLogName(int pid, const cbProject* pProject); //(ph 2021/02/12)
+        wxString CreateLSPClientLogName(int pid, const cbProject* pProject);
 
         // \brief Check if the command line is too long for the current running system and create a response file if necessary
         //
@@ -453,7 +462,7 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
         void CreateDiagnosticsLog(); //Formated Diagnostic messages from LSP server
 
         // Number to append to log filename to differentiate logs
-        int  GetLogIndex(const wxString& logRequest); //(ph 2021/01/14)
+        int  GetLogIndex(const wxString& logRequest);
         // Set when LSP responds to the initialize request
         bool GetLSP_Initialized() {return m_LSP_initialized;}
         void SetLSP_Initialized(bool trueOrFalse) {m_LSP_initialized = trueOrFalse;}
@@ -469,6 +478,8 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
 
     private:
         std::map<wxString, wxString> m_LSP_LastRequestPerFile;
+        std::unique_ptr<cbStyledTextCtrl> pHiddenEditor = nullptr;
+
     public:
         void SetLastLSP_Request(wxString filename, wxString lspRequest)
             {m_LSP_LastRequestPerFile[filename] = lspRequest;}
@@ -547,7 +558,7 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
 
         // The project respresented by this client/server
         void       SetCBProject(cbProject* pProject) {m_pCBProject = pProject;}
-        void       SetParser(Parser* pParser) {m_pParser = pParser;} //(ph 2022/03/30)
+        void       SetParser(Parser* pParser) {m_pParser = pParser;}
         cbProject* GetClientsCBProject(){return m_pCBProject;}
 
         wxString GetwxUTF8Str(const std::string stdString)
@@ -565,6 +576,14 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
         const LSP_EditorStatusTuple emptyEditorStatus = LSP_EditorStatusTuple(false,0,false,false,false);
         std::map<cbEditor*,LSP_EditorStatusTuple> m_LSP_EditorStatusMap;
 
+        // Remove the .cache and compile_commands.json on client termination
+        // probably because the project has been move and now they're invalid
+        // ----------------------------------------------------------------------------
+        void SetProjectNeedsCleanup(wxString projectFilename)
+        // ----------------------------------------------------------------------------
+        {
+            m_vProjectNeedsCleanup.push_back(projectFilename);;
+        }
         // ----------------------------------------------------------------------------
         LSP_EditorStatusTuple GetLSP_EditorStatus(cbEditor* pEditor)
         // ----------------------------------------------------------------------------
@@ -657,6 +676,7 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
         void SetLSP_EditorIsOpen(cbEditor* pEditor, bool trueOrFalse)
         // ----------------------------------------------------------------------------
         {
+            // Set editor is open in the server true or false
             #if defined(cbDEBUG)
             cbAssertNonFatal(pEditor && "null pEditor");
             #endif
@@ -675,10 +695,10 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
             if (not pEditor) return false;
             LSP_EditorStatusTuple edStatus = GetLSP_EditorStatus(pEditor);
             if (std::get<EDITOR_STATUS_IS_OPEN>(edStatus) )
-                return true;
+                return true; //editors file is open in server
             return false;
         }
-        //(ph 2022/07/24)
+
         // ----------------------------------------------------------------------------
         bool GetLSP_EditorHasSymbols(cbEditor* pEditor)
         // ----------------------------------------------------------------------------
@@ -706,7 +726,7 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
         }
 
     // ------------------------------------------------------------------------
-    //Client callbacks             //(ph 2021/02/9)
+    //Client callbacks
     // ------------------------------------------------------------------------
     typedef void(ProcessLanguageClient::*LSP_ClientFnc)(cbEditor*);
     typedef std::map<cbEditor*, LSP_ClientFnc> LSP_ClientCallBackMap;
@@ -728,8 +748,11 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
     wxFFile lspClientLogFile;
     wxFFile lspServerLogFile;
 
+    wxMutex m_MutexInputBufGuard; //jsonread buffer guard //(Christo ticket 1423 2023/10/16)
+    wxCondition m_CondInputBuf;                           //(Christo ticket 1423 2023/10/16)
+
     explicit ProcessLanguageClient(const cbProject* pProject, const char* program = "", const char* arguments = "");
-            ~ProcessLanguageClient() override;
+    ~ProcessLanguageClient() override;
 
     bool Has_LSPServerProcess();
     void OnClangd_stderr(wxThreadEvent& event);
@@ -754,21 +777,21 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
 
     void LSP_Initialize(cbProject* pProject);
     bool LSP_DidOpen(cbEditor* pcbEd);
-    bool LSP_DidOpen(wxString filename, cbProject* pProject); //(ph 2021/04/10)
+    bool LSP_DidOpen(wxString filename, cbProject* pProject); //(cb 2021/04/10)
     void LSP_DidClose(cbEditor* pcbEd);
     void LSP_DidClose(wxString filename, cbProject* pProject);
     void LSP_DidSave(cbEditor* pcbEd);
     void LSP_GoToDefinition(cbEditor* pcbEd, int edCaretPosition, size_t rrid=0);
     void LSP_GoToDeclaration(cbEditor* pcbEd, int edCaretPosition, size_t rrid=0);
     void LSP_FindReferences(cbEditor* pEd, int caretPosn);
-    void LSP_RequestRename(cbEditor* pEd, int argCaretPosition, wxString newName);        //(ph 2021/10/12)
+    void LSP_RequestRename(cbEditor* pEd, int argCaretPosition, wxString newName);        //(cb 2021/10/12)
     void LSP_RequestSymbols(cbEditor* pEd, size_t rrid=0);
     void LSP_RequestSymbols(wxString filename, cbProject* pProject, size_t rrid=0);
-    void LSP_RequestSemanticTokens(cbEditor* pEd, size_t rrid=0); //(ph 2021/03/16)
-    void LSP_RequestSemanticTokens(wxString filename, cbProject* pProject, size_t rrid=0); //(ph 2022/06/8)
+    void LSP_RequestSemanticTokens(cbEditor* pEd, size_t rrid=0); //(cb 2021/03/16)
+    void LSP_RequestSemanticTokens(wxString filename, cbProject* pProject, size_t rrid=0); //(cb 2022/06/8)
     void LSP_DidChange(cbEditor* pEd);
     void LSP_CompletionRequest(cbEditor* pEd, int rrid=0);
-    void LSP_Hover(cbEditor* pEd, int posn, int rrid=0); //(ph 2022/06/15)
+    void LSP_Hover(cbEditor* pEd, int posn, int rrid=0);
     void LSP_SignatureHelp(cbEditor* pEd, int posn);
 
     void writeClientLog(const std::string& logmsg);
@@ -781,16 +804,6 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
 
     bool ClientProjectOwnsFile(cbEditor* pcbEd, bool notify=true);
     cbProject* GetProjectFromEditor(cbEditor* pcbEd);
-
-// No longer needed since clangd version 12
-////    int   GetCompileCommandsChangedTime()
-////        {return m_LSP_CompileCommandsChangedTime;}
-////    void  SetCompileCommandsChangedTime(bool trueOrFalse)
-////        {
-////            if (trueOrFalse)
-////                m_LSP_CompileCommandsChangedTime = GetNowMilliSeconds();
-////            else m_LSP_CompileCommandsChangedTime = 0;
-////        }
 
     // array of user designated log messages to ignore
     // ----------------------------------------------------------------------------
@@ -805,7 +818,7 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
         return m_LSP_aIgnoredDiagnostics;
     }
 
-    cbStyledTextCtrl* GetNewHiddenEditor(const wxString& filename);              //(ph 2021/04/10)
+    cbStyledTextCtrl* GetStaticHiddenEditor(const wxString& filename);
 
     // Verify that an event handler is still in the chain of event handlers
     // ----------------------------------------------------------------------------
@@ -842,6 +855,24 @@ class ProcessLanguageClient : public wxEvtHandler, private LanguageClient
         int fauxColumn = edCaretPosn - linePos;
         return fauxColumn;
     }
+
+    //(christo 2024/06/26)
+    // ----------------------------------------------------------------------------
+    void SetCompileCommandsPopulated()
+    // ----------------------------------------------------------------------------
+    {
+        if(m_compileCommandsPopulated)
+            return;
+        m_compileCommandsPopulated = true;
+        m_CompileCommandsFiles.reserve(jdb.size());
+        for (const auto& elem : jdb)
+        {
+            const std::string &str = elem["file"];
+            m_CompileCommandsFiles.emplace_back(str);
+        }
+        jdb.clear();
+    }
+    //(christo 2024/06/26)end
 
 };
 // ----------------------------------------------------------------------------

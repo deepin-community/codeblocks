@@ -2,8 +2,8 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 87 $
- * $Id: Version.h 87 2022-10-31 17:58:56Z pecanh $
+ * $Revision: 90 $
+ * $Id: Version.h 90 2022-11-19 19:00:38Z pecanh $
  * $HeadURL: https://svn.code.sf.net/p/cb-clangd-client/code/trunk/clangd_client/src/Version.h $
  */
 
@@ -21,11 +21,11 @@
  #define LOGGING 1
  #undef LOGIT
  #define LOGIT wxLogMessage
- #define TRAP asm("int3")
+ #define TRAP __builtin_trap()
 #endif
 
 //-----Release-Feature-Fix------------------
-#define VERSION wxT("0.2.51 22/11/09")
+#define VERSION wxT("1.2.135 25/03/27")
 //------------------------------------------
 // Release - Current development identifier
 // Feature - User interface level
@@ -50,7 +50,232 @@ class AppVersion
 // ----------------------------------------------------------------------------
 // Modifications
 // ----------------------------------------------------------------------------
-//0.2.51    Commit ? rev ?
+//1.2.135   2025/03/27 Appy Christo patch 1518 some memory usage fixes
+//1.2.134   2025/03/20 remove dead/unused code
+//1.2.133   2025/03/14 Fix message boxes being hidden behind "Manage plugins" window
+//                     Change references of "old CodeCompletion" to "legacy CodeCompletion"
+//                     Remove some legacy CodeCompletion dead code.
+//1.2.132   2025/02/22 Backport svn 13612 (global settings clobbered) to clangd_client
+//1.2.131   2025/02/19 Apply Christo patch 1515
+//1.2.130   2024/10/03 Apply Christo patch 1503
+//1.2.129   2024/7/03 Apply Strunz patch 1489
+//1.2.128   2024/06/27 Apply Christo patch "compile_commands.json optimization"
+//          Avoid unneccesary parsing of the compile_commands.json file when editing and saving a file.
+//          https://forums.codeblocks.org/index.php/topic,24357.msg175756.html#msg175756
+//1.2.127   2024/06/12 Remove all debugging tags for //(ph <date>)
+//1.2.126   2024/05/13 Remove warning/error markers when debugging to avoid hiding
+//          debugger active line marker.
+//1.2.125   2024/05/10 Added DisplayPausedStatusOfAllProjects() for debugging
+//1.2.124   2024/05/2 Show annoying msg re: shortcut keys for apply fix (if available)
+//1.2.123   2024/05/01 Fix DDE CB cold start not starting cland and parser.
+//          See codecompletion.cpp:5282
+//1.2.122   2024/04/26 Fix stall in "Show call tip" when using clangd Hover request
+//          Cf:, changes for m_HoverRequestIsActive
+//1.2.121   2024/04/21 Fix to avoid json throw 302 in ProcessLanguageClient::AddFileToCompileDBJson:3820
+//          using stmt "if (ccjCommand != newEntry["command"])" std::string comparison with json string
+//          which nlohmann json.hpp 3.11.2 does not correctly handle in C++20.
+//1.2.120   2024/04/18 Addition of and clarification of comments
+//1.2.119   2024/04/4 Apply christo warning/error diagnostic msgBox patch (with mods)
+//          Add diagnostic "fix availabe" item to margin popup menu.
+//          change left-mouse to alt-left-mouse on margin warning or error marker displays diagnostic msgBox directly.
+//1.2.118   2024/03/31 Apply christo colored warning msg icon tag://(christo 2024/03/23)
+//          watchesdlg: add sanity check to ValueTooltip::UpdateWatch()
+//1.2.117   2024/03/29 Cleanup and optimization of code for previous commit.
+//1.2.116   2024/03/25 Fix missing "fix available"(s) when error and fix line are different.
+//1.2.115   Apply Christo fix for "fixes available"; multi-line fixes.
+//          Avoid duplicate change responses from clangd.
+//1.2.114   Enable clangd "fix available" entries when user right-clicks log line and selects "Apply fix if available".
+//1.2.113   Remove instruction "int3" trap mistakenly left in code. Thanks SharkCZ.
+//          Update to nlohmann Json version 3.11.2
+//1.2.112   2024/02/10 Enable code completion list to show icons.
+//1.2.111   2024/02/08 Don't hard code the "sh -c" cmd, use the app config setting.
+//1.2.110   2024/02/01 Optimize clangd resources dir search code using shell commands
+//                     Fix hang at CB exit caused by missing condition.signal()s in client.cpp
+//1.2.109   2024/02/01 Expand Clangd resource search to search all .../clang/lib* dirs
+//                     Apply some CodeCompletion fixes to Clangd_client
+//1.2.108  2024/01/19  Update Symbols view when workspace is closed to clear tree
+//                     Cleanup UpdateClassBrowser[view]() code and add project title or status to tree root.
+//                     Remove references to "one parser per workspace" mode
+//                          since supporting it under clangd makes the code too darn confusing.
+//                     Remove unneeded IsStale() code
+//                     Add re-entrancy guards to UpdateClassBrowser[view]() functions.
+//                     UpdateClassBrowser when user clicks or changes to the Symbols Page
+//          2024/01/23 Fix crashes in ClassBrowser and ClassBrowserBuilderThread with semaphore
+//                          waits and post after each CallAfter().
+//1.2.107   2024/01/11 Appy patch 1444 Thanks tigerbeard
+//1.2.106   2023/12/28 Fix completions to not ignore clangd #preprocessor suggestions
+//1.2.105   2023/12/27 For completions, add support for var ClgdCCToken::semanticTokenType.
+//                     Disable support for clangd snippets (for now).
+//                     This is phase-2 (final) to fix ticket 1441. Thanks Christo.
+//1.2.104   2023/12/26 For completions, examine the LSP_SemanticTokenType to avoid appending parens to non-functions.
+//                     This is a phase-1 fix for Ticket 1441
+//1.2.103   2023/12/25 Revert Ticket 1441 changes; It's elimination all completion local functions.
+//1.2.103   2023/12/23 Apply Ticket 1438 and 1441 Thanks Strunz and Christo.
+//1.2.102   2023/12/22 Move hidden editor unique_ptr out of namespace and into ParseManager to
+//                     try and eliminate exception on linux. Ticket 1440
+//1.2.101   2023/12/18 Eliminate wxID usage when (re)parsing files.
+//          Use only 4 wxIDs when (re)parsing projects.
+//1.2.100   2023/12/15 Halve wxID usage when parsing files and projects
+//1.2.99    2023/12/9
+//          Fix crash when ClassBroswer is diabled (parser.cpp 638)
+//1.2.98    2023/12/6-7
+//          Fix crash in classBrower updating from stale token tree pointers.
+//          Fix assertion caused by eating up all the event ids.(LSP_tokenizer.cpp:2165)
+//          Add functions to check EVT_SET/KILL_FOCUS in Symbols tab controls.
+//          Reverse logic of IsOkToUpdateClassBrowser() and Parser::LSP_ParseDocumentSymbols()
+//              to give the focused Smbols tab priority over stowing symbols into the token tree.
+//          Try to fix out-of-range wIDs assert by switching wxID_ANY to XRCID("<someUniqueText>") for temporary controls.
+//          Add ability to catch Symbols tab stale data and ClassBrowser busy update conditions.
+//1.2.97    2023/11/30
+//          Fix crash caused by not updating the ClassBrowser when the user has the mouse
+//              inside the Symbols tab.
+//          Fix Symbols tab not displaying data after unchecking "Disable Symbols browser".
+//1.2.96    2023/11/17
+//          Do not update ClassBrowser symbols tree when debugger is running
+//          Removed rescheduled failed TokeTree lock in GetTokenTreeLock()
+//1.2.95    2023/11/11
+//          Remove all idle time re-scheduling or callbacks to UpdateClassBrowserView()
+//          Add a check for ClassBrowserBuilderThread busy on any call to UpdateClassBrowser()
+//          The above is response to the dreaded ClassBrowserBuilderThread crash using an invalid pointer.
+//          Rearrange code to avoid json leaks in LSP_ParseDocumentSymbols() and LSP_ParseSemanticTokens()
+//1.2.94    2023/11/8 Do not reschedule callback for busy ClassBrowserBuilderThread until reason for crash is found.
+//1.2.93    2023/11/6 Appy Christo patch ticket 1430. Don't clobber custom make file entries in CompilerCommands.json
+//1.2.92    23/10/28
+//          Changed check for crash to use hex values instead of macros @ ClassBrowserBuilderThead:line 890
+//1.2.91    23/10/23
+//          2023/10/16 Apply Christo ticket 1423 using wxCondition instead of client input sleep/polling.
+//          2023/10/17 Disable ClassBrowser Symbols window by default
+//          2023/10/18 Fix Symbols window not updating when no editors open. Done() was replying false.
+//          2023/10/20 Rework ticket 1393 in ThreadedBuildTree() to attempt a callback.
+//          2023/10/21 Mod parser::Done() & move IsOktoUpdateClassBrowserView() to parseManager
+//                     to guarantee small projects (with no open editors) can update the Symbols tab.
+//          2023/10/23 Apply Christo ticket 1426 error serverity id mismatches.
+//1.2.90    2023/10/18 Fix crash caused by null pActiveProject in classbrowser.cpp 315
+//1.2.89    2023/10/14 Temporary "fixme" to prevent crash @ ClassBrowserBuilderThread::AddMembersOf(}
+//          Fix crash candidate: UpdateClassBrowserView was returning before clearing Symbols tree.
+//1.2.88    2023/10/12 Fix stall when user set option Environment/OpenDefaultWorkspace
+//          OnProjectActivaded being called before internal init was finished.
+//          Change ParseManager::GetIdleCallbackHandler to not crash on assert.
+//          Also fixes Assert described in https://forums.codeblocks.org/index.php?topic=25532.msg173810#msg173810
+//1.2.87    2023/10/11 Ticket 1393 from legacy CodeComplete CBfreeze.
+//          Remove misunderstood active project checks that keep Symbols window cleanup after wksp close.
+//1.2.86    2023/10/9 Hack to fix crash when Tokens.end() < Tokens.begin()
+//          See ClassBrowserBuilderThread 1005 (Tagged
+//1.2.85    2023/10/4 Sanity check for ClassBrowserBilderThread:902 crash
+//1.2.84    2023/09/28 Clarified stmt "return success = false;" means assigment
+//1.2.83    2023/09/27 Apply fixes 1412 and 1414 unreachable code
+//1.2.82    2023/09/26 Symbols tree sanity checks Christo fixes ticket 1409
+//          to avoid asserts and crashes when Symbols bottom tree is absent
+//1.2.81    2023/09/15 Apply patch 1407 & 1408 Fix leak and out-of-bounds errors
+//1.2.80    2023/09/9
+//          Fix crash in OnEditorActivate() using nullptr pParser.
+//1.2.79    2023/09/9
+//          Avoid re-entry into CreateParser() causing crashes at termination
+//          because a duplicate project was pushed to the parser list.
+//1.2.78    23/09/9
+//          Revert UpdateCompilationDatabase() to previous method of finding a build target.
+//1.2.77    Check for IsCustomMakefile in Workspace changed event also.
+//1.2.76    2023/09/4 Pause parsing for custom makefiles until user requests clangd parsing.
+//              User must right-click projects tree entry and toggle "Pause parsing" to unchecked
+//              or select "Reparse this project".
+//1.2.75    2023/09/2 Fix clangd_client selection of build target. Guard some debugging msgs.
+//1.2.74    2023/08/28 Apply patch 1406 for pJson leak in client.cpp (Thanks Christo).
+//1.2.73    2023/08/18
+//          Fix crash and loop in clangd_client classbrowser.cpp when no acitve project.
+//          Make config manager key "clangd_client" non-tranlatable
+//          Remove unused chkBox config option "Disable SmartSense".
+//          After Debugger finished, reparse open editors to re-obtain clangd info.
+//1.2.72    2023/07/15
+//          Fix unresponsive "Reparse this file" problem
+//          Fix failure to create Clangd-client for ~ProxyProject~
+//1.2.71    2023/07/2
+//          Fix non-responsive Show Call Tip (GetCallTips()) in keyboard only mode.
+//          Ask for Hover data, not SignatureHelp data.SignatureHelp response is always empty.
+//1.2.70    2023/05/11
+//          Translate the the project folder name to UTF-8 for clangd initialization (Trigger fix)
+//1.2.70    2023/04/19
+//          Remove any reference to std::Mem_fn(). It's too obtuse to use.
+//              Clangd_Client-work_230419_130422.7z
+//          Refactoring: Move clangd client creation functions to ParseManager.
+//              zipped to Clangd_Client-work_230419_124432.7z
+//1.2.69    23/04/11
+//          Add request to cleanout .cache and compile_command.json on user request
+//              to reparse the project.
+//1.2.69 T  23/04/7
+//          Remove most debugging tags for //(ph <date>)
+//          Remove the un-needed Clangd-cache.lock file for the ProxyProject
+//          Refactoring and cleanup, no functional changes
+//1.2.68    23/03/29
+//          Fix Insert/refactor/rename to verify with relative filenames, not absolute filenames.
+
+//1.2.67    2023/03/28
+//          For Insert/refactor/renameSymbols, ignore files that do not belong to the active project.
+//          Tag .cache and compile_commands.json as invalid.
+//          Invalid names are being reported by clangd when the project was moved/copied to a new
+//          location and not deleting the .cache dir and compiler_commands.json file.
+//          In clangd client termination, remove .cache dir and json file that have been tagged invalid.
+//1.2.66    23/03/21
+//          Fix crashes after debugging when clangd_client was closed for debugging itself.
+//          Add many sanity checks when clangd_client debugging self.
+//1.2.65    2023/03/21 commit
+//          Fix Not finding cland resources when version number does not match lib version.
+//1.2.64    2023/03/14
+//          Fix "untitled" project appearing in wxSmith resources by removing <Extensions>
+//              from the cbp avoiding LoadHook confusion.
+//1.2.63    2023/02/28
+//          Validate assorted token ptrs. Double clicking on Doc popup "Go to declaration" crashed.
+//              Single click works ok.2023/02/28
+//          Windows 11: Smart App & Browser Control was stalling wxExecute(clangd.exe) for 6 seconds.
+//              Changing it from "evaluate" to "off" solved the stall problem. 2023/02/28
+//          Output log and info msg when "invalid AST" occurs and try to reparse the file. 2023/02/27
+//          Re-instated parsemanager.cpp::677 lock. Skipping lock may have cause crash
+//              using stale token ptr. 2023/02/26
+//          Test without the utf8 verification code
+//          Try return after "if (pEd and m_OnEditorOpenEventOccured)"
+//          Remove ellipsis and bullet chars in Parser::OnLSP_CompletionResponse()
+//              Response starting to feel snappier.
+//          Still gets ellipsis and bullet chars in completions after ommitting
+//              utf8 validation scan in client.cpp ReadJson()
+//          Test without the utf8 verification code in ProcessLanguageClient::readJson()
+//1.2.62   1.2.62 2023/01/14
+//          Minor text changes and logmsg to identify which log belongs to a project
+//1.2.61    Commit 1.2.61 2022/12/24
+//          Remove the check for IsEditorParsed()==false status to
+//          avoid the "LSP: file not yet parsed" loop caused by the clangd response
+//          to didClose(). It responds with an empty textDocument/publishDiagnostics
+//          record with a missing "version" entry.
+//          There's no LSP documentation that indicates didClose() does this.
+//          see: https://forums.codeblocks.org/index.php/topic,24357.msg171622.html#msg171622 #242
+//1.2.60    Commit 1.2.60 22/12/22
+//          Include lost code from last commit
+//1.2.59    Commit 1.2.59 22/12/22
+//          Fix clangd.exe auto location failing to show in configuration dlg
+//1.2.58    Commit 1.2.58 2022/12/17
+//          Don't write translated messages to debugging logs.
+//1.2.57    Commit 1.2.57 2022/12/16
+//          Hail Mary pass: Fix crash(#2): Change names of class="wxPanel" name=<> in .xrc files
+//              to force load of clangd_class panels vs CC panels.
+//1.2.56    Commit 1.2.56 2022/12/15
+//          Fixed crash: using window pointer after it was destroyed.
+//1.2.55    commit 1.2.55 2022/11/23
+//          Switch all .cbp(s) back to std=gnu++11 except unix_30
+//          Restore clangd_client_wx30-unix.cbp back to gtk2
+//          Add Clangd_client_3x30-unix_gtk3.cbp
+//          Fix LSP_SymbolParser.cpp for ticket #1331 (thanks Miguel Gimenez)
+//1.2.54    commit 1.2.54 2022/11/23
+//          Fix Parser::OnLSP_HoverResponse() to omit prepending numeric on tooltip content.
+//0.2.53    commit 1.2.53 2022/11/22
+//          Set major release number to 1.
+//          Parser::OnLSP_HoverResponse() Tell ccManager not to sort our Hover data.
+//              Goes with CB ccManager mod rev 13058
+//0.2.52    commit 0.2.52 2022/11/19
+//          2022/11/19 Add cbAssertNonFatal() call to protocol.h work-around
+//              in order to use -std=c++11 instead of c++17. This allows
+//              debian builds for CB which does not support c++17. Thanks Andrew.
+//0.2.51    Commit 2022/11/18 rev 89
+//          2022/11/18
+//          Remove requirement for -std=C++14 in protocol.h line 647 using
+//               std::make_unique<SelectionRange>();
 //          2022/11/9
 //          Replace annoying cbMessageBox with log msg @ LSP_SymbolsParser::DoHandleClass()
 //              When trying to parse out the ancestor of a class.
@@ -79,7 +304,7 @@ class AppVersion
 //          2022/10/21
 //          OnLSP_BatchTimer(): skip parsing a queued file if not owned by a target.
 //0.2.48    Commit 2022/10/20
-//          //(ph 2022/10/19) Thanks ollydbg
+//          Thanks ollydbg
 //          Applied ollydbg fix for ticket #75. The default location for compile_commands.json
 //              is assumed to be in the files parent folder. It needs to be set to the .cbp folder.
 //          2022/10/17
@@ -227,7 +452,7 @@ class AppVersion
 //          2022/07/20
 //          In OnPluginAttached(), if clangd_client has just been enabled and loaded,
 //              we need to invoke OnAppStartupDone() in order to initialize it.
-//          When the old CodeCompletion Dll is missing but Config says it's enabled
+//          When the legacy CodeCompletion Dll is missing but Config says it's enabled
 //              clangd_client should behave like CodeCompletion is disabled. Thanks AndrewCo.
 //          2022/07/19 Apply AndrewCo OnAppStartup() Ticket 53 to auto-detect clangd.
 //          2022/07/18 Commit rev 69 add missing file ClgdCCToken.h
@@ -322,7 +547,7 @@ class AppVersion
 //          Merge AndrewCo ccoptionsdlg.cpp wxFileDialog changes for the MAC
 //          2022/05/4 ph
 //          Change symbol "CodeCompletion" to "ClgdCompletion" to see if it solves the
-//              MacOS problem when both old CodeCompletion and Clangd_client are loaded.
+//              MacOS problem when both legacy CodeCompletion and Clangd_client are loaded.
 //              On Mac, it appears that the first occurance of "CodeCompletion" is being
 //              used for both plugins. Causes multiple load errors.
 //0.2.24
@@ -491,9 +716,9 @@ class AppVersion
 //              <Add after="cd src/resources && zip -rq9 ../../clangd_client.zip images && cd ../.." />
 //              Thanks Andrew.
 //          Remove usage/dependency on ccmanager's Settings/Editor/Code Completion checkbox.
-//          Beef up verification that old CodeCompletion plugin is loaded/missing/enabled/disabled
+//          Beef up verification that legacy CodeCompletion plugin is loaded/missing/enabled/disabled
 //              code in ctor and OnAttach() function. This solves the "enable clangd_client" crash
-//              when old CodeCompletion is already enabled or enabled after clangd_client is enabled.
+//              when legacy CodeCompletion is already enabled or enabled after clangd_client is enabled.
 //              Particles cannot possess the same space at the same time. And, it seems, that's also true
 //              of information.
 //0.2.10
@@ -515,7 +740,7 @@ class AppVersion
 //          Update project files to comment out the lines building clangd_client.cbplugin.
 //          Update repo clangd_client_wx31_64.cbp from work clangd_client_wx31_64.cbp changes.
 //          2022/01/15 ph
-//          Removed accidental use of older CodeCompletion image files.
+//          Removed accidental use of legacy CodeCompletion image files.
 //          Moved image files in clangd_client.zip to the first level.
 //          Reworked the repo upload files to accomodate the above two changes
 //          Remove .cbPlugin file. It borked my system three time. Your out!
@@ -538,10 +763,10 @@ class AppVersion
 //          Major doc update
 //0.2.04
 //          2022/01/10
-//          Removed old codecompletion xrc files.
+//          Removed legacy CodeCompletion xrc files.
 //          Fix compilation when -DCB_PRECOMP is specified (needd later when part of C::B truck)
 //          Sync version between this file and the plugin manifext.xml file.
-//          Remove old codecompletion XRC files as per ticket 13. Also renamed the project files.
+//          Remove legacy CodeCompletion XRC files as per ticket 13. Also renamed the project files.
 //          Sync version in manifest.xml and version.h (ticket 18)
 //          Change plugin name back to show as Clangd_Client (camel case) in the plugin manager (ticket 16)
 //          Add support for building "third" party plug to be installed via plugin manager (ticket 20)
@@ -635,7 +860,7 @@ class AppVersion
 //          Hang issueing 'reparse project'. Fix: use find/remove event hander, not popEventHandler
 //          Re-instated code for dialog ccdebug info (key: Alt-Shift double click tree item)
 //          2021/09/28
-//          Added parser.h/cpp m_nternalParsingPaused to allow code to pause file parsing //(ph 2021/07/31)
+//          Added parser.h/cpp m_nternalParsingPaused to allow code to pause file parsing
 //              Especially where the code invokes a dialog that holds the TokenTree mutex lock. This
 //              can cause the clangd jason responses to backup up and eat memory. Cf: OnLSP_ParseDocumentSymbols()
 //          2021/09/27
@@ -707,7 +932,7 @@ class AppVersion
 //          Removed showerr parameter from GetLSPclient(pProject|peditor). Just too confusing.   2021/07/27
 //          Updated Goto[Decl|Impl] to verify file belongs to active project    2021/07/27
 //          Deprecated/Removed parserthread.h/cpp 2021/07/27
-//          Added parser.h/cpp m_UserParsingPaused to allow user to manually pause file parsing //(ph 2021/07/31)
+//          Added parser.h/cpp m_UserParsingPaused to allow user to manually pause file parsing
 //0.0.20(h) 2021/07/16
 //          Support CanDetach() missing call from sdk\pluginsconfigurationdlg.cpp
 //          Use CanDetach() to ask user to close workspace before uninstalling clangd_client
@@ -716,10 +941,10 @@ class AppVersion
 //0.0.20(h) 2021/06/29
 //          Added "LSP clangd", "LSP Clangd is not active for this project." to codecompletion::GetLSPclient(cbProject*)
 // 0.0.19(h) 2021/06/14    moved to wx3.1.5
-//          Fixed Re-parse now Symbols context event by invoking idParseCurrentProject event        //(ph 2021/06/14)
-//          Added "Editor not yet parsed" and "...parsing delay" msg to find refs, goto decl/impls funcs. //(ph 2021/06/14)
-//          changed wxCheck_msg2 to cbAssertNonFatal. wxCheck did not work in release mode. //(ph 2021/06/15)
-//          For FindReferences and GotoDeclImpl, Output InfoWindow::Display() for files not contained in a project. //(ph 2021/06/15)
+//          Fixed Re-parse now Symbols context event by invoking idParseCurrentProject event
+//          Added "Editor not yet parsed" and "...parsing delay" msg to find refs, goto decl/impls funcs.
+//          changed wxCheck_msg2 to cbAssertNonFatal. wxCheck did not work in release mode.
+//          For FindReferences and GotoDeclImpl, Output InfoWindow::Display() for files not contained in a project.
 //          Turned on #define CC_ENABLE_LOCKER_ASSERT   2021/06/16
 //          Added IsServerFilesParsing() to client.h 2021/06/16
 // 0.0.18
@@ -729,7 +954,7 @@ class AppVersion
 //          Fixed: Stopped EncodingDector conversion msgs when file is loaded into hidden editors 2021/04/13
 //          Modified CC GotoFunction dialog to use TokenTree when using LSP client 2021/04/13
 //          Focus LSP messages log on didSave   2021/04/14
-//          Fixed: Dont call for symbols on dumb diagnostics sent on a didclose //(ph 2021/04/15
+//          Fixed: Dont call for symbols on dumb diagnostics sent on a didclose
 //          Dont parse system headers, clangd already does that.    2021/04/16
 //          On reparse project, call CC parse first in so it's ptr is available for LSP reparseing 2021/04/15
 //          Fixed: invalid utf8 text handed to clangd in didOpen for background 2021/04/16
@@ -756,18 +981,18 @@ class AppVersion
 //          Verify pParser for pProject exists before creating client
 //          Switch from DoLockClangd_CacheAccess() to OnDebuggerStarting() to shutdown clangd when debugging clangd. 2021/05/11
 //          Stopped didOpen() of .h files during LSP initialization. But it causes goto defs/decls from .h files to fail. 2021/05/11
-//          ^^^ Reverted: symbols are not requested in OnLSP_DiagnosticsResponse() for .h files. But .h files needs didOpen() for clangd. //(ph 2021/05/12)
-//          Implemented Reparse single file for LSP clangd //(ph 2021/05/13)
+//          ^^^ Reverted: symbols are not requested in OnLSP_DiagnosticsResponse() for .h files. But .h files needs didOpen() for clangd.
+//          Implemented Reparse single file for LSP clangd
 //          Fixed GoToFunction() for both headers and implementations. 2021/05/22
-//          ParseManager::DoFullParsing() Parse headers only if 'ShowInheritance" is set //(ph 2021/05/24)
+//          ParseManager::DoFullParsing() Parse headers only if 'ShowInheritance" is set
 //              Note: cfg setting and symbols context setting is out of sync.
 //          Removed all WriteOptions() except for OnApply(). They were causing previous parsers options
-//              to be applied to the next created parser after a parser delete. //(ph 2021/05/25)
+//              to be applied to the next created parser after a parser delete.
 //              and Modifying the config while a project was loaded was impossible. Config items wouldn't stick.
 //          Removed Parser->RemoveFile() before parsing json data. Was causing crashes. 2021/06/4
 //              Still don't understand how stale data is removed from Token tree.
 //          Parsing headers in both foreground and background when "Show inheritance members" 2021/06/11
-//          Fixed: parsing children in LSP_symbolsparser.cpp //(ph 2021/06/11)
+//          Fixed: parsing children in LSP_symbolsparser.cpp
 //          Fixed some crashes because not handling typedef and class forward declaration correctly. 2021/06/12
 // 0.0.17   2021/04/2
 //          Support for TokenTree (symbols browser & toolbar)
@@ -792,7 +1017,7 @@ class AppVersion
 //          Set query-driver agrument from master toolchain 2021/03/4
 //          Verify clang installation and clangd version >= 12.0.0 2021/03/4
 //  0.0.14  2021/02/27
-//          Implemented "Reparse active project" for clangd. Also used to kill/recreate
+//          Implemented "Reparse current project" for clangd. Also used to kill/recreate
 //              the client/server to force re-reading of compile_commands.json.
 //          CleanUpLSPLogs() to remove closed logs locked by windows.
 //          Use clangd12, remove envPath mangling, add log "Ignore Messages" context item

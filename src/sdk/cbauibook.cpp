@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12842 $
- * $Id: cbauibook.cpp 12842 2022-06-30 09:36:18Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/cbauibook.cpp $
+ * $Revision: 13627 $
+ * $Id: cbauibook.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/cbauibook.cpp $
  */
 
 
@@ -324,18 +324,23 @@ void cbAuiNotebook::RestoreFocus()
     // if selected tab has changed, we set the focus on the window it belongs too
     if ((m_LastSelected != wxNOT_FOUND) && (GetSelection() != m_LastSelected))
     {
-        wxWindow* win = GetPage(GetSelection());
-        if (win)
-            win->SetFocus();
+        const int Selection = GetSelection();
+        if (Selection != wxNOT_FOUND)
+        {
+            wxWindow* win = GetPage(Selection);
+            if (win)
+                win->SetFocus();
+        }
     }
-    // otherwise, we restore the former focus, if the window
-    // with the saved Id still exists
     else if (m_LastId != 0)
     {
+        // otherwise, we restore the former focus, if the window
+        // with the saved Id still exists
         wxWindow* win = FindWindowById(m_LastId);
         if (win)
             win->SetFocus();
     }
+
     m_LastSelected = wxNOT_FOUND;
     m_LastId = 0;
 }
@@ -662,30 +667,30 @@ wxString cbAuiNotebook::SavePerspective(const wxString projectTitle)
                     continue;
 
                 if (!tabsTmp.empty())
-                    tabsTmp += wxT(",");
+                    tabsTmp += ",";
 
                 if ((int)page_idx == m_curPage)
-                    tabsTmp += wxT("*");
+                    tabsTmp += "*";
                 else if ((int)p == tabCtrl->GetActivePage())
-                    tabsTmp += wxT("+");
+                    tabsTmp += "+";
 
-                tabsTmp += wxString::Format(wxT("%lu"), static_cast<unsigned long>(page_idx));
-                tabsTmp += wxT(";");
+                tabsTmp += wxString::Format("%zu", page_idx);
+                tabsTmp += ";";
                 tabsTmp += id;
             }
             if (!tabsTmp.empty())
             {
                 if (!tabs.empty())
-                    tabs += wxT("|");
+                    tabs += "|";
 
                 panes.Add(pane.name);
                 tabs += pane.name;
-                tabs += wxT("=");
+                tabs += "=";
                 tabs += tabsTmp;
             }
         }
     }
-    tabs += wxT("@");
+    tabs += "@";
 
     tabsTmp = m_mgr.SavePerspective();
 
@@ -803,7 +808,7 @@ bool cbAuiNotebook::LoadPerspective(const wxString& layout, bool mergeLayouts)
 
     wxString frames = layout.AfterFirst (wxT ('@') );
     // if we load an additional project to an exiting layout, the first new tab always goes into a new frame
-    bool firstTabInCtrl =! currentLayout.empty();
+    bool firstTabInCtrl = !currentLayout.empty();
     // This creates a new tabframe if none exists; a workaround, because we can not directly access
     // the needed wxTabFrame class, because it is not exported.
     // This also takes care of all needed pane-info

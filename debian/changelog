@@ -1,3 +1,46 @@
+codeblocks (25.03+dfsg-2) unstable; urgency=medium
+
+  [ Andreas B. Mundt ]
+  * Fix lintian warning 'old-fsf-address-in-copyright-file'
+  * Fix lintian warning 'superfluous-file-pattern'
+
+  [ Vincent Cheng ]
+  * Fix broken watch file
+
+  [ David Prévot ]
+  * Update copyright
+
+ -- David Prévot <taffit@debian.org>  Wed, 30 Apr 2025 20:00:20 +0200
+
+codeblocks (25.03+dfsg-1) unstable; urgency=medium
+
+  * Exclude src/exchndl/win*/bin
+  * New upstream version 25.03+dfsg (Closes: #1101761)
+  * Update installed files
+  * Use debhelper-compat = 13
+  * Update Standards-Version to 4.7.2
+  * lintian-brush fixes
+  * Use multiarch path for pkgconfig
+  * Build-Depend on libsquirrel-dev
+
+ -- David Prévot <taffit@debian.org>  Tue, 08 Apr 2025 07:59:09 +0200
+
+codeblocks (20.03+svn13046-0.4) unstable; urgency=medium
+
+  * Non-maintainer upload.
+
+  [ zhangdandan <zhangdandan@loongson.cn> ]
+  * add support for loongarch64 (Closes: #1053785)
+
+ -- Gianfranco Costamagna <locutusofborg@debian.org>  Sat, 26 Oct 2024 18:21:31 +0200
+
+codeblocks (20.03+svn13046-0.3) unstable; urgency=medium
+
+  * Non-maintainer upload.
+  * Rename libraries for 64-bit time_t transition.  Closes: #1062090
+
+ -- Steve Langasek <vorlon@debian.org>  Wed, 28 Feb 2024 16:26:54 +0000
+
 codeblocks (20.03+svn13046-0.2) unstable; urgency=medium
 
   * Non-maintainer upload.

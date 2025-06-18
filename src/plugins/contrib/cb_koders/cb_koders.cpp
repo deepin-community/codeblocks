@@ -4,7 +4,7 @@
  *
  * $Revision: 12655 $
  * $Id: cb_koders.cpp 12655 2022-01-15 20:46:32Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/cb_koders/cb_koders.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/cb_koders/cb_koders.cpp $
  */
 
 #include "sdk.h" // Code::Blocks SDK

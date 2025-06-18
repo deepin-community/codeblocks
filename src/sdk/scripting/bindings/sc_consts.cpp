@@ -4,7 +4,7 @@
  *
  * $Revision: 12794 $
  * $Id: sc_consts.cpp 12794 2022-04-14 22:34:58Z bluehazzard $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/scripting/bindings/sc_consts.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/scripting/bindings/sc_consts.cpp $
  */
 
 

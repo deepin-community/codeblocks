@@ -4,7 +4,7 @@
  *
  * $Revision: 12607 $
  * $Id: editarrayfiledlg.cpp 12607 2021-12-23 08:50:04Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/editarrayfiledlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/editarrayfiledlg.cpp $
  */
 
 #include "sdk_precomp.h"

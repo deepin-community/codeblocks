@@ -12,7 +12,7 @@
 #include "cctreectrl.h"
 #include "parsemanager.h"
 #include "parser/token.h"
-#include "parser/parser.h"
+//-unused-#include "parser/parser.h"
 
 #define CRC32_CCITT       0x04C11DB7
 
@@ -73,7 +73,17 @@ class CCTreeItem
 public:
     CCTreeItem(CCTreeItem* parent, const wxString& text, int image = -1, int selImage = -1, CCTreeCtrlData* data = nullptr);
     virtual ~CCTreeItem();
-    void DeleteChildren() {while (m_firstChild) delete m_firstChild; m_hasChildren = false;}
+//- void DeleteChildren() {while (m_firstChild) delete m_firstChild; m_hasChildren = false;}
+    void DeleteChildren() //christo patch 1518
+    {
+        if (m_firstChild)
+        {
+            delete m_firstChild;
+            m_firstChild = nullptr;
+        }
+        m_hasChildren = false;
+    }
+
     static void Swap(CCTreeItem* a, CCTreeItem* b);
 
     CCTreeItem* m_parent;
@@ -86,7 +96,7 @@ public:
     bool m_hasChildren;
     wxColour m_colour;
     int m_image[wxTreeItemIcon::wxTreeItemIcon_Max];
-    wxSemaphore m_semaphore;
+    //wxSemaphore m_semaphore;
 };
 
 // Opaque class used by CCTree::GetFirstChild() and CCTree::GetNextChild()
@@ -178,7 +188,7 @@ public:
      * @param evtHandler parent window notification events will sent to
      * @param sem a semaphore reference which is used synchronize the GUI and the builder thread
      */
-    ClassBrowserBuilderThread(wxEvtHandler* evtHandler, wxSemaphore& sem);
+    ClassBrowserBuilderThread(wxEvtHandler* evtHandler, wxSemaphore& sem, wxSemaphore& semCallAfter);
 
     /** destructor */
     ~ClassBrowserBuilderThread() override;
@@ -204,10 +214,11 @@ public:
      */
     void SetNextJob(EThreadJob job, CCTreeItem *item = nullptr) {m_nextJob = job; m_targetItem = item;}
 
-    /** Check if the thread is busy
-     * @return @a true if busy
+    /** Increment or decrement the thread busy count
+     * @return @a busy count
      */
-    bool IsBusy() const {return m_Busy;}
+    int SetIsBusy(bool torf, EThreadJob threadJob);
+    int GetIsBusy(); //just return the count
 
 protected:
      void* Entry() override;
@@ -289,6 +300,7 @@ protected:
 private:
     wxEvtHandler*    m_Parent;
     wxSemaphore&     m_ClassBrowserSemaphore;
+    wxSemaphore&     m_ClassBrowserCallAfterSemaphore;
 
     /** Some member functions of ClassBrowserBuilderThread such as ExpandItem() can either be called
      * from the main GUI thread(in ClassBrowser::OnTreeItemExpanding(wxTreeEvent& event)), or be
@@ -297,7 +309,7 @@ private:
      * that only one thread can access to those member variables.
      */
 
-    static wxMutex   m_ClassBrowserBuilderThreadMutex; //(ph 2022/05/5)
+    static wxMutex   m_ClassBrowserBuilderThreadMutex;
     ParseManager*    m_ParseManager;
 
     /** pointers to the CCTree */
@@ -326,7 +338,7 @@ private:
 
     ExpandedItemVect m_ExpandedVect;
     bool             m_InitDone;
-    bool             m_Busy;
+    //-bool             m_Busy; moved to anonymous namespace
 
     /** if this variable is true, the Entry() function should return */
     bool             m_TerminationRequested;

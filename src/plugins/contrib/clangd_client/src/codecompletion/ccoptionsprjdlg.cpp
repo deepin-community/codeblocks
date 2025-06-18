@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 63 $
- * $Id: ccoptionsprjdlg.cpp 63 2022-05-20 17:21:14Z pecanh $
- * $HeadURL: https://svn.code.sf.net/p/cb-clangd-client/code/trunk/clangd_client/src/codecompletion/ccoptionsprjdlg.cpp $
+ * $Revision: 13292 $
+ * $Id: ccoptionsprjdlg.cpp 13292 2023-05-30 15:50:46Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/clangd_client/src/codecompletion/ccoptionsprjdlg.cpp $
  */
 
 #include <sdk.h>
@@ -38,7 +38,7 @@ CCOptionsProjectDlg::CCOptionsProjectDlg(wxWindow* parent, cbProject* project, P
     m_ParseManager(np),
     m_Parser(&np->GetParser())
 {
-    wxXmlResource::Get()->LoadPanel(this, parent, _T("pnlProjectCCOptions"));
+    wxXmlResource::Get()->LoadPanel(this, parent, "pnlCldProjectCCOptions");
     m_OldPaths = m_ParseManager->ParseProjectSearchDirs(*m_Project);
 
     wxListBox* control = XRCCTRL(*this, "lstPaths", wxListBox);

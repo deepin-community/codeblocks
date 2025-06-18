@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12694 $
- * $Id: ccoptionsdlg.cpp 12694 2022-02-03 13:52:51Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/codecompletion/ccoptionsdlg.cpp $
+ * $Revision: 13627 $
+ * $Id: ccoptionsdlg.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/codecompletion/ccoptionsdlg.cpp $
  */
 
 #include <sdk.h>
@@ -83,10 +83,10 @@ BEGIN_EVENT_TABLE(CCOptionsDlg, wxPanel)
     EVT_COMMAND_SCROLL(XRCID("sldCCDelay"), CCOptionsDlg::OnCCDelayScroll)
 END_EVENT_TABLE()
 
-CCOptionsDlg::CCOptionsDlg(wxWindow* parent, NativeParser* np, CodeCompletion* cc, DocumentationHelper* dh) :
-    m_NativeParser(np),
+CCOptionsDlg::CCOptionsDlg(wxWindow* parent, ParseManager* pm, CodeCompletion* cc, DocumentationHelper* dh) :
+    m_ParseManager(pm),
     m_CodeCompletion(cc),
-    m_Parser(np->GetParser()),
+    m_Parser(pm->GetParser()),
     m_Documentation(dh)
 {
     ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("code_completion"));
@@ -118,7 +118,7 @@ CCOptionsDlg::CCOptionsDlg(wxWindow* parent, NativeParser* np, CodeCompletion* c
     XRCCTRL(*this, "chkKL_9",               wxCheckBox)->SetValue(cfg->ReadBool(_T("/lexer_keywords_set9"),  false));
 
     // Page "C / C++ parser"
-    // NOTE (Morten#1#): Keep this in sync with files in the XRC file (settings.xrc) and nativeparser.cpp
+    // NOTE (Morten#1#): Keep this in sync with files in the XRC file (settings.xrc) and parsemanager.cpp
     XRCCTRL(*this, "spnThreadsNum",            wxSpinCtrl)->SetValue(cfg->ReadInt(_T("/max_threads"), 1));
     XRCCTRL(*this, "spnThreadsNum",            wxSpinCtrl)->Enable(false);
     XRCCTRL(*this, "spnParsersNum",            wxSpinCtrl)->SetValue(cfg->ReadInt(_T("/max_parsers"), 5));
@@ -132,6 +132,7 @@ CCOptionsDlg::CCOptionsDlg(wxWindow* parent, NativeParser* np, CodeCompletion* c
     // Page "Symbol browser"
     XRCCTRL(*this, "chkNoSB",        wxCheckBox)->SetValue(!cfg->ReadBool(_T("/use_symbols_browser"), true));
     XRCCTRL(*this, "chkFloatCB",     wxCheckBox)->SetValue(cfg->ReadBool(_T("/as_floating_window"), false));
+    XRCCTRL(*this, "chkCCDebugLogging",        wxCheckBox)->SetValue(cfg->ReadBool(_T("/CCDebugLogging"),   false));
 
     // The toolbar section
     wxCheckBox *scopeFilter = XRCCTRL(*this, "chkScopeFilter", wxCheckBox);
@@ -156,8 +157,8 @@ CCOptionsDlg::CCOptionsDlg(wxWindow* parent, NativeParser* np, CodeCompletion* c
     XRCCTRL(*this, "chkComplexMacros",      wxCheckBox)->SetValue(m_Parser.Options().parseComplexMacros);
     XRCCTRL(*this, "chkPlatformCheck",      wxCheckBox)->SetValue(m_Parser.Options().platformCheck);
 
-    XRCCTRL(*this, "rdoOneParserPerWorkspace", wxRadioButton)->SetValue( m_NativeParser->IsParserPerWorkspace());
-    XRCCTRL(*this, "rdoOneParserPerProject",   wxRadioButton)->SetValue(!m_NativeParser->IsParserPerWorkspace());
+    XRCCTRL(*this, "rdoOneParserPerWorkspace", wxRadioButton)->SetValue( m_ParseManager->IsParserPerWorkspace());
+    XRCCTRL(*this, "rdoOneParserPerProject",   wxRadioButton)->SetValue(!m_ParseManager->IsParserPerWorkspace());
 
     // Page "Symbol browser"
     XRCCTRL(*this, "chkInheritance",        wxCheckBox)->SetValue(m_Parser.ClassBrowserOptions().showInheritance);
@@ -182,6 +183,12 @@ CCOptionsDlg::~CCOptionsDlg()
 
 void CCOptionsDlg::OnApply()
 {
+    cbProject* pProject = Manager::Get()->GetProjectManager()->GetActiveProject();
+     // Remember the project that changed the .conf data //(ph 2025/02/04)
+    m_ParseManager->SetOptsChangedByProject(pProject);
+    // Renember the Parser that changed the .conf data //(ph 2025/02/04)
+    m_ParseManager->SetOptsChangedByParser(&(m_ParseManager->GetParser())); //(ph 2025/02/07)
+
     ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("code_completion"));
 
     // -----------------------------------------------------------------------
@@ -224,6 +231,7 @@ void CCOptionsDlg::OnApply()
     cfg->Write(_T("/header_ext"),        XRCCTRL(*this, "txtCCFileExtHeader", wxTextCtrl)->GetValue());
     cfg->Write(_T("/empty_ext"),  (bool) XRCCTRL(*this, "chkCCFileExtEmpty",  wxCheckBox)->GetValue());
     cfg->Write(_T("/source_ext"),        XRCCTRL(*this, "txtCCFileExtSource", wxTextCtrl)->GetValue());
+    cfg->Write(_T("/CCDebugLogging"),    XRCCTRL(*this, "chkCCDebugLogging",  wxCheckBox)->GetValue());
 
     // Page "Symbol browser"
     cfg->Write(_T("/use_symbols_browser"),      (bool)!XRCCTRL(*this, "chkNoSB",        wxCheckBox)->GetValue());
@@ -282,7 +290,7 @@ void CCOptionsDlg::OnApply()
 
     // Now write the parser options and re-read them again to make sure they are up-to-date
     m_Parser.WriteOptions();
-    m_NativeParser->RereadParserOptions();
+    m_ParseManager->RereadParserOptions();
     m_Documentation->WriteOptions(cfg);
     m_CodeCompletion->RereadOptions();
 }
@@ -341,6 +349,7 @@ void CCOptionsDlg::OnUpdateUI(cb_unused wxUpdateUIEvent& event)
     XRCCTRL(*this, "txtCCFileExtHeader",      wxTextCtrl)->Enable(en);
     XRCCTRL(*this, "chkCCFileExtEmpty",       wxCheckBox)->Enable(en);
     XRCCTRL(*this, "txtCCFileExtSource",      wxTextCtrl)->Enable(en);
+    XRCCTRL(*this, "chkCCDebugLogging",       wxCheckBox)->Enable(en);
 
     // Page "Symbol browser"
     en = !XRCCTRL(*this, "chkNoSB",           wxCheckBox)->GetValue();

@@ -4,7 +4,7 @@
  *
  * $Revision: 12887 $
  * $Id: sdk_events.cpp 12887 2022-09-10 10:32:25Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/sdk_events.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/sdk_events.cpp $
  */
 
 #include "sdk_precomp.h"

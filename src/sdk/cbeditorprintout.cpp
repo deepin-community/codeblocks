@@ -4,7 +4,7 @@
  *
  * $Revision: 12780 $
  * $Id: cbeditorprintout.cpp 12780 2022-04-06 10:42:33Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/cbeditorprintout.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/cbeditorprintout.cpp $
  */
 
 #include "sdk_precomp.h"

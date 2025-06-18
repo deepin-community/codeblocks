@@ -349,7 +349,7 @@ bool wxsAngularMeter::OnXmlWrite(TiXmlElement *Element, bool IsXRC, bool IsExtra
 {
     for(size_t i = 0;i < m_arrSectors.Count();i++){
         SectorDesc *Desc = m_arrSectors[i];
-        wxString s = wxString::Format(wxT("sector_%lu_colour"), static_cast<unsigned long>(i + 1));
+        wxString s = wxString::Format("sector_%zu_colour", i + 1);
         TiXmlElement *msg = new TiXmlElement(s.mb_str());
         wxString sClrHex = wxString::Format(_T("#%02X%02X%02X"),
                                                                 (unsigned int)Desc->colour.Red(),
@@ -373,7 +373,7 @@ void wxsAngularMeter::InsertPropertyForSector(wxsPropertyGridManager *Grid, int 
 {
     SectorDesc *Desc = m_arrSectors[Position];
     wxString SectorName = wxString::Format(_("Sector %d Colour"), Position + 1);
-    wxString SectorDataName = wxString::Format(_("sector_%d_colour"), Position + 1);
+//    wxString SectorDataName = wxString::Format(_("sector_%d_colour"), Position + 1);
 
     Desc->id = Grid->GetGrid()->Insert(_("Needle Colour"), new wxSystemColourProperty(SectorName, wxPG_LABEL, Desc->colour));
 

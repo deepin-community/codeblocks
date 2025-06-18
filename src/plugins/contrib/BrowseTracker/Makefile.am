@@ -9,8 +9,7 @@ pluginlib_LTLIBRARIES = libBrowseTracker.la
 libBrowseTracker_la_LDFLAGS = @MODULE_SHARED_LDFLAGS@ -version-info 0:1:0 -no-undefined -avoid-version
 
 libBrowseTracker_la_LIBADD = ../../../sdk/libcodeblocks.la \
-			$(WX_LIBS) \
-			$(CB_TINYXML_LIBS)
+			$(WX_LIBS)
 
 libBrowseTracker_la_SOURCES = BrowseTracker.cpp \
 			Version.cpp \
@@ -20,8 +19,10 @@ libBrowseTracker_la_SOURCES = BrowseTracker.cpp \
 			ConfigPanel.cpp \
 			ProjectData.cpp \
 			JumpTracker.cpp \
+			JumpTrackerView.cpp \
 			JumpData.cpp \
-			btswitcherdlg.cpp
+			btswitcherdlg.cpp \
+			helpers.cpp
 
 noinst_HEADERS =  	BrowseTracker.h \
 			Version.h \
@@ -32,8 +33,10 @@ noinst_HEADERS =  	BrowseTracker.h \
 			ConfigPanel.h \
 			ProjectData.h \
 			JumpTracker.h \
+			JumpTrackerView.h \
 			JumpData.h \
-			btswitcherdlg.h
+			btswitcherdlg.h \
+			helpers.h
 
 resources_forZIP = \
 	BrowseTrackerToolbar.xrc \

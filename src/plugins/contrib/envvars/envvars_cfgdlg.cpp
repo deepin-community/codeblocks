@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12537 $
- * $Id: envvars_cfgdlg.cpp 12537 2021-10-24 22:27:25Z bluehazzard $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/envvars/envvars_cfgdlg.cpp $
+ * $Revision: 13423 $
+ * $Id: envvars_cfgdlg.cpp 13423 2024-01-03 09:15:31Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/envvars/envvars_cfgdlg.cpp $
  */
 
 // ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- ----- -----
@@ -137,8 +137,7 @@ void EnvVarsConfigDlg::LoadSettings()
 
     // Load all envvar sets available
     choSet->Set(nsEnvVars::GetEnvvarSetNames());
-    EV_DBGLOG("Found %lu envvar sets in config.",
-              static_cast <unsigned long> (choSet->GetCount()));
+    EV_DBGLOG("Found %u envvar sets in config.", choSet->GetCount());
 
     // Read the currently active envvar set and select it
     m_active_set = nsEnvVars::GetActiveSetName();

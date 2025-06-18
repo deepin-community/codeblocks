@@ -17,7 +17,7 @@
 *
 * $Revision: 12722 $
 * $Id: wxscodercontext.h 12722 2022-02-23 09:31:26Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/wxscodercontext.h $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/wxscodercontext.h $
 */
 
 #ifndef WXSCODERCONTEXT_H

@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12999 $
- * $Id: workspaceloader.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/workspaceloader.cpp $
+ * $Revision: 13644 $
+ * $Id: workspaceloader.cpp 13644 2025-03-29 05:36:19Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/workspaceloader.cpp $
  */
 
 #include "sdk_precomp.h"
@@ -112,13 +112,21 @@ bool WorkspaceLoader::Open(const wxString& filename, wxString& Title)
             wxFileName fname(projectFilename);
             wxFileName wfname(filename);
             fname.MakeAbsolute(wfname.GetPath(wxPATH_GET_VOLUME | wxPATH_GET_SEPARATOR));
-            cbProject* pProject = GetpMan()->LoadProject(fname.GetFullPath(), false); // don't activate it
-            if (!pProject)
+            // => verify if file exists !!
+            if (::wxFileExists(fname.GetFullPath()))
             {
-                GetpMsg()->LogError(wxString::Format(_("Unable to open \"%s\" during opening workspace \"%s\" "),
-                                                       projectFilename.c_str(),
-                                                       filename.c_str()));
-                failedProjects++;
+                cbProject* pProject = GetpMan()->LoadProject(fname.GetFullPath(), false); // don't activate it
+                if (!pProject)
+                {
+                    GetpMsg()->LogError(wxString::Format(_("Unable to open \"%s\" during opening workspace \"%s\""),
+                                                           projectFilename, filename));
+                    failedProjects++;
+                }
+            }
+            else
+            {
+                GetpMsg()->LogError(wxString::Format(_("The file \"%s\" no longer exists during opening workspace \"%s\""),
+                                                       projectFilename, filename));
             }
         }
         proj = proj->NextSiblingElement("Project");

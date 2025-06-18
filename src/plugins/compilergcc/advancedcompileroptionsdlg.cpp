@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12779 $
- * $Id: advancedcompileroptionsdlg.cpp 12779 2022-04-06 08:18:25Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/compilergcc/advancedcompileroptionsdlg.cpp $
+ * $Revision: 13355 $
+ * $Id: advancedcompileroptionsdlg.cpp 13355 2023-09-17 13:52:36Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/compilergcc/advancedcompileroptionsdlg.cpp $
  */
 
 #include "sdk.h"
@@ -481,7 +481,8 @@ void AdvancedCompilerOptionsDlg::OnRegexTest(wxCommandEvent& WXUNUSED(event))
 
     // test-run
     compiler->SetRegExArray(m_Regexes);
-    CompilerLineType clt = compiler->CheckForWarningsAndErrors(text);
+    long regex_id; wxString regex_desc;
+    CompilerLineType clt = compiler->CheckForWarningsAndErrors(text, regex_id, regex_desc);
 
     // restore regexes
     compiler->SetRegExArray(regex_copy);
@@ -492,13 +493,15 @@ void AdvancedCompilerOptionsDlg::OnRegexTest(wxCommandEvent& WXUNUSED(event))
                  "Type: %s message\n"
                  "Filename: %s\n"
                  "Line number: %s\n"
-                 "Message: %s"),
+                 "Message: %s\n\n"
+                 "Matching regex-id: %ld ('%s')"),
                     clt == cltNormal ? _("Normal")
                  : (clt == cltInfo   ? _("Info")
                  : (clt == cltError  ? _("Error") : _("Warning") ) ),
                 compiler->GetLastErrorFilename(),
                 compiler->GetLastErrorLine(),
-                compiler->GetLastError()
+                compiler->GetLastError(),
+                regex_id, regex_desc
               );
 
     cbMessageBox(msg, _("Test results"), wxICON_INFORMATION, this);

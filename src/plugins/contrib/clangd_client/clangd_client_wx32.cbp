@@ -2,7 +2,7 @@
 <CodeBlocks_project_file>
 	<FileVersion major="1" minor="6" />
 	<Project>
-		<Option title="Clangd_Client-wx32" />
+		<Option title="Clangd_Client wx3.2.x" />
 		<Option compiler="gcc" />
 		<Build>
 			<Target title="default">
@@ -38,7 +38,7 @@
 		</VirtualTargets>
 		<Compiler>
 			<Add option="-Wall" />
-			<Add option="-std=gnu++17" />
+			<Add option="-std=gnu++11" />
 			<Add option="-m32" />
 			<Add option="-g" />
 			<Add option="$(#CB_RELEASE_TYPE)" />
@@ -145,6 +145,7 @@
 		<Unit filename="src/codecompletion/parser/tokenizer.h" />
 		<Unit filename="src/codecompletion/parser/tokentree.cpp" />
 		<Unit filename="src/codecompletion/parser/tokentree.h" />
+        <Unit filename="src/codecompletion/parser/ParserCommon.h" />
 		<Unit filename="src/codecompletion/selectincludefile.cpp" />
 		<Unit filename="src/codecompletion/selectincludefile.h" />
 		<Unit filename="src/codecompletion/wxsmith/goto_function.wxs" />

@@ -8,7 +8,7 @@
 // Copyright:   (c) Aleksandras Gluchovas and (c) Francesco Montorsi
 // Licence:     wxWidgets licence
 /////////////////////////////////////////////////////////////////////////////
-// RCS-ID:      $Id: keybinder.cpp 12304 2021-03-16 23:28:31Z fuscated $
+// RCS-ID:      $Id: keybinder.cpp 13199 2023-02-07 14:01:18Z wh11204 $
 
 // Modified Keybinder for CodeBlocks KeyBnder v2.0 2019/04/8
 
@@ -881,7 +881,7 @@ int wxKeyBinder::MergeSubMenu(wxMenu* pMenu, int& modified)           //+v0.4.25
             //   menu items will never match causing constant update overhead
             AddShortcut(nMenuItemID, menuItemKeyStr, true );
             #ifdef LOGGING
-                wxLogMessage(_("Merge change type[%d]:item[%lu]:id[%d]:@[%p]text[%s]key[%s]"), changed, static_cast<unsigned long>(j), nMenuItemID, pMenuItem, pMenuItem->GetItemLabel().wx_str(), menuItemKeyStr.wx_str() );
+                wxLogMessage(_("Merge change type[%d]:item[%zu]:id[%d]:@[%p]text[%s]key[%s]"), changed, j, nMenuItemID, pMenuItem, pMenuItem->GetItemLabel(), menuItemKeyStr);
             #endif
         }//if changed
         else
@@ -1204,7 +1204,7 @@ bool wxKeyBinder::LoadFromString(const wxString& cfgCmdString)
     //m_arrCmd.Clear();
 
     //-cont = p->GetFirstEntry(str, idx);
-    switch(true)
+    switch(1)
     {
         default:
         // try to decode this entry
@@ -1448,9 +1448,9 @@ void wxKeyMonitorTextCtrl::OnKey(wxKeyEvent &event)
             wxLogMessage( _T("KeyStrokString[%s]"),keyStrokeString.c_str() );
         #endif
 
-        switch (keyStrokeString.IsEmpty())
+        switch (keyStrokeString.IsEmpty() ? 1 : 0)
         {
-            case true: break;
+            case 1: break;
             default:
             if (keyStrokeString.Length() < 2) { keyStrokeString.Clear(); break;}
             if ( (keyStrokeString[0] == 'F') && (keyStrokeString.Mid(1,1).IsNumber()) ) break;

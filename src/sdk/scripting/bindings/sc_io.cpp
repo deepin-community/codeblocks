@@ -4,7 +4,7 @@
  *
  * $Revision: 12799 $
  * $Id: sc_io.cpp 12799 2022-04-18 21:44:31Z bluehazzard $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/scripting/bindings/sc_io.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/scripting/bindings/sc_io.cpp $
  */
 
 #include <sdk_precomp.h>

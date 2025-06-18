@@ -4,7 +4,7 @@
  *
  * $Revision: 12424 $
  * $Id: sc_util_dialogs.cpp 12424 2021-05-09 12:50:41Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/scripting/bindings/sc_util_dialogs.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/scripting/bindings/sc_util_dialogs.cpp $
  */
 
 #include <sdk_precomp.h>

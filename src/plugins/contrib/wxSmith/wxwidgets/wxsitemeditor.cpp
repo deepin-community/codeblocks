@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12934 $
-* $Id: wxsitemeditor.cpp 12934 2022-10-02 10:31:19Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/wxsitemeditor.cpp $
+* $Revision: 13541 $
+* $Id: wxsitemeditor.cpp 13541 2024-08-11 18:01:17Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/wxsitemeditor.cpp $
 */
 
 #include <wx/dcmemory.h>
@@ -46,6 +46,8 @@ namespace
     const long wxsDelId        = wxNewId();
     const long wxsPreviewId    = wxNewId();
     const long wxsQuickPropsId = wxNewId();
+    const long wxsCutId        = wxNewId();
+    const long wxsCopyId       = wxNewId();
 
     inline int ToolIconSize() { return Manager::Get()->GetConfigManager(_T("wxsmith"))->ReadInt(_T("/tooliconsize"),32L); }
     inline int PalIconSize()  { return Manager::Get()->GetConfigManager(_T("wxsmith"))->ReadInt(_T("/paletteiconsize"),16L); }
@@ -53,26 +55,26 @@ namespace
 
 wxsItemEditor::wxsItemEditor(wxWindow* parent,wxsItemRes* Resource):
     wxsEditor(parent,wxEmptyString,Resource),
-    m_Data(0),
-    m_Content(0),
-    m_WidgetsSet(0),
-    m_VertSizer(0),
-    m_HorizSizer(0),
-    m_QPSizer(0),
-    m_OpsSizer(0),
-    m_QPArea(0),
-    m_InsIntoBtn(0),
-    m_InsBeforeBtn(0),
-    m_InsAfterBtn(0),
-    m_DelBtn(0),
-    m_PreviewBtn(0),
-    m_QuickPanelBtn(0),
-    m_TopPreview(0),
-    m_PreviewBackground(0),
+    m_Data(nullptr),
+    m_Content(nullptr),
+    m_WidgetsSet(nullptr),
+    m_VertSizer(nullptr),
+    m_HorizSizer(nullptr),
+    m_QPSizer(nullptr),
+    m_OpsSizer(nullptr),
+    m_QPArea(nullptr),
+    m_InsIntoBtn(nullptr),
+    m_InsBeforeBtn(nullptr),
+    m_InsAfterBtn(nullptr),
+    m_DelBtn(nullptr),
+    m_PreviewBtn(nullptr),
+    m_QuickPanelBtn(nullptr),
+    m_TopPreview(nullptr),
+    m_PreviewBackground(nullptr),
     m_InsType(itPoint),
     m_InsTypeMask(itPoint),
     m_QuickPropsOpen(false),
-    m_PopupCaller(0)
+    m_PopupCaller(nullptr)
 {
     InitializeResourceData();
     InitializeVisualStuff();
@@ -196,10 +198,10 @@ void wxsItemEditor::RebuildPreview()
     // If there's previous preview, deleting it
     if ( m_PreviewBackground )
     {
-        m_Content->SetSizer(0);
+        m_Content->SetSizer(nullptr);
         m_PreviewBackground->Destroy();
-        m_PreviewBackground = 0;
-        m_TopPreview = 0;
+        m_PreviewBackground = nullptr;
+        m_TopPreview = nullptr;
     }
 
     // Generating preview
@@ -210,8 +212,8 @@ void wxsItemEditor::RebuildPreview()
     {
         Manager::Get()->GetLogManager()->DebugLog(_T("One of root items returned class not derived from wxWindow"));
         m_PreviewBackground->Destroy();
-        m_PreviewBackground = 0;
-        m_TopPreview = 0;
+        m_PreviewBackground = nullptr;
+        m_TopPreview = nullptr;
     }
     else
     {
@@ -419,7 +421,7 @@ void wxsItemEditor::InsertRequest(const wxString& Name)
 
     switch ( m_InsType )
     {
-        case itAfter:
+        case itAfter: // fall-through
             RefIndex++;
             // We don't break here - continuing on itBefore code
 
@@ -832,7 +834,7 @@ void wxsItemEditor::RebuildQuickProps(wxsItem* Selection)
     int QPx, QPy;
     // TODO: Check if content of previous QPPanel shouldn't be stored into item
     m_QPArea->GetViewStart(&QPx,&QPy);
-    m_QPArea->SetSizer(0);
+    m_QPArea->SetSizer(nullptr);
     m_QPArea->DestroyChildren();
     m_QPSizer = new wxBoxSizer(wxVERTICAL);
     m_QPArea->SetSizer(m_QPSizer);
@@ -898,7 +900,15 @@ void wxsItemEditor::StartInsertPointSequence(const wxsItemInfo* Info)
 void wxsItemEditor::ShowPopup(wxsItem* Item,wxMenu* Popup)
 {
     m_PopupCaller = Item;
-    PopupMenu(Popup);
+
+    Item->SetIsSelected( true );
+
+    Popup->Append(wxsCutId,_("Cut"));
+    Popup->Append(wxsCopyId,_("Copy"));
+    Popup->Append(wxsInsBeforeId,_("Paste Before Selected"));
+    Popup->Append(wxsInsIntoId,_("Paste Inside Selected"));
+    Popup->Append(wxsInsAfterId,_("Paste After Selected"));
+    wxWindow::PopupMenu(Popup);
 }
 
 void wxsItemEditor::OnPopup(wxCommandEvent& event)

@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 81 $
- * $Id: token.cpp 81 2022-09-26 18:47:50Z pecanh $
- * $HeadURL: https://svn.code.sf.net/p/cb-clangd-client/code/trunk/clangd_client/src/codecompletion/parser/token.cpp $
+ * $Revision: 13292 $
+ * $Id: token.cpp 13292 2023-05-30 15:50:46Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/clangd_client/src/codecompletion/parser/token.cpp $
  */
 
 #include <wx/event.h>
@@ -236,7 +236,7 @@ wxString Token::GetStrippedArgs() const
 
     if (args.Last() != _T(')'))
         args << _T(')');
-    if (not args.StartsWith('(')) //(ph 2022/09/23)
+    if (not args.StartsWith('('))
         args.Prepend('(');
 
     return args;

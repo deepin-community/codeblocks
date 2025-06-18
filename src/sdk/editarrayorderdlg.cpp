@@ -4,7 +4,7 @@
  *
  * $Revision: 12381 $
  * $Id: editarrayorderdlg.cpp 12381 2021-05-09 12:47:32Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/editarrayorderdlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/editarrayorderdlg.cpp $
  */
 
 #include "sdk_precomp.h"

@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12964 $
- * $Id: ccmanager.cpp 12964 2022-10-07 20:07:19Z pecanh $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/ccmanager.cpp $
+ * $Revision: 13497 $
+ * $Id: ccmanager.cpp 13497 2024-04-05 17:29:47Z pecanh $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/ccmanager.cpp $
  */
 
 #include "sdk_precomp.h"
@@ -33,6 +33,7 @@
 #include "cbcolourmanager.h"
 #include "cbstyledtextctrl.h"
 #include "editor_hooks.h"
+#include "debuggermanager.h"
 
 namespace CCManagerHelper
 {
@@ -745,6 +746,14 @@ void CCManager::OnEditorTooltip(CodeBlocksEvent& event)
 
     wxStringVec tips(uniqueTips.begin(), uniqueTips.end());
 
+    // If user specified "~NoSort~" as first token entry, reset tips as the user specified them.
+    if (tokens.size() and (tokens[0].displayName == "~NoSort~"))
+    {
+        tips.clear();
+        for (size_t i = 1; i < tokens.size(); ++i)
+            tips.push_back( tokens[i].displayName);
+    }
+
     const int style = event.GetInt();
     if (!tips.empty())
     {
@@ -1378,6 +1387,15 @@ void CCManager::DoShowDocumentation(cbEditor* ed)
         return;
     }
 
+    cbDebuggerPlugin *plugin = Manager::Get()->GetDebuggerManager()->GetActiveDebugger();
+    if (plugin)
+    {
+        if (plugin->IsRunning() && plugin->ShowValueTooltip(0))
+        {
+            return; // Do not Show doc popup when the debigger is running
+        }
+    }
+
     m_pPopup->Freeze();
     m_pHtml->SetSize(m_DocSize);
     m_pHtml->SetPage(html);
@@ -1536,3 +1554,11 @@ void CCManager::CallSmartIndentCCDone(cbEditor* ed)
     // post event in the host's event queue
     Manager::Get()->ProcessEvent(event);
 }
+
+// ----------------------------------------------------------------------------
+bool CCManager::DoShowDiagnostics( cbEditor* ed, int line)
+// ----------------------------------------------------------------------------
+{
+	return GetProviderFor(ed)->DoShowDiagnostics(ed, line);
+}
+

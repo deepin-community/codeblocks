@@ -7,7 +7,7 @@
 #define CCLOGGER_H
 
 #include <wx/string.h>
-#include <wx/ffile.h>   //(ph 2021/08/30) ExternLogFile
+#include <wx/ffile.h>    // ExternLogFile
 #include <wx/thread.h>
 
 #include <memory> // unique_ptr
@@ -38,8 +38,11 @@ extern long           g_idCCDebugErrorLogger;
 extern wxString       s_TokenTreeMutex_Owner;     // location of the last tree lock
 extern wxString       s_ParserMutex_Owner;        // location of the last parser lock
 extern wxString       m_ClassBrowserBuilderThreadMutex_Owner;
+extern wxString       s_ClassBrowserCaller;
 
+// ----------------------------------------------------------------------------
 class CCLogger
+// ----------------------------------------------------------------------------
 {
 public:
     static CCLogger* Get();
@@ -55,6 +58,49 @@ public:
 
     bool GetExternalLogStatus(){return m_ExternLogActive;}
     void SetExternalLog(bool OnOrOff);
+
+   #if defined(MEASURE_wxIDs)
+    // ----------------------------------------------------
+    // Get Local count (within a function) of wxID usage
+    // ----------------------------------------------------
+    struct ShowLocalUsedwxIDs_t //Get a count of all wxIDs used until a return
+    {
+        int startingID = wxGetCurrentId();
+        int endingID = startingID;
+        wxString funcName ;
+        int lineNum;
+        ShowLocalUsedwxIDs_t(wxString funcNameIn, int lineNumIn)
+        { funcName = funcNameIn; lineNum = lineNumIn;  }
+        ~ShowLocalUsedwxIDs_t()
+        { //dtor
+            endingID = wxGetCurrentId();
+            int usedIDs = endingID-startingID;
+            CCLogger::Get()->DebugLogError(wxString::Format("LocalUsedIDs %d Range[%d:%d] %s:%d ", usedIDs, startingID, endingID, funcName, lineNum));
+        }
+    };
+    // ----------------------------------------------------------------------------
+    //  Get global count of wxID usage
+    //  Get a count of all wxIDs used from the time SetGlobalwxIDStart() is issued
+    // ----------------------------------------------------------------------------
+    int m_GlobalwxIDStart = 0;
+    int m_GlobalwxIDEnd = 0;
+    void SetGlobalwxIDStart(wxString funcName, int lineNum, int startID = wxGetCurrentId())
+    {
+        m_GlobalwxIDStart = startID;
+        DebugLogError(wxString::Format("SetGlobalwxIDStart(%d):\t%s:%d", m_GlobalwxIDStart, funcName, lineNum));
+    }
+    void SetGlobalwxIDEnd(int endID){ m_GlobalwxIDEnd = endID; }
+    void ShowGlobalUsedwxIDs(wxString funcName, int lineNum, int globalwxIDEndParm = wxGetCurrentId())
+    {
+        int startingID = m_GlobalwxIDStart;
+        int endingID = globalwxIDEndParm;
+        int usedIDs = endingID-startingID;
+        if (m_GlobalwxIDStart)
+            CCLogger::Get()->DebugLogError(wxString::Format("GlobalUsedIDs %d range[%d:%d]\t%s:%d", usedIDs, startingID, endingID, funcName, lineNum));
+        else
+            CCLogger::Get()->DebugLogError("CCLogger::Get()->SetGlobalwxIDStart() was never initialized!");
+    };
+   #endif //MEASURE_wxIDs
 
 protected:
     CCLogger();
@@ -269,7 +315,15 @@ private:
                 M##_Owner = wxString::Format("%s %d",__FUNCTION__, __LINE__); \
         } while (false);
 
-    #define CC_LOCKER_TRACK_TT_MTX_UNLOCK(M) M.Unlock();
+//    #define CC_LOCKER_TRACK_TT_MTX_UNLOCK(M) M.Unlock();
+    // cleared Owner
+  #define CC_LOCKER_TRACK_TT_MTX_UNLOCK(M) \
+        do {                        \
+            M.Unlock();             \
+            M##_Owner = wxString(); \
+        } while(false);
+
+
     #define CC_LOCKER_TRACK_CBBT_MTX_LOCK    CC_LOCKER_TRACK_TT_MTX_LOCK
     #define CC_LOCKER_TRACK_CBBT_MTX_UNLOCK  CC_LOCKER_TRACK_TT_MTX_UNLOCK
     #define CC_LOCKER_TRACK_P_MTX_LOCK       CC_LOCKER_TRACK_TT_MTX_LOCK
@@ -294,7 +348,7 @@ private:
         auto duration = std::chrono::high_resolution_clock::now().time_since_epoch(); \
         int now_millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count(); \
         if ( (now_millis - varNameHoldingMsecs) > allowedMillisecs) \
-            asm("int3"); \
+            __builtin_trap(); \
     }
 // ----------------------------------------------------------------------------
 // Write log message when exceeding allowed msecs set by RECORD_TIME()

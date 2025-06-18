@@ -4,7 +4,7 @@
  *
  * $Revision: 12018 $
  * $Id: astyleconfigdlg.cpp 12018 2020-04-02 14:45:18Z mortenmacfly $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/astyle/astyleconfigdlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/astyle/astyleconfigdlg.cpp $
  */
 
 #include <sdk.h>

@@ -38,8 +38,7 @@ libwxsmithcontribitems_la_LIBADD = ../../../sdk/libcodeblocks.la \
 			../wxContribItems/wxthings/libwxcustombutton.la \
 			../wxContribItems/wxled/libwxled.la \
 			../wxContribItems/wxmathplot/libwxmathplot.la \
-			$(WX_LIBS) \
-			$(CB_TINYXML_LIBS)
+			$(WX_LIBS)
 
 EXTRA_DIST = $(srcdir)/wxchart/*.xpm \
 		$(srcdir)/wxchart/*.png \
@@ -61,6 +60,7 @@ EXTRA_DIST = $(srcdir)/wxchart/*.xpm \
 		$(srcdir)/wxSmithPlot/test/resource.rc \
 		$(srcdir)/wxSmithPlot/test/*.cbp \
 		$(srcdir)/wxSmithPlot/test/wxsmith/*.wxs \
+		$(srcdir)/wxdatetimepicker/images/*.xpm \
 		$(srcdir)/*.cbp \
 		manifest.xml
 
@@ -97,7 +97,8 @@ $(TREELIST_SRC) \
 ./wxSmithPlot/wxsMathPlot.cpp \
 ./wxSmithPlot/wxsText.cpp \
 ./wxSmithPlot/wxsVector.cpp \
-./wxSmithContribItems.cpp
+./wxSmithContribItems.cpp \
+./wxdatetimepicker/wxsTimePickerCtrl.cpp
 
 noinst_HEADERS = \
 ./wxflatnotebook/wxsFlatNotebook.h \
@@ -126,4 +127,5 @@ $(TREELIST_HDR) \
 ./wxSmithPlot/wxsMathPlot.h \
 ./wxSmithPlot/wxsText.h \
 ./wxSmithPlot/wxsVector.h \
-./wxSmithContribItems.h
+./wxSmithContribItems.h \
+./wxdatetimepicker/wxsTimePickerCtrl.h

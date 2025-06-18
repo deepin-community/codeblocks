@@ -4,7 +4,7 @@
  *
  * $Revision: 12800 $
  * $Id: scriptsecuritywarningdlg.cpp 12800 2022-04-20 15:34:34Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/scriptsecuritywarningdlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/scriptsecuritywarningdlg.cpp $
  */
 
 #include "sdk_precomp.h"

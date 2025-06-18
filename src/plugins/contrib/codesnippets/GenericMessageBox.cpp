@@ -6,17 +6,13 @@
 // Author:      Julian Smart, Robert Roebling
 // Modified by: Pecan 2009/06/5
 // Created:     04/01/98
-// RCS-ID:      $Id: GenericMessageBox.cpp 12304 2021-03-16 23:28:31Z fuscated $
+// RCS-ID:      $Id: GenericMessageBox.cpp 13182 2023-02-01 03:15:11Z ollydbg $
 // Copyright:   (c) Julian Smart and Robert Roebling
 // Licence:     wxWindows licence
 /////////////////////////////////////////////////////////////////////////////
 
 // For compilers that support precompilation, includes "wx.h".
 #include "wx/wxprec.h"
-
-#ifdef __BORLANDC__
-#pragma hdrstop
-#endif
 
 //-#if wxUSE_MSGDLG && (!defined(__WXGTK20__) || defined(__WXUNIVERSAL__) || defined(__WXGPE__))
 

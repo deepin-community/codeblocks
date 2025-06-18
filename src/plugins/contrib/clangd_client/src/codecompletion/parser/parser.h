@@ -16,24 +16,28 @@
 #include <wx/timer.h>
 #include <wx/treectrl.h>
 
-////#include <cbthreadpool.h>
+//-unused- #include <cbthreadpool.h>
 #include <sdk_events.h>
 #include <cbplugin.h>
+#include <cbstyledtextctrl.h>
+#include <cbeditor.h>
 #include "searchresultslog.h"
-#include "../doxygen_parser.h"             //(ph 2022/06/15)
+#include "../doxygen_parser.h"
 
-#include "LSP_symbolsparser.h"          //(ph 2021/07/27)
+#include "LSP_symbolsparser.h"
 #include "parser_base.h"
-#include "../parsemanager.h"            //(ph 2022/02/14)
-#include "../IdleCallbackHandler.h"     //(ph 2021/09/25)
+#include "../parsemanager.h"
+//#include "../IdleCallbackHandler.h"
 #include "LSP_SymbolKind.h"
-#include "ClgdCCToken.h"                //(ph 2022/07/09)
+#include "ClgdCCToken.h"
 
 #if defined(_WIN32)
-#include "winprocess/misc/fileutils.h"  //(ph 2021/12/21)
+#include "winprocess/misc/fileutils.h"
 #else
-#include "fileutils.h"                 //(ph 2021/12/21)
+#include "fileutils.h"
 #endif //_WIN32
+
+class Parser;
 
 // defines for the icon/resource images
 #define PARSER_IMG_NONE                        -2
@@ -97,8 +101,7 @@ private:
 };
 
 class ClassBrowser;
-class cbStyledTextCtrl; //(ph 2021/04/10)
-class ParseManager;     //(ph 2021/08/20)
+class cbStyledTextCtrl;
 
 // ----------------------------------------------------------------------------
 namespace ParserCommon
@@ -162,9 +165,8 @@ public:
      * @param json containing LSP symbols
      */
     void LSP_ParseDocumentSymbols(wxCommandEvent& event);
-    void LSP_ParseSemanticTokens(wxCommandEvent& event);                  //(ph 2021/03/17)
-    void LSP_OnClientInitialized(cbProject* pProject);                    //(ph 2021/11/11)
-    bool IsOkToUpdateClassBrowserView();
+    void LSP_ParseSemanticTokens(wxCommandEvent& event);
+    void LSP_OnClientInitialized(cbProject* pProject);
 
     #define SYMBOL_NAME 0  //string
     #define SYMBOL_TYPE 1  //LSP_SymbolKind
@@ -209,15 +211,9 @@ public:
     /** if the Parser is not in Idle mode, show which need to be done */
     wxString NotDoneReason() override;
 
-    ParseManager* GetParseManager(){return m_pParseManager;}    //(ph 2021/08/20)
+    ParseManager* GetParseManager(){return m_pParseManager;}
 
-////    IdleCallbackHandler* GetIdleCallbackHandler()               //(ph 2022/02/14)
-////    {
-////        cbAssert(GetParseManager()->GetIdleCallbackHandler());
-////        return GetParseManager()->GetIdleCallbackHandler();
-////    }
-
-    bool GetIsShuttingDown()                                    //(ph 2022/07/30)
+    bool GetIsShuttingDown()
     {
         ParseManager* pParseMgr = GetParseManager();
         if (not pParseMgr) return true;
@@ -227,12 +223,11 @@ public:
     }
     void RequestSemanticTokens(cbEditor* pEditor);
 
-    //(ph 2021/10/23)
     void OnLSP_ReferencesResponse(wxCommandEvent& event);
     void OnLSP_DeclDefResponse(wxCommandEvent& event);
-    void OnLSP_RequestedSymbolsResponse(wxCommandEvent& event);               //(ph 2021/03/12)
-    void OnLSP_RequestedSemanticTokensResponse(wxCommandEvent& event);  //(ph 2022/06/8)
-    void OnLSP_CompletionResponse(wxCommandEvent& event, std::vector<ClgdCCToken>& v_completionTokens); //(ph 2021/10/31) //(ph 2022/07/09)
+    void OnLSP_RequestedSymbolsResponse(wxCommandEvent& event);
+    void OnLSP_RequestedSemanticTokensResponse(wxCommandEvent& event);
+    void OnLSP_CompletionResponse(wxCommandEvent& event, std::vector<ClgdCCToken>& v_completionTokens);
     void OnLSP_DiagnosticsResponse(wxCommandEvent& event);
     void OnLSP_HoverResponse(wxCommandEvent& event, std::vector<ClgdCCToken>& v_HoverTokens, int n_hoverLastPosition);
     void OnLSP_SignatureHelpResponse(wxCommandEvent& event, std::vector<cbCodeCompletionPlugin::CCCallTip>& v_SignatureTokens, int n_HoverLastPosition );
@@ -240,12 +235,13 @@ public:
     void OnLSP_GoToPrevFunctionResponse(wxCommandEvent& event);
     void OnLSP_GoToNextFunctionResponse(wxCommandEvent& event);
     void OnLSP_GoToFunctionResponse(wxCommandEvent& event); //unused
-    void OnLSP_CompletionPopupHoverResponse(wxCommandEvent& event); //(ph 2022/06/15)
+    void OnLSP_CompletionPopupHoverResponse(wxCommandEvent& event);
+    void OnRequestCodeActionApply(wxCommandEvent& event);
 
     wxString GetCompletionPopupDocumentation(const ClgdCCToken& token);
     int      FindSemanticTokenEntryFromCompletion( cbCodeCompletionPlugin::CCToken& cctoken, int completionTokenKind);
 
-    // Called from ClgdCompletion when debugger starts and finishes //(ph 2022/07/16)
+    // Called from ClgdCompletion when debugger starts and finishes
     void OnDebuggerStarting(CodeBlocksEvent& event);
     void OnDebuggerFinished(CodeBlocksEvent& event);
 
@@ -257,12 +253,15 @@ protected:
      * were added to the project, so we don't start the real parsing stage until the last
      * file/project was added,
      */
-    void OnLSP_BatchTimer(wxTimerEvent& event);     //(ph 2021/04/10)
+    void OnLSP_BatchTimer(wxTimerEvent& event);
 
     /** read Parser options from configure file */
     void ReadOptions() override;
+
     /** write Parse options to configure file */
-    void WriteOptions() override;
+    void WriteOptions(bool classbrowserOnly=false) override;              //(svn 13612 bkport)
+
+    void ShowGlobalChangeAnnoyingMsg(); // From svn 13612 //(svn 13612 bkport)
 
 private:
 
@@ -279,8 +278,6 @@ private:
     cbProject*                m_ProxyProject;
     /** referring to the C::B cbp project currently parsing owned project files */
     cbProject*                m_ParsersProject;
-
-    bool m_DebuggerRunning = false;
 
 private:
 
@@ -303,17 +300,20 @@ private:
     // LSP
     // ----------------------------------------------------------------------------
     bool m_LSP_ParserDone;
-    cbStyledTextCtrl* GetNewHiddenEditor(const wxString& filename);             //(ph 2021/04/10)
+    bool IsBusyParsing();
+
+    cbStyledTextCtrl* GetStaticHiddenEditor(const wxString& filename);
 
     int  m_cfg_parallel_processes;
     int  m_cfg_max_parsers_while_compiling;
-    std::set<wxString> m_FilesParsed; // files parsed by clangd parser      //(ph 2021/10/14)
+    std::set<wxString> m_FilesParsed; // files parsed by clangd parser
 
-    //(ph 2021/10/23)
+
     wxArrayString* m_pReferenceValues = nullptr;
     //-int reportedBadFileReference = 0;
     wxArrayString m_ReportedBadFileReferences; //filenames of bad references
     wxString m_LogFileBase = wxString();
+    bool m_annoyingLogMsgShown = false;
 
   public:
     size_t GetFilesRemainingToParse()
@@ -325,9 +325,9 @@ private:
                 return true;
             return false;
         }
-    void SetUserParsingPaused(bool newStatus)
+    int SetUserParsingPaused(bool newStatus)
         {
-            PauseParsingForReason("UserPausedParsing", newStatus);
+            return PauseParsingForReason("UserPausedParsing", newStatus);
         }
 
     /** stops the batch parse timer and clears the list of waiting files to be parsed */
@@ -342,6 +342,28 @@ private:
     cbCodeCompletionPlugin::CCToken m_HoverCCTokenPending = {-1,"", "", -1, -1};
     /** Provider of documentation for the popup window */
     DocumentationHelper m_DocHelper;
+
+    /** Static Hidden Utility cbEditor  */
+    std::unique_ptr<cbStyledTextCtrl> pHiddenEditor = nullptr;
+
+    // Declare the map of clangd fixes available mapped by filename
+    typedef std::map<wxString, std::vector<wxString> > FixMap_t;
+    FixMap_t FixesAvailable;
+    // Example usage: Insert a filename key and a vector<wxString> json.dump() of
+    //codeAction entry
+    //    FixesAvailable["filename"].push_back("codeActionString");
+    //    // Access and print the data within the map vector
+    //    for (const auto& entry : FixesAvailable) {
+    //        const wxString& filename = entry.first;
+    //        const std::vector<wxString>& vecCodeActions = entry.second;
+    //
+    //        std::cout << "filename: " << filename << std::endl;
+    //        std::cout << "CodeActions: ";
+    //        for (const wxString& codeactionStr : vecCodeActions) {
+    //            std::cout << codeActionStr << " ";
+    //        }
+    //        std::cout << std::endl;
+    //    }
 
   public:
     // ----------------------------------------------------------------------------
@@ -378,7 +400,7 @@ private:
         return true;
     }
     // ----------------------------------------------------------------------------
-    bool PauseParsingForReason(wxString reason, bool increment)
+    int PauseParsingForReason(wxString reason, bool increment)
     // ----------------------------------------------------------------------------
     {
         //wxString the_project = m_Project->GetTitle();
@@ -388,12 +410,12 @@ private:
         {   ++m_PauseParsingMap[the_reason];
             wxString reasonMsg = wxString::Format("Pausing parser(%s) for reason %s(%d)", the_project, reason, m_PauseParsingMap[the_reason]);
             CCLogger::Get()->DebugLog(reasonMsg);
-            return true;
+            return m_PauseParsingMap[the_reason];
         }
         else  if (increment) //doesnt exist and increment, create it
         {   m_PauseParsingMap[the_reason] = 1;
             CCLogger::Get()->DebugLog(wxString::Format("Pausing parser(%s) for %s", the_project, reason));
-            return true;
+            return m_PauseParsingMap[the_reason];
         }
         else if (not PauseParsingExists(the_reason) and (increment==false))
         {    //decrement but doesnt exist, is an error
@@ -403,7 +425,7 @@ private:
             cbMessageBox(msg, "Assert(non fatal)");
             #endif
             CCLogger::Get()->DebugLogError(wxString::Format("PauseParsing request Error:%s", reason));
-            return false;
+            return m_PauseParsingMap[the_reason];
         }
         else
         {   // decrement the pause reason
@@ -415,9 +437,9 @@ private:
                 CCLogger::Get()->DebugLogError("Un-pausing parser count below zero for reason: " + reason);
                 m_PauseParsingMap[the_reason] = 0;
             }
-            return true;
+            return m_PauseParsingMap[the_reason];
         }
-        return false;
+        return m_PauseParsingMap[the_reason];
     }
     // ----------------------------------------------------------------------------
     size_t GetArrayOfPauseParsingReasons(wxArrayString& aryReasons)
@@ -437,8 +459,8 @@ private:
     void SetLogFileBase(wxString filebase){m_LogFileBase = filebase;}
     wxString GetLogFileBase(){return m_LogFileBase;}
 
-    wxString GetLineTextFromFile(const wxString& file, const int lineNum); //(ph 2020/10/26)
-    bool FindDuplicateEntry(wxArrayString* pArray, wxString fullPath, wxString& lineNum, wxString& text); //(ph 2021/02/1)
+    wxString GetLineTextFromFile(const wxString& filename, const int lineNum);
+    bool FindDuplicateEntry(wxArrayString* pArray, wxString fullPath, wxString& lineNum, wxString& text);
 
     // ----------------------------------------------------------------
     inline int GetCaretPosition(cbEditor* pEditor)

@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12839 $
- * $Id: gdb_driver.cpp 12839 2022-06-17 12:18:29Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/debuggergdb/gdb_driver.cpp $
+ * $Revision: 13627 $
+ * $Id: gdb_driver.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/debuggergdb/gdb_driver.cpp $
  */
 
 #include <sdk.h>
@@ -164,6 +164,8 @@ void GDB_driver::Prepare(bool isConsole, int printElements, const RemoteDebuggin
     // Make sure backtraces use absolute paths, so it is more reliable to find where the sources
     // file when trying to open it in the editor.
     QueueCommand(new DebuggerCmd(this, "set filename-display absolute"));
+    // Disable ANSI escape sequences, new in GDB 8.2
+    QueueCommand(new DebuggerCmd(this, "set style enabled off"));
 
     if (platform::windows && isConsole)
         QueueCommand(new DebuggerCmd(this, "set new-console on"));
@@ -503,7 +505,7 @@ void GDB_driver::EnableCatchingThrow(bool enable)
 void GDB_driver::SwitchThread(size_t threadIndex)
 {
     ResetCursor();
-    QueueCommand(new DebuggerCmd(this, wxString::Format(_T("thread %lu"), static_cast<unsigned long>(threadIndex))));
+    QueueCommand(new DebuggerCmd(this, wxString::Format("thread %zu", threadIndex)));
     if (Manager::Get()->GetDebuggerManager()->UpdateBacktrace())
         QueueCommand(new GdbCmd_Backtrace(this));
 }
@@ -956,7 +958,7 @@ void GDB_driver::ParseOutput(const wxString& output)
             {
                 m_Cursor.file = re->GetMatch(lines[i], 3);
                 m_Cursor.function = re->GetMatch(lines[i], 2);
-                wxString lineStr = _T("");
+                // wxString lineStr = _T("");
                 m_Cursor.address = re->GetMatch(lines[i], 1);
                 m_Cursor.line = -1;
                 m_Cursor.changed = true;
@@ -967,7 +969,7 @@ void GDB_driver::ParseOutput(const wxString& output)
             {
                 m_Cursor.file = reThreadSwitch2.GetMatch(lines[i], 3);
                 m_Cursor.function = reThreadSwitch2.GetMatch(lines[i], 2);
-                wxString lineStr = reThreadSwitch2.GetMatch(lines[i], 4);
+                // wxString lineStr = reThreadSwitch2.GetMatch(lines[i], 4);
                 m_Cursor.address = reThreadSwitch2.GetMatch(lines[i], 1);
                 m_Cursor.line = -1;
                 m_Cursor.changed = true;

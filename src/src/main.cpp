@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 13046 $
- * $Id: main.cpp 13046 2022-11-17 12:54:17Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/main.cpp $
+ * $Revision: 13627 $
+ * $Id: main.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/main.cpp $
  */
 
 #include <sdk.h>
@@ -1209,7 +1209,7 @@ void MainFrame::PluginsUpdated(cb_unused cbPlugin* plugin, cb_unused int status)
             GetMenuBar()->FindItem(idViewToolMain, &viewToolbars);
             if (viewToolbars)
             {
-                if (viewToolbars->FindItem(_(info->title)) != wxNOT_FOUND)
+                if (viewToolbars->FindItem(info->title) != wxNOT_FOUND)
                     continue;
 
                 wxMenuItem* item = AddPluginInMenus(viewToolbars, plug,
@@ -1534,7 +1534,7 @@ wxMenuItem* MainFrame::AddPluginInMenus(wxMenu* menu, cbPlugin* plugin, wxObject
     }
 
     int id = wxNewId();
-    wxString title(_(info->title));
+    wxString title(info->title);
     if (menu == m_HelpPluginsMenu)
         title << "...";
 
@@ -1863,7 +1863,38 @@ void MainFrame::LoadViewLayout(const wxString& name, bool isTemp)
 
     // We have to force an update here, because the m_LayoutManager.GetAllPanes()
     // would not report correct values if not updated here.
-    m_LayoutManager.LoadPerspective(layout, true);
+
+    // Check if translation is active
+    if (Manager::Get()->GetConfigManager("app")->ReadBool("/locale/enable"))
+    {
+        // Yes, translate the captions after loading
+        m_LayoutManager.LoadPerspective(layout, false);
+        // Fix translations on load (captions are saved in the config file)
+        wxAuiPaneInfoArray &panes = m_LayoutManager.GetAllPanes();
+        const size_t paneCount = panes.GetCount();
+        for (size_t i = 0; i < paneCount; ++i)
+            panes[i].caption = wxGetTranslation(panes[i].caption);
+    }
+    else
+    {
+        // No, save the english captions and restore them afterwards so
+        // undesired translated captions are reset to english
+        std::map <wxString, wxString> englishCaptions;
+        const wxAuiPaneInfoArray &panes = m_LayoutManager.GetAllPanes();
+        const size_t paneCount = panes.GetCount();
+        for (size_t i = 0; i < paneCount; ++i)
+            englishCaptions[panes[i].name] = panes[i].caption;
+
+        m_LayoutManager.LoadPerspective(layout, false);
+        for (std::map <wxString, wxString>::iterator it = englishCaptions.begin(); it != englishCaptions.end(); ++it)
+        {
+            wxAuiPaneInfo& info = m_LayoutManager.GetPane(it->first);
+            if (info.IsOk())
+                info.caption = it->second;
+        }
+    }
+
+    m_LayoutManager.Update();
 
     // If we load a layout we have to check if the window is on a valid display
     // and has valid size. This can happen if a user moves a layout file from a
@@ -2047,14 +2078,13 @@ void MainFrame::DoFixToolbarsLayout()
     // 1. reset the best/min sizes loaded from the layout file.
     // 2. set new best size
     //
-    // The reset operation is needed because wxAUI does nothing when the values for min/best sizes
-    // aren't equal to wxDefaultSize.
-    // I'm not really sure why we need the second pass. :(
+    // The reset operation is needed because wxAUI does nothing when the values
+    // for min/best sizes aren't equal to wxDefaultSize.
 
-    wxAuiPaneInfoArray &panes = m_LayoutManager.GetAllPanes();
-    for (size_t ii = 0; ii < panes.GetCount(); ++ii)
+    wxAuiPaneInfoArray& panes = m_LayoutManager.GetAllPanes();
+    for (size_t i=0; i<panes.GetCount(); ++i)
     {
-        wxAuiPaneInfo &info = panes[ii];
+        wxAuiPaneInfo& info = panes[i];
         if (info.IsToolbar() && info.IsShown())
         {
             info.best_size = wxDefaultSize;
@@ -2062,14 +2092,14 @@ void MainFrame::DoFixToolbarsLayout()
         }
     }
 
-    // This is needed in order to auto shrink the toolbars to fit the icons with as little space as
-    // possible.
+    // This is needed in order to auto shrink the toolbars to fit the icons
+    // with as little space as possible.
     m_LayoutManager.Update();
 
-    for (size_t i = 0; i < panes.GetCount(); ++i)
+    for (size_t i=0; i<panes.GetCount(); ++i)
     {
         wxAuiPaneInfo& info = panes[i];
-        if (info.IsToolbar())
+        if (info.IsToolbar() && info.window)
         {
             info.best_size = info.window->GetBestSize();
             info.floating_size = wxDefaultSize;
@@ -2144,7 +2174,7 @@ ToolbarInfo MainFrame::DoAddPluginToolbar(cbPlugin* plugin)
         if (!pluginInfo)
             cbThrow("No plugin info?!?");
 
-        info.paneInfo.Name(pluginInfo->name + "Toolbar").Caption(_(pluginInfo->title) + _(" Toolbar"));
+        info.paneInfo.Name(pluginInfo->name + "Toolbar").Caption(pluginInfo->title + _(" Toolbar"));
     }
     else
     {
@@ -2555,7 +2585,7 @@ void MainFrame::ShowHideStartPage(bool forceHasProject, int forceState)
 
     if (m_InitiatedShutdown)
     {
-        EditorBase* sh = Manager::Get()->GetEditorManager()->GetEditor(g_StartHereTitle);
+        EditorBase* sh = Manager::Get()->GetEditorManager()->GetEditor(GetStartHereTitle());
         if (sh)
             sh->Destroy();
         return;
@@ -2570,7 +2600,7 @@ void MainFrame::ShowHideStartPage(bool forceHasProject, int forceState)
     if (forceState>0)
         show = true;
 
-    EditorBase* sh = Manager::Get()->GetEditorManager()->GetEditor(g_StartHereTitle);
+    EditorBase* sh = Manager::Get()->GetEditorManager()->GetEditor(GetStartHereTitle());
     if (show)
     {
         if (!sh)
@@ -2775,7 +2805,6 @@ void MainFrame::OnFileNewWhat(wxCommandEvent& event)
     if (!ed || !project)
         return;
 
-    wxString oldname = ed->GetFilename();
     if (cbMessageBox(_("Do you want to add this new file in the active project (has to be saved first)?"),
                     _("Add file to project"),
                     wxYES_NO | wxICON_QUESTION) == wxID_YES &&
@@ -2889,7 +2918,6 @@ void MainFrame::DoOnFileOpen(bool bProject)
             if (FileFilters::GetFilterNameFromIndex(Filters, Index, Filter))
                 cfg->Write("/file_dialogs/file_new_open/filter", Filter);
 
-            wxString Test = dlg.GetDirectory();
             cfg->Write("/file_dialogs/file_new_open/directory", dlg.GetDirectory());
         }
 
@@ -4528,7 +4556,7 @@ void MainFrame::OnFileMenuUpdateUI(wxUpdateUIEvent& event)
         else
         {
             // Detect if this is the start here page.
-            event.Enable(ed->GetTitle() != g_StartHereTitle);
+            event.Enable(ed->GetTitle() != GetStartHereTitle());
         }
     }
     else if (id == idFileSave)
@@ -4719,7 +4747,7 @@ void MainFrame::OnViewMenuUpdateUI(wxUpdateUIEvent& event)
         for (int ii = 0; ii < editorCount; ++ii)
         {
             EditorBase *editor = editorManager->GetEditor(ii);
-            if (editor && editor->GetTitle() == g_StartHereTitle)
+            if (editor && editor->GetTitle() == GetStartHereTitle())
             {
                 found = true;
                 break;
@@ -5005,7 +5033,7 @@ void MainFrame::OnSwitchTabs(cb_unused wxCommandEvent& event)
 void MainFrame::OnToggleStartPage(cb_unused wxCommandEvent& event)
 {
     int toggle = -1;
-    if (Manager::Get()->GetEditorManager()->GetEditor(g_StartHereTitle) == nullptr)
+    if (Manager::Get()->GetEditorManager()->GetEditor(GetStartHereTitle()) == nullptr)
         toggle = 1;
 
     ShowHideStartPage(false, toggle);
@@ -5055,7 +5083,7 @@ void MainFrame::OnPluginLoaded(CodeBlocksEvent& event)
     {
         DoAddPlugin(plug);
         const PluginInfo* info = Manager::Get()->GetPluginManager()->GetPluginInfo(plug);
-        const wxString msg(info ? _(info->title) : wxString(_("<Unknown plugin>")));
+        const wxString msg(info ? info->title : wxString(_("<Unknown plugin>")));
         Manager::Get()->GetLogManager()->DebugLog(wxString::Format("%s plugin activated", msg));
         OnViewToolbarsOptimize(event); // event is unused!
     }
@@ -5143,9 +5171,10 @@ void MainFrame::OnBackticks(cb_unused wxCommandEvent& event)
 
     // Add Buttons
     wxStdDialogButtonSizer *btnSizer = new wxStdDialogButtonSizer();
-    auto endModalHandler = [&dialog](wxCommandEvent &event) {
-        dialog.EndModal(event.GetId());
-        event.Skip();
+    auto endModalHandler = [&dialog](wxCommandEvent &evt)
+    {
+        dialog.EndModal(evt.GetId());
+        evt.Skip();
     };
 
     wxButton *clearButton = new wxButton(&dialog, wxID_APPLY, wxString(_("C&lear and close")));

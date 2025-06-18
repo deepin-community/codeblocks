@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 11165 $
- * $Id: debuggeroptionsdlg.cpp 11165 2017-09-09 14:40:32Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/debuggergdb/debuggeroptionsdlg.cpp $
+ * $Revision: 13424 $
+ * $Id: debuggeroptionsdlg.cpp 13424 2024-01-03 12:50:12Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/debuggergdb/debuggeroptionsdlg.cpp $
  */
 
 #include <sdk.h>
@@ -58,7 +58,7 @@ class DebuggerConfigurationPanel : public wxPanel
             if (dlg.ShowModal() == wxID_OK)
             {
                 wxString newPath = dlg.GetPath();
-                XRCCTRL(*this, "txtExecutablePath", wxTextCtrl)->ChangeValue(newPath);
+                XRCCTRL(*this, "txtExecutablePath", wxTextCtrl)->SetValue(newPath);
             }
         }
 

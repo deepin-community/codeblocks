@@ -26,16 +26,17 @@ TextFileSearcher* TextFileSearcher::BuildTextFileSearcher(const wxString& search
                                                           bool matchCase,
                                                           bool matchWordBegin,
                                                           bool matchWord,
+                                                          bool matchInComments,
                                                           bool regEx)
 {
     TextFileSearcher* pFileSearcher = NULL;
     if ( regEx == true )
     {
-        pFileSearcher = new TextFileSearcherRegEx(searchText, matchCase, matchWordBegin, matchWord);
+        pFileSearcher = new TextFileSearcherRegEx(searchText, matchCase, matchWordBegin, matchWord, matchInComments);
     }
     else
     {
-        pFileSearcher = new TextFileSearcherText(searchText, matchCase, matchWordBegin, matchWord);
+        pFileSearcher = new TextFileSearcherText(searchText, matchCase, matchWordBegin, matchWord, matchInComments);
     }
 
     // Tests if construction is OK
@@ -158,7 +159,7 @@ TextFileSearcher::eFileSearcherReturn TextFileSearcher::FindInFile(const wxStrin
 
                 line.Trim(true);
 
-                foundLines.Add(wxString::Format(wxT("%lu"), static_cast<unsigned long>(i + 1)));
+                foundLines.Add(wxString::Format("%zu", i + 1));
                 foundLines.Add(line);
 
                 // We have to compensate any trimming on the left. If we don't do it the matched

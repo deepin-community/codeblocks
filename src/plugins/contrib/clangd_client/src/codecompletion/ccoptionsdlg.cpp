@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 77 $
- * $Id: ccoptionsdlg.cpp 77 2022-09-13 18:15:25Z pecanh $
- * $HeadURL: https://svn.code.sf.net/p/cb-clangd-client/code/trunk/clangd_client/src/codecompletion/ccoptionsdlg.cpp $
+ * $Revision: 13627 $
+ * $Id: ccoptionsdlg.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/clangd_client/src/codecompletion/ccoptionsdlg.cpp $
  */
 
 #include <sdk.h>
@@ -113,9 +113,9 @@ CCOptionsDlg::CCOptionsDlg(wxWindow* parent, ParseManager* np, ClgdCompletion* c
     m_Parser(np->GetParser()),
     m_Documentation(dh)
 {
-    ConfigManager* cfg = Manager::Get()->GetConfigManager(_T("clangd_client"));
+    ConfigManager* cfg = Manager::Get()->GetConfigManager("clangd_client");
 
-    wxXmlResource::Get()->LoadPanel(this, parent, _T("dlgCCSettings"));
+    wxXmlResource::Get()->LoadPanel(this, parent, _T("dlgCldSettings"));
 
     // -----------------------------------------------------------------------
     // Handle all options that are being directly applied from config
@@ -144,9 +144,11 @@ CCOptionsDlg::CCOptionsDlg(wxWindow* parent, ParseManager* np, ClgdCompletion* c
     // Page "C / C++ parser"
     // NOTE (Morten#1#): Keep this in sync with files in the XRC file (settings.xrc) and ParseManager.cpp
     XRCCTRL(*this, "spnThreadsNum",            wxSpinCtrl)->SetValue(cfg->ReadInt(_T("/max_threads"), 1));
-    XRCCTRL(*this, "spnThreadsNum",            wxSpinCtrl)->Enable(true);   //(ph 2021/07/17)
+    XRCCTRL(*this, "spnThreadsNum",            wxSpinCtrl)->Enable(true);
     XRCCTRL(*this, "spnParsersWhileCompiling", wxSpinCtrl)->SetValue(cfg->ReadInt(_T("/max_parsers_while_compiling"), 0));
-    XRCCTRL(*this, "spnParsersWhileCompiling", wxSpinCtrl)->Enable(true);   //(ph 2022/04/25)
+    XRCCTRL(*this, "spnParsersWhileCompiling", wxSpinCtrl)->Enable(true);
+
+    XRCCTRL(*this, "txtMasterPath",            wxTextCtrl)->SetValue(cfg->Read("/LLVM_MasterPath", wxString()));
 
     // Page "C / C++ parser (adv.)"
     // NOTE (Morten#1#): Keep this in sync with files in the XRC file (settings.xrc) and parser.cpp
@@ -155,7 +157,7 @@ CCOptionsDlg::CCOptionsDlg(wxWindow* parent, ParseManager* np, ClgdCompletion* c
     XRCCTRL(*this, "txtCCFileExtSource",       wxTextCtrl)->SetValue(cfg->Read(_T("/source_ext"),    _T("c,cpp,cxx,cc,c++")));
 
     // Page "Symbol browser"
-    XRCCTRL(*this, "chkNoSB",        wxCheckBox)->SetValue(!cfg->ReadBool(_T("/use_symbols_browser"), true));
+    XRCCTRL(*this, "chkNoSB",        wxCheckBox)->SetValue(!cfg->ReadBool("/use_symbols_browser", false));
     XRCCTRL(*this, "chkFloatCB",     wxCheckBox)->SetValue(cfg->ReadBool(_T("/as_floating_window"), false));
 
     // The toolbar section
@@ -171,7 +173,7 @@ CCOptionsDlg::CCOptionsDlg(wxWindow* parent, ParseManager* np, ClgdCompletion* c
     // -----------------------------------------------------------------------
 
     // Page "clangd_client"
-    XRCCTRL(*this, "chkUseSmartSense",      wxCheckBox)->SetValue(!m_Parser.Options().useSmartSense);
+    XRCCTRL(*this, "chkDisableSmartSense",  wxCheckBox)->SetValue( ! m_Parser.Options().useSmartSense); //(2023/08/07)
     XRCCTRL(*this, "chkWhileTyping",        wxCheckBox)->SetValue(m_Parser.Options().whileTyping);
 
     // Page "C / C++ parser"
@@ -186,19 +188,21 @@ CCOptionsDlg::CCOptionsDlg(wxWindow* parent, ParseManager* np, ClgdCompletion* c
     XRCCTRL(*this, "chkLogPluginDebug",     wxCheckBox)->SetValue(m_Parser.Options().logPluginDebugCheck);
     XRCCTRL(*this, "chkLSPMsgsFocusOnSave", wxCheckBox)->SetValue(m_Parser.Options().lspMsgsFocusOnSaveCheck);
     XRCCTRL(*this, "chkLSPMsgsClearOnSave", wxCheckBox)->SetValue(m_Parser.Options().lspMsgsClearOnSaveCheck);
-    XRCCTRL(*this, "txtMasterPath",         wxTextCtrl)->SetValue(m_Parser.Options().LLVM_MasterPath);  //(ph 2021/11/7)
-
+    XRCCTRL(*this, "txtMasterPath",         wxTextCtrl)->SetValue(m_Parser.Options().LLVM_MasterPath);
+    XRCCTRL(*this, "chkUseCompletionIcons", wxCheckBox)->SetValue(m_Parser.Options().useCompletionIconsCheck);
     m_Old_LLVM_MasterPath = m_Parser.Options().LLVM_MasterPath; //save for onApply() check
 
-    // FIXME (ph#): implement these unused hidden check boxes ?
-    XRCCTRL(*this, "chkLocals",        wxCheckBox)->Hide(); //(ph 2021/11/9)
+    // FIXME (ph#): implement these unused hidden check boxes ? //(22/12/22)
+    //XRCCTRL(*this, "chkDisableSmartSense", wxCheckBox)->SetValue(false);     //(2023/08/06)
+    XRCCTRL(*this, "chkDisableSmartSense", wxCheckBox)->Hide();
+    XRCCTRL(*this, "chkLocals",        wxCheckBox)->Hide();
     XRCCTRL(*this, "chkGlobals",       wxCheckBox)->Hide();
     XRCCTRL(*this, "chkPreprocessor",  wxCheckBox)->Hide();
     XRCCTRL(*this, "chkComplexMacros", wxCheckBox)->Hide();
 
     // Page "Symbol browser"
     XRCCTRL(*this, "chkInheritance",        wxCheckBox)->SetValue(m_Parser.ClassBrowserOptions().showInheritance);
-    // FIXME (ph#): Display inheritance is causin a loop //(ph 2022/05/31)
+    // FIXME (ph#): Display inheritance is causin a loop //(2022/05/31)
     XRCCTRL(*this, "chkInheritance",        wxCheckBox)->SetValue(false);
     XRCCTRL(*this, "chkExpandNS",           wxCheckBox)->SetValue(m_Parser.ClassBrowserOptions().expandNS);
     XRCCTRL(*this, "chkTreeMembers",        wxCheckBox)->SetValue(m_Parser.ClassBrowserOptions().treeMembers);
@@ -244,6 +248,13 @@ void CCOptionsDlg::OnApply()
         activePageTitle = lb ? lb->GetPageText(pageID) : wxString();
     }
 
+    // Patch to avoid clobbering .conf data at project close //(svn 13612 bkport)
+    cbProject* pProject = Manager::Get()->GetProjectManager()->GetActiveProject();
+     // Remember the project that changed the .conf data
+    m_ParseManager->SetOptsChangedByProject(pProject);
+    // Renember the Parser that changed the .conf data
+    m_ParseManager->SetOptsChangedByParser(&(m_ParseManager->GetParser())); //(ph 2025/02/07)
+
     ConfigManager* cfg = Manager::Get()->GetConfigManager("clangd_client");
 
     // -----------------------------------------------------------------------
@@ -252,7 +263,7 @@ void CCOptionsDlg::OnApply()
 
     // Page "clangd_client"
     cfg->Write(_T("/semantic_keywords"),    (bool)!XRCCTRL(*this, "chkNoSemantic",         wxCheckBox)->GetValue());
-    cfg->Write(_T("/use_SmartSense"),       (bool) XRCCTRL(*this, "chkUseSmartSense",      wxCheckBox)->GetValue());
+    cfg->Write(_T("/use_SmartSense"),       (bool) XRCCTRL(*this, "chkDisableSmartSense",  wxCheckBox)->GetValue());
     cfg->Write(_T("/while_typing"),         (bool) XRCCTRL(*this, "chkWhileTyping",        wxCheckBox)->GetValue());
     cfg->Write(_T("/auto_add_parentheses"), (bool) XRCCTRL(*this, "chkAutoAddParentheses", wxCheckBox)->GetValue());
     cfg->Write(_T("/detect_implementation"),(bool) XRCCTRL(*this, "chkDetectImpl",         wxCheckBox)->GetValue());
@@ -284,6 +295,7 @@ void CCOptionsDlg::OnApply()
     cfg->Write(_T("/lspMsgsFocusOnSave_check"),      (bool) XRCCTRL(*this, "chkLSPMsgsFocusOnSave",    wxCheckBox)->GetValue());
     cfg->Write(_T("/lspMsgsClearOnSave_check"),      (bool) XRCCTRL(*this, "chkLSPMsgsClearOnSave",    wxCheckBox)->GetValue());
     cfg->Write(_T("/LLVM_MasterPath"),                      XRCCTRL(*this, "txtMasterPath",            wxTextCtrl)->GetValue());
+    cfg->Write(_T("/useCompletionIcons_check"),      (bool) XRCCTRL(*this, "chkUseCompletionIcons",    wxCheckBox)->GetValue());
 
     cfg->Write(_T("/max_threads"),                   (int)  XRCCTRL(*this, "spnThreadsNum",            wxSpinCtrl)->GetValue());
     cfg->Write(_T("/max_parsers_while_compiling"),   (int)  XRCCTRL(*this, "spnParsersWhileCompiling", wxSpinCtrl)->GetValue());
@@ -321,7 +333,8 @@ void CCOptionsDlg::OnApply()
     m_Parser.ReadOptions();
 
     // Page "clangd_client"
-    m_Parser.Options().useSmartSense = !XRCCTRL(*this, "chkUseSmartSense",    wxCheckBox)->GetValue();
+    m_Parser.Options().useSmartSense = !XRCCTRL(*this, "chkDisableSmartSense",wxCheckBox)->GetValue(); //(2023/08/07)
+    m_Parser.Options().useSmartSense = true; //(2023/08/07) override to always true for clangd_client
     m_Parser.Options().whileTyping   =  XRCCTRL(*this, "chkWhileTyping",      wxCheckBox)->GetValue();
 
     // Page "C / C++ parser"
@@ -337,8 +350,9 @@ void CCOptionsDlg::OnApply()
     m_Parser.Options().lspMsgsFocusOnSaveCheck = XRCCTRL(*this, "chkLSPMsgsFocusOnSave",  wxCheckBox)->GetValue();
     m_Parser.Options().lspMsgsClearOnSaveCheck = XRCCTRL(*this, "chkLSPMsgsClearOnSave",  wxCheckBox)->GetValue();
     m_Parser.Options().LLVM_MasterPath         = XRCCTRL(*this, "txtMasterPath",          wxTextCtrl)->GetValue();
+    m_Parser.Options().useCompletionIconsCheck = XRCCTRL(*this, "chkUseCompletionIcons",  wxCheckBox)->GetValue();
 
-    // The LLVM_MasterPath may contain macros like $(TARGET_COMPILER_DIR); so deprecate the following //(ph 2022/03/23)
+    // The LLVM_MasterPath may contain macros like $(TARGET_COMPILER_DIR); so deprecate the following //(2022/03/23)
     //if (wxFileExists(m_Parser.Options().LLVM_MasterPath))
     //    m_Parser.Options().LLVM_MasterPath  = XRCCTRL(*this, "txtMasterPath",         wxTextCtrl)->GetValue();
     //else {
@@ -377,15 +391,14 @@ void CCOptionsDlg::OnApply()
     m_Documentation->WriteOptions(cfg);
     m_CodeCompletion->RereadOptions();
 
-    // If a project is loaded and the clangd location changed, say something.
-    if (Manager::Get()->GetProjectManager()->GetActiveProject()
-        and (m_Old_LLVM_MasterPath != m_Parser.Options().LLVM_MasterPath) )
+    // If the clangd executable location changed, remind the user to restart CB.
+    if (m_Old_LLVM_MasterPath != m_Parser.Options().LLVM_MasterPath)
     {
         wxString msg = _("CodeBlocks needs to be restarted to accomodate the clangd location change.");
+        // Issue the warning only when clangd_client page is active
         if ((activePageTitle == "clangd_client") or (activePageTitle == _("clangd_client")) )
-            cbMessageBox(msg, _("Settings changed"));
+            cbMessageBox(msg, _("Settings changed"), wxOK, m_CodeCompletion->GetTopWxWindow());
     }
-
 }
 // ----------------------------------------------------------------------------
 void CCOptionsDlg::OnChooseColour(wxCommandEvent& event)
@@ -423,7 +436,7 @@ void CCOptionsDlg::OnUpdateUI(cb_unused wxUpdateUIEvent& event)
     bool aap = XRCCTRL(*this, "chkAutoAddParentheses", wxCheckBox)->GetValue();
 
     // Page "clangd_client"
-    XRCCTRL(*this, "chkUseSmartSense",              wxCheckBox)->Enable(en);
+    XRCCTRL(*this, "chkDisableSmartSense",          wxCheckBox)->Enable(en);
     XRCCTRL(*this, "chkWhileTyping",                wxCheckBox)->Enable(en);
     XRCCTRL(*this, "chkAutoAddParentheses",         wxCheckBox)->Enable(en);
     XRCCTRL(*this, "chkDetectImpl",                 wxCheckBox)->Enable(en && aap);
@@ -459,7 +472,7 @@ void CCOptionsDlg::OnUpdateUI(cb_unused wxUpdateUIEvent& event)
     XRCCTRL(*this, "chkLogPluginDebug",             wxCheckBox)->Enable(en);
     XRCCTRL(*this, "chkLSPMsgsFocusOnSave",         wxCheckBox)->Enable(en);
     XRCCTRL(*this, "chkLSPMsgsClearOnSave",         wxCheckBox)->Enable(en);
-    XRCCTRL(*this, "txtMasterPath",                 wxTextCtrl)->Enable(en);    //(ph 2021/11/7)
+    XRCCTRL(*this, "txtMasterPath",                 wxTextCtrl)->Enable(en);
 
     // Page "C / C++ parser (adv.)"
     en = ccmcfg->ReadBool(_T("/clangd_client"), true);
@@ -553,7 +566,7 @@ bool CCOptionsDlg::ValidateReplacementToken(wxString& from, wxString& to)
     return true;
 }
 // ----------------------------------------------------------------------------
-void CCOptionsDlg::OnClangd_AutoDetect(cb_unused wxCommandEvent& event)       //(ph 2021/11/8)
+void CCOptionsDlg::OnClangd_AutoDetect(cb_unused wxCommandEvent& event)
 // ----------------------------------------------------------------------------
 {
     // OnLLVM_AutoDetect clangd location
@@ -573,15 +586,22 @@ void CCOptionsDlg::OnClangd_AutoDetect(cb_unused wxCommandEvent& event)       //
     }
     if (fnClangdPath.GetPath().empty())
     {
-        wxString msg; msg << __FUNCTION__ << _("() Could not find clangd installation.");
+        wxString msg; msg << __FUNCTION__ << "() " << _("Could not find clangd installation.");
         cbMessageBox( msg, _("Auto detect Error"));
         return;
     }
 
     // Verify clangd version is above 12
-    wxString clangdVersion = clangLocator.GetClangdVersion(fnClangdPath.GetFullPath());
+    wxString versionNative;
+    wxString clangdVersion = clangLocator.GetClangdVersion(fnClangdPath.GetFullPath(), versionNative);
     //eg., clangd version 13.0,0
     clangdVersion = clangdVersion.BeforeFirst('.').AfterLast(' ');
+    if (clangdVersion.IsEmpty())
+    {
+        cbMessageBox("clangd version could not be determined from string '" + versionNative + "'");
+        return;
+    }
+
     int versionNum = std::stoi(clangdVersion.ToStdString());
     if (versionNum < 13)
     {
@@ -591,7 +611,7 @@ void CCOptionsDlg::OnClangd_AutoDetect(cb_unused wxCommandEvent& event)       //
 
     if (fnClangdPath.Exists() )
         m_Parser.Options().LLVM_MasterPath = fnClangdPath.GetFullPath();
-    XRCCTRL(*this, "txtMasterPath", wxTextCtrl)->SetValue(m_Parser.Options().LLVM_MasterPath);  //(ph 2021/11/8)
+    XRCCTRL(*this, "txtMasterPath", wxTextCtrl)->SetValue(m_Parser.Options().LLVM_MasterPath);
     return;
 }
 // ----------------------------------------------------------------------------

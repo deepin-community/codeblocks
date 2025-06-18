@@ -19,9 +19,9 @@
 * This code is based in part on wxsimagecombobox from the wxSmithImage plug-in,
 * copyright Ron Collins and released under the GPL.
 *
-* $Revision: 13042 $
-* $Id: wxstreectrl.cpp 13042 2022-11-17 07:20:21Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/defitems/wxstreectrl.cpp $
+* $Revision: 13627 $
+* $Id: wxstreectrl.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/defitems/wxstreectrl.cpp $
 */
 
 #include "wxstreectrl.h"
@@ -63,8 +63,8 @@ namespace
     WXS_EVI(EVT_TREE_ITEM_ACTIVATED, wxEVT_COMMAND_TREE_ITEM_ACTIVATED, wxTreeEvent, ItemActivated)
     WXS_EVI(EVT_TREE_ITEM_COLLAPSED, wxEVT_COMMAND_TREE_ITEM_COLLAPSED, wxTreeEvent, ItemCollapsed)
     WXS_EVI(EVT_TREE_ITEM_COLLAPSING, wxEVT_COMMAND_TREE_ITEM_COLLAPSING, wxTreeEvent, ItemCollapsing)
-    WXS_EVI(EVT_TREE_ITEM_EXPANDED, wxEVT_COMMAND_TREE_ITEM_EXPANDED, wxTreeEvent, Item_bExpanded)
-    WXS_EVI(EVT_TREE_ITEM_EXPANDING, wxEVT_COMMAND_TREE_ITEM_EXPANDING, wxTreeEvent, Item_bExpanding)
+    WXS_EVI(EVT_TREE_ITEM_EXPANDED, wxEVT_COMMAND_TREE_ITEM_EXPANDED, wxTreeEvent, ItemExpanded)
+    WXS_EVI(EVT_TREE_ITEM_EXPANDING, wxEVT_COMMAND_TREE_ITEM_EXPANDING, wxTreeEvent, ItemExpanding)
     WXS_EVI(EVT_TREE_ITEM_RIGHT_CLICK, wxEVT_COMMAND_TREE_ITEM_RIGHT_CLICK, wxTreeEvent, ItemRightClick)
     WXS_EVI(EVT_TREE_ITEM_MIDDLE_CLICK, wxEVT_COMMAND_TREE_ITEM_MIDDLE_CLICK, wxTreeEvent, ItemMiddleClick)
     WXS_EVI(EVT_TREE_SEL_CHANGED, wxEVT_COMMAND_TREE_SEL_CHANGED, wxTreeEvent, SelectionChanged)
@@ -72,6 +72,7 @@ namespace
     WXS_EVI(EVT_TREE_KEY_DOWN, wxEVT_COMMAND_TREE_KEY_DOWN, wxTreeEvent, KeyDown)
     WXS_EVI(EVT_TREE_ITEM_GETTOOLTIP, wxEVT_COMMAND_TREE_ITEM_GETTOOLTIP, wxTreeEvent, ItemGetToolTip)
     WXS_EVI(EVT_TREE_ITEM_MENU, wxEVT_COMMAND_TREE_ITEM_MENU, wxTreeEvent, ItemMenu)
+    WXS_EVI(EVT_TREE_STATE_IMAGE_CLICK, wxEVT_COMMAND_TREE_STATE_IMAGE_CLICK, wxTreeEvent, StateImageClick)
     WXS_EV_END()
 }
 
@@ -141,7 +142,7 @@ void wxsTreeCtrl::OnBuildCreatingCode()
 
                     // make a name for the new item
                     n += 1;
-                    sItem.Printf(_("_Item%d"), n);
+                    sItem.Printf("_Item%d", n);
                     sItem = sVarName + sItem;
 
                     arrItems[iLevel] = sItem;
@@ -175,7 +176,7 @@ void wxsTreeCtrl::OnBuildCreatingCode()
                     iBlue = colour.Blue();
                     if((colour.IsOk()) && ((iRed + iGreen + iBlue) != 0))
                     {
-                        sSource.Printf(_("%d,%d,%d"), iRed, iGreen, iBlue);
+                        sSource.Printf("%d,%d,%d", iRed, iGreen, iBlue);
                         Codef(_T("%ASetItemTextColour(%s, wxColour(%s));\n"), sItem.wx_str(), sSource.wx_str());
                     }
 
@@ -235,11 +236,11 @@ void wxsTreeCtrl::OnBuildCreatingCode()
 /*! \brief    Build the control preview.
  *
  * \param parent wxWindow*    The parent window.
- * \param flags long                    The control flags.
+ * \param _Flags long                    The control flags.
  * \return wxObject*                     The constructed control.
  *
  */
-wxObject *wxsTreeCtrl::OnBuildPreview(wxWindow *Parent, long Flags)
+wxObject *wxsTreeCtrl::OnBuildPreview(wxWindow *Parent, long _Flags)
 {
     int             i, n;
     wxsImageList   *ilist;
@@ -313,21 +314,21 @@ wxObject *wxsTreeCtrl::OnBuildPreview(wxWindow *Parent, long Flags)
     // save the hide-root flag
     top.Unset();
 
-    return SetupWindow(preview, Flags);
+    return SetupWindow(preview, _Flags);
 }
 
 /*! \brief Enumerate the control's properties.
  *
- * \param flags long    The control flags.
+ * \param _Flags long    The control flags.
  * \return void
  *
  */
-void wxsTreeCtrl::OnEnumWidgetProperties(cb_unused long Flags)
+void wxsTreeCtrl::OnEnumWidgetProperties(cb_unused long _Flags)
 {
     static wxString      sImageNames[128];
     static const wxChar *pImageNames[128];
 
-    wxString            ss, tt;
+    wxString            ss;
     wxArrayString       aa;
 
     // find available image lists and store them in our local static arrays
@@ -351,7 +352,7 @@ void wxsTreeCtrl::OnEnumWidgetProperties(cb_unused long Flags)
     UpdateTreeItemList();
 
     WXS_IMAGETREE(wxsTreeCtrl, m_arrItems, _("Tree Items"), "tree_items");
-    WXS_ARRAYSTRING(wxsTreeCtrl, m_arrItems, _("Items as Text"), "items_text", _("item2"));
+    WXS_ARRAYSTRING(wxsTreeCtrl, m_arrItems, _("Items as Text"), "items_text", "item2");
     WXS_BOOL(wxsTreeCtrl, m_bExpand, _("Expand All"), "expand_all", false);
 }
 
@@ -366,7 +367,7 @@ void wxsTreeCtrl::FindAllImageLists(wxArrayString &aNames)
     int             i, n;
     wxsItemResData  *res;
     wxsTool         *tool;
-    wxString        ss, tt;
+    wxString        ss;
 
     // start the list with a chance to de-select any old list
     aNames.Clear();
@@ -396,7 +397,7 @@ void wxsTreeCtrl::FindAllImageLists(wxArrayString &aNames)
 void wxsTreeCtrl::UpdateTreeItemList()
 {
     int              i, n;
-    wxString         ss, tt;
+    wxString         ss;
     wxArrayString    aa;
 
     // first 2 items are always our var name and the name of the image list

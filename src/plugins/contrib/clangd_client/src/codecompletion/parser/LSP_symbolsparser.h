@@ -19,14 +19,14 @@
 #include <logmanager.h> // F()
 
 #include "cclogger.h"
-#include "LSP_tokenizer.h"  //(ph 2021/03/19)
+#include "LSP_tokenizer.h"
 #include "token.h"
 #include "tokentree.h"
 
 #if defined(_WIN32)
-#include "winprocess/misc/fileutils.h"      //(ph 2021/12/21)
+#include "winprocess/misc/fileutils.h"
 #else
-#include "unixprocess/fileutils.h"      //(ph 2021/12/21)
+#include "unixprocess/fileutils.h"
 #endif //_WIN32
 
 #include "json.hpp" //nlohmann json lib
@@ -66,6 +66,7 @@ struct LSP_SymbolsParserOptions
         logClangdServerCheck(false),
         logPluginInfoCheck(false),
         logPluginDebugCheck(false),
+        useCompletionIconsCheck(false),
         LLVM_MasterPath(""),
         handleFunctions(true),
         handleVars(true),
@@ -133,6 +134,9 @@ struct LSP_SymbolsParserOptions
     /** plugin debug logging  */
     bool        logPluginDebugCheck;
 
+    /** plugin prefix code completion list with icons  */
+    bool        useCompletionIconsCheck;
+
     /** clangd LSP messages tab option  */
     bool        lspMsgsFocusOnSaveCheck;
 
@@ -140,7 +144,7 @@ struct LSP_SymbolsParserOptions
     bool        lspMsgsClearOnSaveCheck;
 
     /** path to LLVM */
-    wxString    LLVM_MasterPath; //(ph 2021/11/7)
+    wxString    LLVM_MasterPath;
 
     /** whether to parse the functions */
     bool        handleFunctions;
@@ -186,30 +190,15 @@ public:
                  const wxString&      bufferOrFilename,
                  bool                 isLocal,
                  LSP_SymbolsParserOptions& LSP_SymbolsParserOptions,
-                 TokenTree*           tokenTree);
+                 TokenTree*           tokenTree,
+                 cbStyledTextCtrl*    pHiddenEditor );
 
     /** LSP_SymbolsParser destructor.*/
     virtual ~LSP_SymbolsParser();
 
     /** Do the main job (syntax analysis) here
       */
-    bool Parse(json* pJson, cbProject* pProject);   //(ph 2021/03/24)
-
-    /** Get the context "namespace XXX { ... }" directive. It is used to find the initial search scope
-      * before CC prompt a suggestion list.
-      * Need a critical section locker before call this function!
-      * @param buffer  wxString to be parsed.
-      * @param result  vector containing all the namespace names.
-      */
-    bool ParseBufferForNamespaces(const wxString& buffer, NameSpacesVec& result);
-
-    /** Get the context "using namespace XXX" directive. It is used to find the initial search scope
-      * before CC prompt a suggestion list.
-      * Need a critical section locker before call this function!
-      * @param buffer  wxString to be parsed.
-      * @param result the wxArrayString contains all the namespace names.
-      */
-    bool ParseBufferForUsingNamespace(const wxString& buffer, wxArrayString& result);
+    bool Parse(json* pJson, cbProject* pProject);
 
     wxString GetFilename() { return m_Buffer; } // used in TRACE for debug only
 
@@ -249,25 +238,15 @@ protected:
     /** actually run the syntax analysis*/
     void DoParse();
     bool DoParseDocumentSymbols(json* pJson, cbProject* pProject);
-    bool DoParseSemanticTokens(json* pJson, cbProject* pProject); //(ph 2022/06/7)
+    bool DoParseSemanticTokens(json* pJson, cbProject* pProject);
 
-    void WalkDocumentSymbols(json& jref, wxString& filename, Token* parentToken, size_t level); //(ph 2021/03/24)
+    void WalkDocumentSymbols(json& jref, wxString& filename, Token* parentToken, size_t level);
 
     /** skip blocks {} */
     void SkipBlock();
 
     /** skip the template argument*/
     void SkipAngleBraces();
-
-    /** handle include <XXXX> or include "XXXX" directive. This will internally add another
-      * parserThead object associate with the included file to LSP_SymbolsParser pool
-      */
-    void HandleIncludes();
-
-    /** handle the statement:
-      * namespace XXX {
-      */
-    void HandleNamespace();
 
     /** handle class declaration
       * @param ct specify class like type : struct or enum or class
@@ -281,7 +260,7 @@ protected:
       * @param endCol points to '}' endng the class
       *
      */
-    Token* DoHandleClass(EClassType ct, int linenumber, int lastLineNumber, int endCol); //(ph 2021/05/27)
+    Token* DoHandleClass(EClassType ct, int linenumber, int lastLineNumber, int endCol);
 
     /** handle function declaration or definition
       * @param name function name
@@ -290,24 +269,11 @@ protected:
       */
     void HandleFunction(wxString& name, bool isOperator = false, bool isPointer = false);
 
-    /** parse for loop arguments:
-      * for(int X; ... ; ...)
-      */
-    void HandleForLoopArguments();
-
-    /** parse arguments like:
-      * if(int X = getNumber())
-      */
-    void HandleConditionalArguments();
-
     /** handle enum declaration */
     void HandleEnum();
 
     /** calculate the value assigned to enumerator */
     bool CalcEnumExpression(Token* tokenParent, long& result, wxString& peek);
-
-    /** handle typedef directive */
-    void HandleTypedef();
 
     /** eg: class ClassA{...} varA, varB, varC
       * This function will read the "varA, varB, varC"
@@ -327,9 +293,6 @@ protected:
      *  @return True, if token was handled, false, if an unexpected token was read.
      */
     bool ReadClsNames(wxString& ancestor);
-
-    /** read <> as a whole token */
-    wxString ReadAngleBrackets();
 
     /** add one token to the token tree
       * @param kind Token type, see @TokenKind Emun for more details
@@ -422,9 +385,6 @@ private:
       * @param templateArgs The removed template arguments
     */
     void RemoveTemplateArgs(const wxString& expr, wxString &expNoArgs, wxString &templateArgs);
-
-    /** Only for debug */
-    bool IsStillAlive(const wxString& funcInfo);
 
     /** change an anonymous(unnamed) token's name to a human readable name, the m_Str is expect to
      *  store the unnamed token name, for example, for parsing the code
@@ -553,17 +513,16 @@ private:
 //    std::vector<LSP_SemanticToken> semanticTokensVec;
     FileUtils fileUtils;
     private:
-    wxString DoHandleSemanticTokenFunction();
     wxString DoGetDocumentSymbolFunctionArgs(const wxString& detail);
     TokenKind ConvertDocSymbolKindToCCTokenKind(int docSymKind);
     // Find enclosure char such as () {} []
     // source string, src position of char to match(zero origin).
     // Returns zero origin index of paired char or -1.
     int FindOpeningEnclosureChar(const wxString source, int indexOfCharToMatch);
-    int FindClosingEnclosureChar(const wxString source, int indexOfCharToMatch);
     // Get the type from the clangd "detail" response entry containing type and arguments
     wxString GetFullTypeFromDetail(const wxString& detail);
 
+    cbStyledTextCtrl* m_pHiddenEditor;
 };
 
 #endif // LSP_SymbolsParser_H

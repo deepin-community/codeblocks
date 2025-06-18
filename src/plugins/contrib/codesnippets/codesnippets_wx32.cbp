@@ -52,8 +52,6 @@
 			<Add directory="../../../src" />
 			<Add directory="$(#WX32.include)" />
 			<Add directory="$(#WX32.lib)/gcc_dll$(WX_CFG)/msw$(WX_SUFFIX)" />
-			<Add directory="Search" />
-			<Add directory="editor" />
 			<Add directory="." />
 		</Compiler>
 		<Linker>
@@ -81,17 +79,6 @@
 		</Unit>
 		<Unit filename="manifest.xml" />
 		<Unit filename="menuidentifiers.h" />
-		<Unit filename="resources/Makefile.am" />
-		<Unit filename="resources/allsnippets.png" />
-		<Unit filename="resources/category.png" />
-		<Unit filename="resources/findf.png" />
-		<Unit filename="resources/findfdisabled.png" />
-		<Unit filename="resources/manifest.xml" />
-		<Unit filename="resources/options.png" />
-		<Unit filename="resources/optionsdisabled.png" />
-		<Unit filename="resources/snippet.png" />
-		<Unit filename="resources/stop.png" />
-		<Unit filename="resources/stopdisabled.png" />
 		<Unit filename="settingsdlg.cpp" />
 		<Unit filename="settingsdlg.h" />
 		<Unit filename="settingsdlgform.cpp" />

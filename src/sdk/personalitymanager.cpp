@@ -4,7 +4,7 @@
  *
  * $Revision: 12451 $
  * $Id: personalitymanager.cpp 12451 2021-05-22 17:25:13Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/personalitymanager.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/personalitymanager.cpp $
  */
 
 #include "sdk_precomp.h"

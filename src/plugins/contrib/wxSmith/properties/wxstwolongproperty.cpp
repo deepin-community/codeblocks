@@ -16,9 +16,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: $
-* $Id: $
-* $HeadURL: $
+* $Revision: 13292 $
+* $Id: wxstwolongproperty.cpp 13292 2023-05-30 15:50:46Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/properties/wxstwolongproperty.cpp $
 */
 
 #include "wxstwolongproperty.h"

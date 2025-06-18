@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 13025 $
- * $Id: dlgaboutplugin.cpp 13025 2022-11-13 16:30:11Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/dlgaboutplugin.cpp $
+ * $Revision: 13293 $
+ * $Id: dlgaboutplugin.cpp 13293 2023-05-30 15:53:23Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/dlgaboutplugin.cpp $
  */
 
 #include "sdk.h"
@@ -26,10 +26,10 @@ dlgAboutPlugin::dlgAboutPlugin(wxWindow* parent, const PluginInfo* pi)
 	wxXmlResource::Get()->LoadObject(this, parent, "dlgAboutPlugin", "wxScrollingDialog");
     XRCCTRL(*this, "wxID_CANCEL", wxButton)->SetDefault();
 
-	XRCCTRL(*this, "lblTitle", wxStaticText)->SetLabel(_(pi->title));
-	XRCCTRL(*this, "txtDescription", wxTextCtrl)->SetValue(_(pi->description));
-	XRCCTRL(*this, "txtThanksTo", wxTextCtrl)->SetValue(_(pi->thanksTo));
-	XRCCTRL(*this, "txtLicense", wxTextCtrl)->SetValue(_(pi->license));
+	XRCCTRL(*this, "lblTitle", wxStaticText)->SetLabel(pi->title);
+	XRCCTRL(*this, "txtDescription", wxTextCtrl)->SetValue(pi->description);
+	XRCCTRL(*this, "txtThanksTo", wxTextCtrl)->SetValue(pi->thanksTo);
+	XRCCTRL(*this, "txtLicense", wxTextCtrl)->SetValue(pi->license);
 	XRCCTRL(*this, "lblName", wxStaticText)->SetLabel(pi->name);
 	XRCCTRL(*this, "lblVersion", wxStaticText)->SetLabel(pi->version);
 	XRCCTRL(*this, "lblAuthor", wxStaticText)->SetLabel(pi->author);

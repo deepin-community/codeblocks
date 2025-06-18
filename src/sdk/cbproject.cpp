@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12999 $
- * $Id: cbproject.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/cbproject.cpp $
+ * $Revision: 13242 $
+ * $Id: cbproject.cpp 13242 2023-03-24 00:23:35Z bluehazzard $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/cbproject.cpp $
  */
 
 #include "sdk_precomp.h"
@@ -397,6 +397,12 @@ void cbProject::Open()
         m_Loaded = loader.Open(m_Filename, &m_pExtensionsElement);
         fileUpgraded = loader.FileUpgraded();
         fileModified = loader.FileModified();
+
+        // First time update globs on project load
+        // This is needed so on workspace loading so all projects are up to date after first loading
+        for (const ProjectGlob& glob : m_Globs)
+            loader.UpdateGlob(glob);
+
         m_CurrentlyLoading = false;
 
         if (m_Loaded)
@@ -1063,13 +1069,22 @@ void cbProject::RemoveVirtualFolders(const wxString &folder)
     SetModified(true);
 }
 
-void cbProject::ReplaceVirtualFolder(const wxString &oldFolder, const wxString &newFolder)
+void cbProject::ReplaceVirtualFolder(const wxString& oldFolder, const wxString& newFolder)
 {
-    int idx = m_VirtualFolders.Index(oldFolder);
-    if (idx != wxNOT_FOUND)
-        m_VirtualFolders[idx] = newFolder;
-    else
+    bool found = false;
+    for (wxString& folder : m_VirtualFolders)
+    {
+        if (folder.StartsWith(oldFolder))
+        {
+            folder.Replace(oldFolder, newFolder, false);
+            found = true;
+        }
+    }
+
+    if (!found)
+    {
         m_VirtualFolders.Add(newFolder);
+    }
 
     // now loop all project files and rename this virtual folder
     for (FilesList::iterator it = m_Files.begin(); it != m_Files.end(); ++it)
@@ -1078,13 +1093,12 @@ void cbProject::ReplaceVirtualFolder(const wxString &oldFolder, const wxString &
         if (f && !f->virtual_path.IsEmpty())
         {
             if (f->virtual_path.StartsWith(oldFolder))
-                f->virtual_path.Replace(oldFolder, newFolder);
+                f->virtual_path.Replace(oldFolder, newFolder, false);
         }
     }
 
     SetModified(true);
 }
-
 
 void cbProject::SetVirtualFolders(const wxArrayString& folders)
 {
@@ -1887,14 +1901,124 @@ void cbProject::ProjectFileRenamed(ProjectFile* pf)
     }
 }
 
-void cbProject::SetGlobs(const std::vector<Glob>& globs)
+void cbProject::RemoveGlob(const ProjectGlob& glob)
 {
+
+    std::vector<ProjectGlob>::iterator itr = std::find(m_Globs.begin(), m_Globs.end(), glob);
+    if (itr != m_Globs.end())
+        m_Globs.erase(itr);
+
+    std::vector<ProjectFile*> filesToRemove;
+    for (ProjectFile* file : m_Files)
+    {
+        if( file->globId == glob.GetId())
+            filesToRemove.push_back(file);
+    }
+
+    for (ProjectFile* file : filesToRemove)
+    {
+        RemoveFile(file);
+    }
+
+    if (filesToRemove.size() > 0)
+        Touch();
+}
+
+void cbProject::RemoveGlobs(const std::vector<ProjectGlob>& globs)
+{
+
+    for (std::vector<ProjectGlob>::const_iterator toRemoveItr = globs.begin(); toRemoveItr != globs.end(); toRemoveItr++)
+    {
+        const std::vector<ProjectGlob>::iterator itr = std::find(m_Globs.begin(), m_Globs.end(), *toRemoveItr);
+        if (itr != m_Globs.end())
+            m_Globs.erase(itr);
+    }
+    std::vector<ProjectFile*> filesToRemove;
+    for (ProjectFile* file : m_Files)
+    {
+        bool found = false;
+        // File is in no glob
+        if (!file->IsGlobValid())
+            continue;
+        // search all remaining globs for this file id
+        for (const ProjectGlob& remainingGlob : m_Globs)
+        {
+            if (remainingGlob.GetId() == file->globId)
+            {
+                found = true;
+                break;
+            }
+        }
+        if (!found)
+            filesToRemove.push_back(file);
+    }
+
+    for (ProjectFile* file : filesToRemove)
+    {
+        RemoveFile(file);
+    }
+
+    if (filesToRemove.size() > 0)
+        Touch();
+}
+
+void cbProject::AddGlob(const ProjectGlob& glob)
+{
+    if (glob.IsValid() && !SearchGlob(glob.GetId()).IsValid())
+    {
+        m_Globs.push_back(glob);
+    }
+}
+
+void cbProject::SetGlobs(std::vector<ProjectGlob>& globs)
+{
+    std::sort(globs.begin(), globs.end());
+    std::vector<ProjectGlob> toRemove;
+    for (const ProjectGlob& glob : m_Globs)
+    {
+        if (!std::binary_search(globs.begin(), globs.end(), glob))
+        {
+            toRemove.push_back(glob);
+        }
+    }
+    RemoveGlobs(toRemove);
     m_Globs = globs;
 }
 
-std::vector<cbProject::Glob> cbProject::GetGlobs() const
+const std::vector<ProjectGlob> cbProject::GetGlobs() const
 {
     return m_Globs;
+}
+
+ProjectGlob cbProject::SearchGlob(const wxString& path, const wxString& wildCard, bool recursive) const
+{
+    ProjectGlob glob = ProjectGlob(path, wildCard, recursive);
+    return SearchGlob(glob.GetId());
+}
+
+ProjectGlob cbProject::SearchGlob(const GlobId& id) const
+{
+    for (const ProjectGlob& gl : m_Globs)
+    {
+        if (gl.GetId() == id)
+        {
+            return gl;
+        }
+    }
+    return ProjectGlob();   // invalid glob
+}
+
+ProjectGlob cbProject::SearchGlob(const wxString& id) const
+{
+    long long tmp = std::stoll(id.ToStdString());
+    for (const ProjectGlob& gl : m_Globs)
+    {
+        if (gl.GetId() == tmp)
+        {
+            return gl;
+        }
+    }
+    return ProjectGlob();   // invalid glob
 }
 
 wxString cbGetDynamicLinkerPathForTarget(cbProject *project, ProjectBuildTarget* target)

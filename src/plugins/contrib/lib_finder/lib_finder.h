@@ -18,7 +18,7 @@
 *
 * $Revision: 12415 $
 * $Id: lib_finder.h 12415 2021-05-09 12:49:44Z fuscated $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/lib_finder/lib_finder.h $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/lib_finder/lib_finder.h $
 */
 
 #ifndef LIB_AUTO_CONF_H

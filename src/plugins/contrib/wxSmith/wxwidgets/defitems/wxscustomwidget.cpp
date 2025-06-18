@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12575 $
-* $Id: wxscustomwidget.cpp 12575 2021-12-12 09:48:33Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/defitems/wxscustomwidget.cpp $
+* $Revision: 13547 $
+* $Id: wxscustomwidget.cpp 13547 2024-09-14 04:35:04Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/defitems/wxscustomwidget.cpp $
 */
 
 #include "wxscustomwidget.h"
@@ -69,11 +69,14 @@ void wxsCustomWidget::OnBuildCreatingCode()
     wxString Style = m_Style;
     if (Style.empty())
         Style = "0";
+    wxString IdName = GetIdName();
+    if (IdName.empty())
+        IdName = _T("wxID_ANY");
 
     Result.Replace("$(POS)",       Codef(GetCoderContext(), _T("%P")));
     Result.Replace("$(SIZE)",      Codef(GetCoderContext(), _T("%S")));
     Result.Replace("$(STYLE)",     Style);
-    Result.Replace("$(ID)",        GetIdName());
+    Result.Replace("$(ID)",        IdName);
     Result.Replace("$(THIS)",      GetVarName());
     Result.Replace("$(PARENT)",    GetCoderContext()->m_WindowParent);
     Result.Replace("$(NAME)",      Codef(GetCoderContext(), _T("%N")));
@@ -83,7 +86,7 @@ void wxsCustomWidget::OnBuildCreatingCode()
     BuildSetupWindowCode();
 }
 
-wxObject* wxsCustomWidget::OnBuildPreview(wxWindow* Parent, cb_unused long Flags)
+wxObject* wxsCustomWidget::OnBuildPreview(wxWindow* Parent, cb_unused long _Flags)
 {
     wxPanel* Background = new wxPanel(Parent, wxID_ANY, Pos(Parent), wxDefaultSize);
     const wxString Label(GetUserClass().empty() ? wxString("???") : GetUserClass());
@@ -100,7 +103,7 @@ wxObject* wxsCustomWidget::OnBuildPreview(wxWindow* Parent, cb_unused long Flags
     return Background;
 }
 
-void wxsCustomWidget::OnEnumWidgetProperties(long Flags)
+void wxsCustomWidget::OnEnumWidgetProperties(long _Flags)
 {
     wxString XmlDataInit = m_XmlData;
     if ( GetPropertiesFlags() & flSource )
@@ -111,7 +114,7 @@ void wxsCustomWidget::OnEnumWidgetProperties(long Flags)
     }
     else
     {
-        if ( !(Flags&flXml) )
+        if ( !(_Flags&flXml) )
         {
             WXS_STRING(wxsCustomWidget, m_XmlData, _("Xml Data"), "", "", false);
         }
@@ -119,7 +122,7 @@ void wxsCustomWidget::OnEnumWidgetProperties(long Flags)
 
     WXS_SHORT_STRING(wxsCustomWidget, m_Style, _("Style"), "style", "0", false);
 
-    if ( Flags&flPropGrid )
+    if ( _Flags&flPropGrid )
     {
         if ( XmlDataInit != m_XmlData )
         {

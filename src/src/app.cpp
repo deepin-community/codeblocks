@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 13003 $
- * $Id: app.cpp 13003 2022-11-08 08:50:45Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/app.cpp $
+ * $Revision: 13441 $
+ * $Id: app.cpp 13441 2024-02-01 07:44:57Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/app.cpp $
  */
 
 #include <sdk.h>
@@ -51,6 +51,7 @@
 #include "sdk_events.h"
 #include "splashscreen.h"
 #include "uservarmanager.h"
+#include "uservardlgs.h"
 
 #if defined(__APPLE__) && defined(__MACH__)
     #include <sys/param.h>
@@ -255,6 +256,12 @@ const wxCmdLineEntryDesc cmdLineDesc[] =
       wxCMD_LINE_VAL_NONE, wxCMD_LINE_PARAM_OPTIONAL },
     { wxCMD_LINE_OPTION, CMD_ENTRY(""),   CMD_ENTRY("profile"),               CMD_ENTRY("synonym to personality"),
       wxCMD_LINE_VAL_STRING, wxCMD_LINE_NEEDS_SEPARATOR },
+    // Command line for global user variables
+    { wxCMD_LINE_SWITCH, CMD_ENTRY("S"),  CMD_ENTRY("set"),                   CMD_ENTRY("specify the active global user variable set"),
+      wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL },
+    { wxCMD_LINE_SWITCH, CMD_ENTRY("D"),  CMD_ENTRY(""),                      CMD_ENTRY("set value for global variable. For example: -D [set.]name[.member]=value to set the optional \"member\" value of variable \"name\" in the optional \"set\" to \"value\""),
+      wxCMD_LINE_VAL_STRING, wxCMD_LINE_PARAM_OPTIONAL },
+    // Build command lines
     { wxCMD_LINE_SWITCH, CMD_ENTRY(""),   CMD_ENTRY("rebuild"),               CMD_ENTRY("clean and then build the project/workspace"),
       wxCMD_LINE_VAL_NONE, wxCMD_LINE_PARAM_OPTIONAL },
     { wxCMD_LINE_SWITCH, CMD_ENTRY(""),   CMD_ENTRY("build"),                 CMD_ENTRY("just build the project/workspace"),
@@ -367,7 +374,11 @@ bool CodeBlocksApp::LoadConfig()
     wxString data(wxT(APP_PREFIX));
 
     if (platform::windows)
+#ifdef CB_AUTOCONF
+        data = GetAppPath() + _T("/..");
+#else
         data.assign(GetAppPath());
+#endif
     else if (platform::macosx)
     {
         data.assign(GetResourcesDir());                 // CodeBlocks.app/Contents/Resources
@@ -625,7 +636,8 @@ bool CodeBlocksApp::OnInit()
     Manager::SetToolbarHandler(toolbarAddonHandler);
 
     LogManager *log = Manager::Get()->GetLogManager();
-    log->Log(wxString::Format(_("Starting %s %s %s"), appglobals::AppName,
+    // Translating this string is futile, the locale has not been initialized yet
+    log->Log(wxString::Format("Starting %s %s %s", appglobals::AppName,
                               appglobals::AppActualVersionVerb, appglobals::AppBuildTimestamp));
 
     try
@@ -726,6 +738,9 @@ bool CodeBlocksApp::OnInit()
             g_DDEServer = new DDEServer(nullptr);
             g_DDEServer->Create(wxString::Format(DDE_SERVICE, wxGetUserId()));
         }
+
+        if (!m_Batch)
+            Manager::Get()->GetUserVariableManager()->SetUI(std::unique_ptr<UserVarManagerUI>(new UserVarManagerGUI()));
 
         // Splash screen moved to this place, otherwise it would be short visible, even if we only pass filenames via DDE/IPC
         // we also don't need it, if only a single instance is allowed
@@ -1155,6 +1170,9 @@ int CodeBlocksApp::ParseCmdLine(MainFrame* handlerFrame, const wxString& CmdLine
         {
             m_HasProject = false;
             m_HasWorkSpace = false;
+
+            Manager::Get()->GetUserVariableManager()->ParseCommandLine(parser);
+
             int count = parser.GetParamCount();
 
             parser.Found(_T("file"), &m_AutoFile);

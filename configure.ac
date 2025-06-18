@@ -1,8 +1,8 @@
-AC_PREREQ(2.50)
+AC_PREREQ([2.71])
 
 m4_include([revision.m4])
 
-AC_INIT([codeblocks], SVN_REVISION)
+AC_INIT([codeblocks],[SVN_REVISION])
 
 AC_CANONICAL_TARGET
 
@@ -24,8 +24,8 @@ AM_INIT_AUTOMAKE([foreign dist-bzip2 no-dist-gzip subdir-objects])
 AC_DISABLE_STATIC
 
 LT_INIT
-
-AC_CONFIG_HEADER([src/include/config.h])
+AC_CONFIG_MACRO_DIRS([m4])
+AC_CONFIG_HEADERS([src/include/config.h])
 
 m4_ifdef([AM_SILENT_RULES], [AM_SILENT_RULES])
 
@@ -42,13 +42,23 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 AC_PROG_AWK
 
+AX_CXX_COMPILE_STDCXX(11, noext)
+
 CODEBLOCKS_CHECK_LINK_FLAG([-Wl,--no-undefined],[LDFLAGS="-Wl,--no-undefined $LDFLAGS"])
 
 CODEBLOCKS_SETUP_FOR_TARGET
 
 dnl Checks for header files.
 AC_HEADER_DIRENT
-AC_HEADER_STDC
+m4_warn([obsolete],
+[The preprocessor macro `STDC_HEADERS' is obsolete.
+  Except in unusual embedded environments, you can safely include all
+  ISO C90 headers unconditionally.])dnl
+# Autoupdate added the next two lines to ensure that your configure
+# script's behavior did not change.  They are probably safe to remove.
+AC_CHECK_INCLUDES_DEFAULT
+AC_PROG_EGREP
+
 AC_CHECK_HEADERS([fcntl.h limits.h stdlib.h string.h sys/param.h unistd.h malloc.h sys/malloc.h malloc/malloc.h])
 
 dnl Checks for typedefs, structures, and compiler characteristics.
@@ -56,7 +66,20 @@ AC_HEADER_STDBOOL
 AC_C_CONST
 AC_C_INLINE
 AC_TYPE_SIZE_T
-AC_HEADER_TIME
+m4_warn([obsolete],
+[Update your code to rely only on HAVE_SYS_TIME_H,
+then remove this warning and the obsolete code below it.
+All current systems provide time.h; it need not be checked for.
+Not all systems provide sys/time.h, but those that do, all allow
+you to include it and time.h simultaneously.])dnl
+AC_CHECK_HEADERS_ONCE([sys/time.h])
+# Obsolete code to be removed.
+if test $ac_cv_header_sys_time_h = yes; then
+  AC_DEFINE([TIME_WITH_SYS_TIME],[1],[Define to 1 if you can safely include both <sys/time.h>
+	     and <time.h>.  This macro is obsolete.])
+fi
+# End of obsolete code.
+
 AC_C_VOLATILE
 
 dnl Checks for library functions.
@@ -222,12 +245,6 @@ case $WX_BASENAME in
 				fi
 			fi
 
-			if test "x$BUILD_FILEMANAGER_TRUE" = "x" ; then
-				if test "x$HAVE_PKG_CONFIG" = "xyes"; then
-					PKG_CHECK_MODULES([GAMIN], [gamin])
-				fi
-			fi
-
 			if test "x$BUILD_EXPORTER_TRUE" = "x" ; then
 				if test "x$HAVE_PKG_CONFIG" = "xyes"; then
 					PKG_CHECK_MODULES([FONTCONFIG], [fontconfig])
@@ -244,8 +261,6 @@ case $WX_BASENAME in
 
 		CB_GLIB2_CFLAGS="$GLIB2_CFLAGS"
 		CB_GLIB2_LIBS="$GLIB2_LIBS"
-		CB_GAMIN_CFLAGS="$GAMIN_CFLAGS"
-		CB_GAMIN_LIBS="$GAMIN_LIBS"
 		CB_HUNSPELL_CFLAGS="$HUNSPELL_CFLAGS"
 		CB_HUNSPELL_LIBS="$HUNSPELL_LIBS"
 		CB_FONTCONFIG_CFLAGS="$FONTCONFIG_CFLAGS"
@@ -263,6 +278,17 @@ case $WX_BASENAME in
     ;;
     *wx_msw*)
         AC_MSG_RESULT(wxMSW)
+
+		AC_CHECK_TOOL(WINDRES, [windres])
+
+		if test "x$BUILD_SPELLCHECKER_TRUE" = "x" ; then
+			if test "x$HAVE_PKG_CONFIG" = "xyes"; then
+				PKG_CHECK_MODULES([HUNSPELL], [hunspell])
+			fi
+		fi
+
+		CB_HUNSPELL_CFLAGS="$HUNSPELL_CFLAGS"
+		CB_HUNSPELL_LIBS="$HUNSPELL_LIBS"
     ;;
     *wx_mac*)
         AC_MSG_RESULT(wxMac)
@@ -326,8 +352,6 @@ AC_SUBST(SCINTILLA_GTK_CFLAGS)
 AC_SUBST(SCINTILLA_GTK_LIBS)
 AC_SUBST(CB_GLIB2_CFLAGS)
 AC_SUBST(CB_GLIB2_LIBS)
-AC_SUBST(CB_GAMIN_CFLAGS)
-AC_SUBST(CB_GAMIN_LIBS)
 AC_SUBST(CB_HUNSPELL_CFLAGS)
 AC_SUBST(CB_HUNSPELL_LIBS)
 AC_SUBST(CB_FONTCONFIG_CFLAGS)
@@ -359,8 +383,6 @@ CFLAGS="$CFLAGS $PIC_CFLAGS -std=c90"
 CPPFLAGS="$CPPFLAGS -DPIC $CB_TINYXML_CFLAGS"
 CXXFLAGS="$CXXFLAGS $PIC_CFLAGS -fexceptions"
 AC_SUBST(codeblocks_PCH_FLAGS, "$PCH_FLAGS")
-
-AX_CXX_COMPILE_STDCXX(11, noext)
 
 dnl AM_PATH_GTK(1.2.7, ,
 dnl             AC_MSG_ERROR(Cannot find GTK: Is gtk-config in path?),
@@ -483,7 +505,6 @@ AC_CONFIG_FILES([Makefile
 	src/plugins/contrib/CppCheck/resources/Makefile
 	src/plugins/contrib/cb_koders/Makefile
 	src/plugins/contrib/codesnippets/Makefile
-	src/plugins/contrib/codesnippets/resources/Makefile
 	src/plugins/contrib/codestat/Makefile
 	src/plugins/contrib/codestat/resources/Makefile
 	src/plugins/contrib/copystrings/Makefile

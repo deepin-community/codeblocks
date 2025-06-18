@@ -17,7 +17,7 @@
 *
 * $Revision: 12555 $
 * $Id: wxssizerflagsproperty.cpp 12555 2021-12-05 11:37:47Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/properties/wxssizerflagsproperty.cpp $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/properties/wxssizerflagsproperty.cpp $
 */
 
 #include "wxssizerflagsproperty.h"

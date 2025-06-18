@@ -4,7 +4,7 @@
  *
  * $Revision: 12699 $
  * $Id: occurrenceshighlightingconfigurationpanel.cpp 12699 2022-02-03 19:20:37Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/occurrenceshighlighting/occurrenceshighlightingconfigurationpanel.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/occurrenceshighlighting/occurrenceshighlightingconfigurationpanel.cpp $
  */
 
 #include <sdk.h>

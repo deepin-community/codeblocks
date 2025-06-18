@@ -17,7 +17,7 @@
 *
 * $Revision: 12233 $
 * $Id: HexEditor.cpp 12233 2020-11-02 00:18:32Z d_anselmi $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/HexEditor/HexEditor.cpp $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/HexEditor/HexEditor.cpp $
 */
 
 #include <sdk.h>

@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12642 $
- * $Id: autodetectcompilers.cpp 12642 2022-01-12 09:13:24Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/autodetectcompilers.cpp $
+ * $Revision: 13386 $
+ * $Id: autodetectcompilers.cpp 13386 2023-11-06 10:35:22Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/autodetectcompilers.cpp $
  */
 
 #include "sdk_precomp.h"

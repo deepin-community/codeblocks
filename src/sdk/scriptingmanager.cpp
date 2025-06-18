@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12999 $
- * $Id: scriptingmanager.cpp 12999 2022-11-01 13:12:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/scriptingmanager.cpp $
+ * $Revision: 13437 $
+ * $Id: scriptingmanager.cpp 13437 2024-01-31 11:51:59Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/scriptingmanager.cpp $
  */
 
 #include <sdk_precomp.h>
@@ -45,8 +45,8 @@
 
 static_assert(std::is_same<cbHSQUIRRELVM, HSQUIRRELVM>::value, "Types don't match");
 
-template<> ScriptingManager* Mgr<ScriptingManager>::instance = nullptr;
-template<> bool  Mgr<ScriptingManager>::isShutdown = false;
+template<> ScriptingManager* DLLIMPORT Mgr<ScriptingManager>::instance = nullptr;
+template<> bool DLLIMPORT Mgr<ScriptingManager>::isShutdown = false;
 
 static wxString s_ScriptOutput;
 static wxString s_ScriptErrors;

@@ -4,7 +4,7 @@
  *
  * $Revision: 12834 $
  * $Id: asktypedlg.cpp 12834 2022-06-10 15:06:45Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/todo/asktypedlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/todo/asktypedlg.cpp $
  */
 
 #include "sdk.h"

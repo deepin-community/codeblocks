@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 81 $
- * $Id: doxygen_parser.cpp 81 2022-09-26 18:47:50Z pecanh $
- * $HeadURL: https://svn.code.sf.net/p/cb-clangd-client/code/trunk/clangd_client/src/codecompletion/doxygen_parser.cpp $
+ * $Revision: 13490 $
+ * $Id: doxygen_parser.cpp 13490 2024-03-08 16:55:09Z pecanh $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/clangd_client/src/codecompletion/doxygen_parser.cpp $
  */
 
 #include <sdk.h>
@@ -22,7 +22,7 @@
 
 #include <cbstyledtextctrl.h>
 
-#include "parser/parser_base.h" //(ph 2022/06/13)
+#include "parser/parser_base.h"
 #include "doxygen_parser.h"
 
 #include "cbcolourmanager.h"
@@ -653,7 +653,7 @@ DocumentationHelper::Command DocumentationHelper::HrefToCommand(const wxString& 
 const wxChar   DocumentationHelper::separatorTag = _T('+');
 const wxString DocumentationHelper::commandTag = _T("cmd=");
 
-//DocumentationHelper::DocumentationHelper(ClgdCompletion* cc) : //(ph 2022/06/15)
+//DocumentationHelper::DocumentationHelper(ClgdCompletion* cc) :
 //    m_CC(cc),
 // ----------------------------------------------------------------------------
 DocumentationHelper::DocumentationHelper(ParseManager* pParseManager) :
@@ -686,10 +686,10 @@ void DocumentationHelper::OnRelease()
     // TODO: Is this function still needed?
 }
 // ----------------------------------------------------------------------------
-wxString DocumentationHelper::GenerateHTML(int tokenIdx, wxString& hoverString, ParserBase* pParser)       //(ph 2022/06/11)
+wxString DocumentationHelper::GenerateHTML(int tokenIdx, wxString& hoverString, ParserBase* pParser)
 // ----------------------------------------------------------------------------
 {
-    //LSP version //(ph 2022/06/13)
+    //LSP version
 
     //http://docs.wxwidgets.org/2.8/wx_wxhtml.html#htmltagssupported
 
@@ -718,7 +718,7 @@ wxString DocumentationHelper::GenerateHTML(int tokenIdx, wxString& hoverString, 
     int semCol    = pParser->GetSemanticTokenColumnNumAt(tokenIdx);
     int semLine   = pParser->GetSemanticTokenLineNumAt(tokenIdx);
     int semMods   = pParser->GetSemanticTokenModifierAt(tokenIdx);
-    if (semLength or semType or semCol or semLength or semMods) {;}//don't show as unused
+    if (semLength or semType or semCol or semMods) {;}//don't show as unused
 
     if (semName.empty())
         return wxString();
@@ -736,7 +736,6 @@ wxString DocumentationHelper::GenerateHTML(int tokenIdx, wxString& hoverString, 
     wxString doxyDoc = wxString();
     m_CurrentTokenIdx = tokenIdx;
 
-    /// FIXME (ph#): Show a simplified Documentation Popup until we learn how wxHTML works. //(ph 2022/06/17)
     html += pre1;
     for (size_t ii=0; ii<vHoverInfo.size(); ++ii)
     {
@@ -766,7 +765,7 @@ wxString DocumentationHelper::GenerateHTML(int tokenIdx, wxString& hoverString, 
     return html;
 }
 // ----------------------------------------------------------------------------
-wxString DocumentationHelper::GenerateHTMLbyHover(const ClgdCCToken& cccToken, wxString& hoverString, ParserBase* pParser)    //(ph 2022/06/18)
+wxString DocumentationHelper::GenerateHTMLbyHover(const ClgdCCToken& cccToken, wxString& hoverString, ParserBase* pParser)
 // ----------------------------------------------------------------------------
 {
     //http://docs.wxwidgets.org/2.8/wx_wxhtml.html#htmltagssupported
@@ -794,7 +793,7 @@ wxString DocumentationHelper::GenerateHTMLbyHover(const ClgdCCToken& cccToken, w
     int semCol    = pParser->GetSemanticTokenColumnNumAt(semTokenIdx);
     int semLine   = pParser->GetSemanticTokenLineNumAt(semTokenIdx);
     int semMods   = pParser->GetSemanticTokenModifierAt(semTokenIdx);
-    if (semLength or semType or semCol or semLength or semMods) {;}//don't show as unused
+    if (semLength or semType or semCol or semMods) {;}//don't show as unused
 
     if (semName.empty())
         return wxString();
@@ -1000,6 +999,7 @@ wxString DocumentationHelper::GenerateHTMLbyHover(const ClgdCCToken& cccToken, w
         /// Unlock the token tree
         // -------------------------------------------------
         CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)     //UNlock TokenTree
+        s_TokenTreeMutex_Owner = wxString();
     }
 
     if ( (wxFound(ccTokenIdx) and pTokenTree))
@@ -1045,8 +1045,10 @@ wxString DocumentationHelper::GenerateHTML(int tokenIdx, TokenTree* tree)
     Token* token = tree->at(tokenIdx);
     if (!token || token->m_Name.IsEmpty())
     {
+        // ----------------------------------------------------------------------------
         CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)     //UNlock TokenTree
-
+        // ----------------------------------------------------------------------------
+        s_TokenTreeMutex_Owner = wxString();
         return wxString();
     }
 
@@ -1175,6 +1177,7 @@ wxString DocumentationHelper::GenerateHTML(int tokenIdx, TokenTree* tree)
     }
 
     CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)
+    s_TokenTreeMutex_Owner = wxString();
 
     html += br + br;
 
@@ -1227,6 +1230,7 @@ wxString DocumentationHelper::GenerateHTML(const TokenIdxSet& tokensIdx, TokenTr
     while (it != tokensIdx.end())
     {
         const Token* token = tree->at(*it);
+        if (not token) continue;
 
         html += token->GetNamespace() + CommandToAnchorInt(cmdDisplayToken, token->m_Name, token->m_Index);
         html += nbsp + nbsp + token->GetTokenKindString();
@@ -1236,6 +1240,7 @@ wxString DocumentationHelper::GenerateHTML(const TokenIdxSet& tokensIdx, TokenTr
     }
 
     CC_LOCKER_TRACK_TT_MTX_UNLOCK(s_TokenTreeMutex)     //UNlock Token tree
+    s_TokenTreeMutex_Owner = wxString();
 
     html += _T("<br>");
 
@@ -1256,7 +1261,7 @@ wxString DocumentationHelper::GenerateHTML(const TokenIdxSet& tokensIdx, TokenTr
 void DocumentationHelper::RereadOptions(ConfigManager* cfg)
 {
     if (!cfg)
-        cfg = Manager::Get()->GetConfigManager(_T("clangd_client"));
+        cfg = Manager::Get()->GetConfigManager("clangd_client");
 
     m_Enabled = cfg->ReadBool(_T("/use_documentation_helper"), true);
 
@@ -1270,7 +1275,7 @@ void DocumentationHelper::RereadOptions(ConfigManager* cfg)
 void DocumentationHelper::WriteOptions(ConfigManager* cfg)
 {
     if (!cfg)
-        cfg = Manager::Get()->GetConfigManager(_T("clangd_client"));
+        cfg = Manager::Get()->GetConfigManager("clangd_client");
 
     cfg->Write(_T("/use_documentation_helper"), m_Enabled);
 }
@@ -1340,6 +1345,7 @@ wxString DocumentationHelper::OnDocumentationLink(wxHtmlLinkEvent& event, bool& 
         {
             EditorManager* edMan = Manager::Get()->GetEditorManager();
             const Token* token = tree->at(tokenIdx);
+            if (not token) break;
             cbEditor* targetEditor = edMan->Open(token->GetFilename());
             if (targetEditor)
             {
@@ -1354,6 +1360,7 @@ wxString DocumentationHelper::OnDocumentationLink(wxHtmlLinkEvent& event, bool& 
         {
             EditorManager* edMan = Manager::Get()->GetEditorManager();
             const Token* token = tree->at(tokenIdx);
+            if (not token) break;
             cbEditor* targetEditor = edMan->Open(token->GetImplFilename());
             if (targetEditor)
             {

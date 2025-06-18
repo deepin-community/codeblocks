@@ -17,7 +17,7 @@
 *
 * $Revision: 12602 $
 * $Id: HexEditLineBuffer.cpp 12602 2021-12-21 07:26:04Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/HexEditor/HexEditLineBuffer.cpp $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/HexEditor/HexEditLineBuffer.cpp $
 */
 
 #include "HexEditLineBuffer.h"

@@ -4,7 +4,7 @@
  *
  * $Revision: 12992 $
  * $Id: xtra_res.cpp 12992 2022-10-27 07:15:41Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/xtra_res.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/xtra_res.cpp $
  */
 
 #include "sdk_precomp.h"

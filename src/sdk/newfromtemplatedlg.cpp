@@ -4,7 +4,7 @@
  *
  * $Revision: 13043 $
  * $Id: newfromtemplatedlg.cpp 13043 2022-11-17 08:05:48Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/newfromtemplatedlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/newfromtemplatedlg.cpp $
  */
 
 #include "sdk_precomp.h"

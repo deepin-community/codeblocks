@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU Lesser General Public License, version 3
  * http://www.gnu.org/licenses/lgpl-3.0.html
  *
- * $Revision: 12848 $
- * $Id: findreplacedlg.cpp 12848 2022-07-11 11:01:57Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/findreplacedlg.cpp $
+ * $Revision: 13627 $
+ * $Id: findreplacedlg.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/findreplacedlg.cpp $
  */
 
 #include "sdk_precomp.h"
@@ -400,8 +400,6 @@ wxString FindReplaceDlg::GetReplaceString() const
 {
     if ( IsMultiLine() )
     {
-        wxString tmpString;
-
         if ( IsFindInFiles() )
             return XRCCTRL(*this, "txtMultiLineReplace2", wxTextCtrl)->GetValue();
         return XRCCTRL(*this, "txtMultiLineReplace1", wxTextCtrl)->GetValue();

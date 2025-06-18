@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12683 $
-* $Id: wxseventseditor.cpp 12683 2022-01-27 11:09:56Z wh11204 $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/wxseventseditor.cpp $
+* $Revision: 13627 $
+* $Id: wxseventseditor.cpp 13627 2025-03-02 18:17:10Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/wxseventseditor.cpp $
 */
 
 #include "wxseventseditor.h"
@@ -35,8 +35,8 @@ namespace
 }
 
 wxsEventsEditor::wxsEventsEditor():
-    m_Item(0),
-    m_Events(0),
+    m_Item(nullptr),
+    m_Events(nullptr),
     m_Source(),
     m_Header(),
     m_Class(),
@@ -46,8 +46,8 @@ wxsEventsEditor::wxsEventsEditor():
 
 wxsEventsEditor::~wxsEventsEditor()
 {
-    m_Item = 0;
-    m_Events = 0;
+    m_Item = nullptr;
+    m_Events = nullptr;
     m_Ids.Clear();
 }
 
@@ -60,8 +60,8 @@ wxsEventsEditor& wxsEventsEditor::Get()
 void wxsEventsEditor::BuildEvents(wxsItem* Item,wxsPropertyGridManager* Grid)
 {
     m_Item = Item;
-    m_Data = 0;
-    m_Events = 0;
+    m_Data = nullptr;
+    m_Events = nullptr;
     m_Ids.Clear();
     m_Source.Clear();
     m_Header.Clear();
@@ -478,7 +478,7 @@ bool wxsEventsEditor::GotoHandler(int Index)
     }
 
     cbStyledTextCtrl* Ctrl = Editor->GetControl();
-    wxString FullText = Ctrl->GetText();
+    // wxString FullText = Ctrl->GetText();
     int Begin = 0;
     int End = Ctrl->GetLength();
     while ( Begin < End )

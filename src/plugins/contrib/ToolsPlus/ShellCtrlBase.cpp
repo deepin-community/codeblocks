@@ -64,10 +64,9 @@ void ShellRegistry::FreeControl(ShellCtrlBase */*sh*/) //TODO: Don't think this 
 //IMPLEMENT_DYNAMIC_CLASS(ShellCtrlBase, wxPanel)
 
 ShellCtrlBase::ShellCtrlBase(wxWindow* parent, int id, const wxString &name, ShellManager *shellmgr)
-                : wxPanel(parent, id)
+                : wxPanel(parent, id, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL|wxNO_BORDER, name)
 {
     m_parent=parent;
-    m_name=name;
     m_id=id;
     m_shellmgr=shellmgr;
 }
@@ -213,9 +212,10 @@ size_t ShellManager::GetTermNum(ShellCtrlBase *term)
 
 int ShellManager::NumAlive()
 {
-    int count=0;
-    for(unsigned int i=0;i<m_nb->GetPageCount();i++)
-        count+=!GetPage(i)->IsDead();
+    int count = 0;
+    for (unsigned int i = 0; i < m_nb->GetPageCount(); i++)
+        count += !GetPage(i)->IsDead();
+
     return count;
 }
 

@@ -94,7 +94,7 @@ public:
      *  the tree should not be updated, because tokens(symbols) in both files were already
      *  shown. False if you need to update the tree without such optimization.
      */
-    void UpdateClassBrowserView(bool checkHeaderSwap = false);
+    void UpdateClassBrowserView(bool checkHeaderSwap = false, bool force=false);
 
     /** update the position sash bar between top tree and the bottom tree, the position (percentage)
      *  of the two trees are saved in the C::B's configuration file.
@@ -102,16 +102,28 @@ public:
     void UpdateSash();
 
     /** Called from the worker thread using CallAfter() */
-    void BuildTreeStartOrStop(bool start);
+    void BuildTreeStartOrStop(bool start, EThreadJob threadJob);
     void SelectTargetTree(bool top);
     void TreeOperation(ETreeOperator op, CCTreeItem* item);
     void SaveSelectedItem();
     void SelectSavedItem();
     void ReselectItem();
 
-    ParseManager* GetParseManager(){return m_ParseManager;} //(ph 2022/02/14)
+    ParseManager* GetParseManager(){return m_ParseManager;}
+    bool IsBusyClassBrowserBuilderThread()
+        {
+            if (not m_ClassBrowserBuilderThread) return false;
+            if (m_ClassBrowserBuilderThread->GetIsBusy())
+                return true;
+            return false;
+        }
+    ClassBrowserBuilderThread* GetClassBrowserBuilderThread() { return m_ClassBrowserBuilderThread;}
 
 private:
+
+    void OnClassBrowserSetFocus(wxFocusEvent& event);
+    void OnClassBrowserKillFocus(wxFocusEvent& event);
+
     /** handler for the mouse double click on a tree item, we usually make a jump to the
      *  associated token's position.
      */
@@ -207,6 +219,12 @@ private:
 
     CCTreeItem* GetItemPtr(wxTreeItemId ItemId);
 
+    /** search bottom tree for symbol */
+    void SearchBottomTree( bool firstTry);  //patch 1409
+
+    /** Timer callback to search bottom tree for symbol */
+    void DoSearchBottomTree(wxTimerEvent& event);   //patch 1409
+
     /** the pointer to parser manager object */
     ParseManager*              m_ParseManager;
 
@@ -228,6 +246,9 @@ private:
     /** the search combobox in the header of the window */
     wxComboBox*                m_Search;
 
+    /** the choice box in the header of the window */
+     wxChoice*                 m_cmbView;
+
     /** a pointer to the associated parser object */
     ParserBase*                m_Parser;
 
@@ -238,6 +259,7 @@ private:
      *  post the semaphore, the waiting thread start doing the job
      */
     wxSemaphore                m_ClassBrowserSemaphore;
+    wxSemaphore                m_ClassBrowserCallAfterSemaphore;
 
     /** a wxThread used to build the wxTreeCtrl for the top and bottom in the class(symbol) browser
      *  because it always take many seconds to build the trees, so those work were delegated to a
@@ -247,6 +269,12 @@ private:
 
     /** Saves the selected items while the tree changes */
     SelectedItemPath           m_SelectedPath;
+
+    /** Timer to handle symbol search when bottom tree is not populated */
+    wxTimer                    m_TimerSymbolSearchWaitForBottomTree;   //patch 1409
+
+    /** Store last searched symbol */
+    wxString                   m_LastSearchedSymbol;   //patch 1409
 
     DECLARE_EVENT_TABLE()
 };

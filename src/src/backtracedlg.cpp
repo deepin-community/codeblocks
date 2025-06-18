@@ -4,7 +4,7 @@
  *
  * $Revision: 12643 $
  * $Id: backtracedlg.cpp 12643 2022-01-12 19:40:38Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/backtracedlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/backtracedlg.cpp $
  */
 #include "sdk.h"
 

@@ -4,7 +4,7 @@
  *
  * $Revision: 12643 $
  * $Id: loggers.cpp 12643 2022-01-12 19:40:38Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/loggers.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/loggers.cpp $
  */
 
 #include "sdk_precomp.h"

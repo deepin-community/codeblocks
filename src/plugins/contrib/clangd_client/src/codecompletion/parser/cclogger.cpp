@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 72 $
- * $Id: cclogger.cpp 72 2022-08-17 18:02:14Z pecanh $
- * $HeadURL: https://svn.code.sf.net/p/cb-clangd-client/code/trunk/clangd_client/src/codecompletion/parser/cclogger.cpp $
+ * $Revision: 13484 $
+ * $Id: cclogger.cpp 13484 2024-03-02 16:29:53Z pecanh $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/clangd_client/src/codecompletion/parser/cclogger.cpp $
  */
 
 #include "cclogger.h"
@@ -17,6 +17,7 @@
 #include <logmanager.h> // F()
 #include <globals.h>    // cbC2U for cbAssert macro
 #include <configmanager.h>
+#include <pluginmanager.h>
 
 std::unique_ptr<CCLogger> CCLogger::s_Inst;
 
@@ -32,6 +33,7 @@ long            g_idCCDebugErrorLogger = wxNewId();
 wxString        s_TokenTreeMutex_Owner = wxString();     // location of the last tree lock
 wxString        s_ParserMutex_Owner    = wxString();     // location of the last parser lock
 wxString        m_ClassBrowserBuilderThreadMutex_Owner = wxString();
+wxString        s_ClassBrowserCaller   = wxString();    // Latest __FUNCTION:__LINE of caller
 
 #define TRACE_TO_FILE(msg)                                           \
     if (g_EnableDebugTraceFile && !g_DebugTraceFile.IsEmpty())       \
@@ -88,7 +90,7 @@ CCLogger::CCLogger() :
 void CCLogger::SetExternalLog(bool OnOrOff)
 // ----------------------------------------------------------------------------
 {
-    //(ph 2021/08/30) create external logging
+    // create external logging
 
     m_ExternLogActive = OnOrOff;
     if (m_ExternLogActive)
@@ -142,7 +144,6 @@ void CCLogger::Init(wxEvtHandler* parent, int logId, int logErrorId, int debugLo
     m_DebugLogId = debugLogId;
     m_DebugLogErrorId = debugLogErrorId;
     m_AddTokenId = addTokenId;
-    m_pCfgMgr    = Manager::Get()->GetConfigManager("clangd_client");
 
     // Remove all previous CBCCLogger Files.
     wxString tempDir = wxFileName::GetTempDir();
@@ -150,7 +151,17 @@ void CCLogger::Init(wxEvtHandler* parent, int logId, int logErrorId, int debugLo
     wxDir::GetAllFiles(tempDir, &logFiles, "CBCCLogger*.log", wxDIR_FILES);
     for (size_t ii=0; ii<logFiles.GetCount(); ++ii)
         wxRemoveFile(logFiles[ii]);
-    }
+
+    m_pCfgMgr = nullptr;
+    wxString configName;
+    #if defined (BUILDING_PLUGIN)
+        PluginInfo* pInfo = (PluginInfo*)(Manager::Get()->GetPluginManager()->GetPluginInfo((cbPlugin*)parent));
+        if (pInfo and (pInfo->name == "CodeCompletion" )) configName = "code_completion";
+        else if (pInfo and (pInfo->name == "clangd_client")) configName = "clangd_client";
+        if (pInfo and configName.Length())
+            m_pCfgMgr = Manager::Get()->GetConfigManager(configName);
+    #endif
+}
 // ----------------------------------------------------------------------------
 void CCLogger::AddToken(const wxString& msg)
 // ----------------------------------------------------------------------------
@@ -174,9 +185,11 @@ void CCLogger::Log(const wxString& msg, int id)
         return;
 
     if (!m_Parent || m_LogId<1) return;
-    bool infoLogging = m_pCfgMgr->ReadBool("/logPluginInfo_check", true);
+
+    bool infoLogging = false;
+    if (m_pCfgMgr) infoLogging = m_pCfgMgr->ReadBool("/logPluginInfo_check", true);
     // always allow logging of logError msgs
-    if (not infoLogging and (id==m_LogId)) return;
+    if ((not infoLogging) and (id == m_LogId)) return;
 
     CodeBlocksThreadEvent evt(wxEVT_COMMAND_MENU_SELECTED, id);
     evt.SetString(msg);
@@ -195,8 +208,11 @@ void CCLogger::DebugLog(const wxString& msg, int id)
         return;
 
     if (!m_Parent || m_DebugLogId<1) return;
-    bool debugLogging = m_pCfgMgr->ReadBool("/logPluginDebug_check", false);
-    if (not debugLogging and (id==m_DebugLogId)) return;
+
+    bool debugLogging = false;
+    if (m_pCfgMgr) debugLogging = m_pCfgMgr->ReadBool("/logPluginDebug_check", false);
+    if ((not debugLogging) and (id == m_DebugLogId)) return;
+
     // Always allow debugError log messages
     CodeBlocksThreadEvent evt(wxEVT_COMMAND_MENU_SELECTED, id);
     evt.SetString(msg);
@@ -211,7 +227,7 @@ void CCLogger::DebugLog(const wxString& msg, int id)
         #endif
     }
 
-    //(ph 2021/08/30) write debugging msgs to external file.
+    // write debugging msgs to external file.
     if (m_ExternLogActive and m_ExternLogFile.IsOpened())
     {
         wxDateTime now = wxDateTime::Now();

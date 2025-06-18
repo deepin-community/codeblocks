@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 12833 $
- * $Id: compileroptionsdlg.cpp 12833 2022-06-10 14:59:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/compilergcc/compileroptionsdlg.cpp $
+ * $Revision: 13366 $
+ * $Id: compileroptionsdlg.cpp 13366 2023-09-27 16:44:07Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/compilergcc/compileroptionsdlg.cpp $
  */
 
 #include <sdk.h>
@@ -451,11 +451,20 @@ void CompilerOptionsDlg::DoFillCompilerSets(int compilerIdx)
 {
     wxChoice* cmb = XRCCTRL(*this, "cmbCompiler", wxChoice);
     cmb->Clear();
-    for (unsigned int i = 0; i < CompilerFactory::GetCompilersCount(); ++i)
+    const int defaultCompilerIdx = CompilerFactory::GetCompilerIndex(CompilerFactory::GetDefaultCompilerID());
+    const int compilerCount = CompilerFactory::GetCompilersCount();
+    for (int i = 0; i < compilerCount; ++i)
     {
         Compiler* compiler = CompilerFactory::GetCompiler(i);
         if (compiler) // && (!m_pProject || compiler->IsValid()))
-            cmb->Append(compiler->GetName(), new IntClientData(i));
+        {
+            wxString compilerName = compiler->GetName();
+            if (i == defaultCompilerIdx)
+                compilerName += " " + _("(default)");
+
+            cmb->Append(compilerName, new IntClientData(i));
+        }
+
     }
 
 //    int compilerIdx = CompilerFactory::GetCompilerIndex(CompilerFactory::GetDefaultCompilerID());
@@ -2180,6 +2189,8 @@ void CompilerOptionsDlg::OnSetDefaultCompilerClick(cb_unused wxCommandEvent& eve
     Compiler* compiler = CompilerFactory::GetDefaultCompiler();
     msg.Printf(_("%s is now selected as the default compiler for new projects"), compiler ? compiler->GetName() : _("[invalid]"));
     cbMessageBox(msg);
+
+    DoFillCompilerSets(idx);
 } // OnSetDefaultCompilerClick
 
 void CompilerOptionsDlg::OnAddCompilerClick(cb_unused wxCommandEvent& event)
@@ -2253,19 +2264,23 @@ void CompilerOptionsDlg::OnAddCompilerClick(cb_unused wxCommandEvent& event)
 
 void CompilerOptionsDlg::OnEditCompilerClick(cb_unused wxCommandEvent& event)
 {
-    wxChoice* cmb = XRCCTRL(*this, "cmbCompiler", wxChoice);
-    const wxString curValue(cmb->GetStringSelection());
-    const wxString value(cbGetTextFromUser(_("Please edit the compiler's name:"), _("Rename compiler"), curValue, this));
-    if (!value.empty() && (value != curValue))
+    Compiler* compiler = CompilerFactory::GetCompiler(m_CurrentCompilerIdx);
+    if (compiler)
     {
-        Compiler* compiler = CompilerFactory::GetCompiler(m_CurrentCompilerIdx);
-        if (compiler)
-            compiler->SetName(value);
+        const wxString curValue(compiler->GetName());
+        wxString newValue(cbGetTextFromUser(_("Please edit the compiler's name:"), _("Rename compiler"), curValue, this));
+        if (!newValue.empty() && (newValue != curValue))
+        {
+            compiler->SetName(newValue);
+            if (compiler == CompilerFactory::GetDefaultCompiler())
+                newValue << ' ' << _("(default)");
 
-        // Delete and reappend to keep order
-        cmb->Delete(GetIndexPosition(cmb, m_CurrentCompilerIdx));
-        const int Pos = cmb->Append(value, new IntClientData(m_CurrentCompilerIdx));
-        cmb->SetSelection(Pos);
+            // Delete and reappend to keep order
+            wxChoice* cmb = XRCCTRL(*this, "cmbCompiler", wxChoice);
+            cmb->Delete(GetIndexPosition(cmb, m_CurrentCompilerIdx));
+            const int pos = cmb->Append(newValue, new IntClientData(m_CurrentCompilerIdx));
+            cmb->SetSelection(pos);
+        }
     }
 } // OnEditCompilerClick
 

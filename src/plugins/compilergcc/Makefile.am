@@ -6,7 +6,11 @@ AM_CPPFLAGS = $(WX_CXXFLAGS) \
 		-I$(top_srcdir)/src/sdk/wxscintilla/include \
 		-I$(top_srcdir)/src/plugins/compilergcc/depslib/src
 
-AM_CXXFLAGS = -DDEPSLIB_UNIX
+if CODEBLOCKS_NT
+AM_CPPFLAGS += -DDEPSLIB_WINDOWS
+else
+AM_CPPFLAGS += -DDEPSLIB_UNIX
+endif
 
 pluginlibdir = $(pkglibdir)/plugins
 
@@ -35,6 +39,7 @@ libcompiler_la_SOURCES = advancedcompileroptionsdlg.cpp \
 			compilerMSVC.cpp \
 			compilerMSVC8.cpp \
 			compilerMSVC10.cpp \
+			compilerMSVC17.cpp \
 			compileroptionsdlg.cpp \
 			compilerOW.cpp \
 			compilerOWgenerator.cpp \
@@ -62,6 +67,7 @@ noinst_HEADERS = advancedcompileroptionsdlg.h \
 			compilerMSVC.h \
 			compilerMSVC8.h \
 			compilerMSVC10.h \
+			compilerMSVC17.h \
 			compileroptionsdlg.h \
 			compilerOW.h \
 			compilerOWgenerator.h \

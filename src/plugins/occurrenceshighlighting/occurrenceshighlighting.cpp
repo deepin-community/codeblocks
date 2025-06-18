@@ -4,7 +4,7 @@
  *
  * $Revision: 12833 $
  * $Id: occurrenceshighlighting.cpp 12833 2022-06-10 14:59:28Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/occurrenceshighlighting/occurrenceshighlighting.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/occurrenceshighlighting/occurrenceshighlighting.cpp $
  */
 
 #include <sdk.h> // Code::Blocks SDK

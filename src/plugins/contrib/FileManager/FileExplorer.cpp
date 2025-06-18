@@ -239,7 +239,8 @@ int FileTreeCtrl::OnCompareItems(const wxTreeItemId& item1, const wxTreeItemId& 
 
 BEGIN_EVENT_TABLE(FileExplorer, wxPanel)
     EVT_TIMER(ID_UPDATETIMER, FileExplorer::OnTimerCheckUpdates)
-    EVT_MONITOR_NOTIFY(wxID_ANY, FileExplorer::OnDirMonitor)
+    EVT_FSWATCHER(wxID_ANY, FileExplorer::OnFsWatcher)
+    EVT_IDLE(FileExplorer::OnIdle)
     EVT_COMMAND(0, wxEVT_NOTIFY_UPDATE_COMPLETE, FileExplorer::OnUpdateTreeItems)
     EVT_COMMAND(0, wxEVT_NOTIFY_LOADER_UPDATE_COMPLETE, FileExplorer::OnVCSFileLoaderComplete)
 //    EVT_COMMAND(0, wxEVT_NOTIFY_EXEC_REQUEST, FileExplorer::OnExecRequest)
@@ -294,8 +295,7 @@ FileExplorer::FileExplorer(wxWindow *parent,wxWindowID id,
     m_update_active=false;
     m_updater_cancel=false;
     m_update_expand=false;
-    m_dir_monitor=new wxDirectoryMonitor(this,wxArrayString());
-    m_dir_monitor->Start();
+    m_fs_watcher=nullptr;
     m_droptarget=new wxFEDropTarget(this);
 
     m_show_hidden=false;
@@ -362,7 +362,7 @@ FileExplorer::~FileExplorer()
 {
     m_kill=true;
     m_updatetimer->Stop();
-    delete m_dir_monitor;
+    delete m_fs_watcher;
     WriteConfig();
     UpdateAbort();
     delete m_update_queue;
@@ -421,7 +421,6 @@ void FileExplorer::FindFile(const wxString &findfilename, const wxTreeItemId &ti
         // explaining the exact reason for the failure
         return;
     }
-    wxString filename;
     int flags=wxDIR_FILES|wxDIR_DIRS;
     if(m_show_hidden)
         flags|=wxDIR_HIDDEN;
@@ -552,28 +551,60 @@ void FileExplorer::UpdateAbort()
     m_updatetimer->Stop();
 }
 
-void FileExplorer::ResetDirMonitor()
+void FileExplorer::ResetFsWatcher()
 {
+    if (!m_fs_watcher)
+        return;
+
+    m_fs_watcher->RemoveAll();
+
     wxArrayString paths;
-    GetExpandedPaths(m_Tree->GetRootItem(),paths);
-    m_dir_monitor->ChangePaths(paths);
+    GetExpandedPaths(m_Tree->GetRootItem(), paths);
+    for (auto path : paths)
+    {
+        //LogMessage("add path to watcher: " + path);
+        wxFileName fname(path);
+        fname.DontFollowLink();
+        m_fs_watcher->Add(fname, wxFSW_EVENT_CREATE | wxFSW_EVENT_DELETE | wxFSW_EVENT_RENAME | wxFSW_EVENT_MODIFY);
+    }
 }
 
-void FileExplorer::OnDirMonitor(wxDirectoryMonitorEvent &e)
+void FileExplorer::OnFsWatcher(wxFileSystemWatcherEvent &e)
 {
-    if(m_kill)
+    if(m_kill || !m_fs_watcher)
         return;
-//  TODO: Apparently creating log messages during Code::Blocks shutdown can create segfaults
-//    LogMessage(wxString::Format(_("Dir Event: %s,%i,%s"),e.m_mon_dir,e.m_event_type,e.m_info_uri));
-//    if(e.m_event_type==MONITOR_TOO_MANY_CHANGES)
-//        LogMessage(_("Directory change read error"));
 
+    wxFileName fname = e.GetPath();
+    wxString fullPath = fname.GetFullPath();
+    OnFsWatcher(fullPath);
+
+    if (e.GetNewPath().IsOk())
+    {
+        wxString newFullPath = e.GetNewPath().GetFullPath();
+        if (!newFullPath.IsSameAs(fullPath))
+            OnFsWatcher(newFullPath);
+    }
+}
+
+void FileExplorer::OnFsWatcher(const wxString &fullPath)
+{
     wxTreeItemId ti;
-    if(GetItemFromPath(e.m_mon_dir,ti))
+    LogMessage(wxString("fsWatcher: notified about path: ") + fullPath);
+
+    if (GetItemFromPath(fullPath, ti))
     {
         m_update_queue->Add(ti);
         m_updatetimer->Start(100,true);
     }
+}
+
+void FileExplorer::OnIdle(wxIdleEvent &e)
+{
+    if (m_fs_watcher)
+        return;
+    // create the file system watcher here, because it needs an active loop
+    m_fs_watcher = new wxFileSystemWatcher();
+    m_fs_watcher->SetOwner(this);
 }
 
 void FileExplorer::OnTimerCheckUpdates(wxTimerEvent &/*e*/)
@@ -642,7 +673,7 @@ void FileExplorer::OnUpdateTreeItems(wxCommandEvent &/*e*/)
         delete m_updater;
         m_updater=nullptr;
         m_update_active=false;
-        ResetDirMonitor();
+        ResetFsWatcher();
         if(ValidateRoot())
         {
             m_update_queue->Add(m_Tree->GetRootItem());
@@ -695,7 +726,7 @@ void FileExplorer::OnUpdateTreeItems(wxCommandEvent &/*e*/)
     m_update_active=false;
     m_updatetimer->Start(10,true);
     // Restart the monitor (TODO: move this elsewhere??)
-    ResetDirMonitor();
+    ResetFsWatcher();
 }
 
 wxString FileExplorer::GetFullPath(const wxTreeItemId &ti)
@@ -1209,7 +1240,8 @@ void FileExplorer::OnRightClick(wxTreeEvent &event)
                     Popup->Append(ID_FILENEWFOLDER,_("New directory..."));
                     Popup->Append(ID_FILERENAME,_("&Rename..."));
                 }
-            } else
+            }
+            else
             {
                 if (!IsBrowsingVCSTree())
                     Popup->Append(ID_FILERENAME,_("&Rename..."));
@@ -1226,8 +1258,12 @@ void FileExplorer::OnRightClick(wxTreeEvent &event)
         {
             Popup->Append(ID_FILEDUP,_("&Duplicate"));
             Popup->Append(ID_FILECOPY,_("&Copy to..."));
-            Popup->Append(ID_FILEMOVE,_("&Move to..."));
-            Popup->Append(ID_FILEDELETE,_("D&elete"));
+            // Add these menu items only if the selection does not include the root folder
+            if (!m_Tree->IsSelected(m_Tree->GetRootItem()))
+            {
+                Popup->Append(ID_FILEMOVE,_("&Move to..."));
+                Popup->Append(ID_FILEDELETE,_("D&elete"));
+            }
         }
         if ( IsBrowsingVCSTree() || IsBrowsingWorkingCopy() )
         {
@@ -1601,38 +1637,38 @@ void FileExplorer::OnSettings(wxCommandEvent &/*event*/)
 
 void FileExplorer::OnShowHidden(wxCommandEvent &/*event*/)
 {
-    m_show_hidden=!m_show_hidden;
+    m_show_hidden = !m_show_hidden;
     Refresh(m_Tree->GetRootItem());
 }
 
 void FileExplorer::OnParseCVS(wxCommandEvent &/*event*/)
 {
-    m_parse_cvs=!m_parse_cvs;
+    m_parse_cvs = !m_parse_cvs;
     //cfg->Clear();
     Refresh(m_Tree->GetRootItem());
 }
 
 void FileExplorer::OnParseSVN(wxCommandEvent &/*event*/)
 {
-    m_parse_svn=!m_parse_svn;
+    m_parse_svn = !m_parse_svn;
     Refresh(m_Tree->GetRootItem());
 }
 
 void FileExplorer::OnParseGIT(wxCommandEvent &/*event*/)
 {
-    m_parse_git=!m_parse_git;
+    m_parse_git = !m_parse_git;
     Refresh(m_Tree->GetRootItem());
 }
 
 void FileExplorer::OnParseHG(wxCommandEvent &/*event*/)
 {
-    m_parse_hg=!m_parse_hg;
+    m_parse_hg = !m_parse_hg;
     Refresh(m_Tree->GetRootItem());
 }
 
 void FileExplorer::OnParseBZR(wxCommandEvent &/*event*/)
 {
-    m_parse_bzr=!m_parse_bzr;
+    m_parse_bzr = !m_parse_bzr;
     Refresh(m_Tree->GetRootItem());
 }
 

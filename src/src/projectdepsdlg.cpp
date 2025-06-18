@@ -4,7 +4,7 @@
  *
  * $Revision: 10912 $
  * $Id: projectdepsdlg.cpp 10912 2016-09-25 16:10:13Z fuscated $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/src/projectdepsdlg.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/src/projectdepsdlg.cpp $
  */
 
 #include "sdk.h"

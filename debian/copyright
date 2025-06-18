@@ -2,9 +2,10 @@ Format: https://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
 Upstream-Name: Code::Blocks
 Upstream-Contact: http://codeblocks.org
 Source: https://cgit.jenslody.de/codeblocks/
+Files-Excluded: src/exchndl/win*/bin
 
 Files: *
-Copyright: 2004-2020, Code::Blocks Team <http://codeblocks.org>
+Copyright: 2004-2025, Code::Blocks Team <http://codeblocks.org>
            2007, JGM <jgmdev@gmail.com>
            2010, Gary Harris
            2005, Nicolas GOUTTE <goutte@kde.org>
@@ -24,7 +25,7 @@ Copyright: 2004-2020, Code::Blocks Team <http://codeblocks.org>
 License: GPL-3+
 
 Files: codeblocks.*.xml
-Copyright: 2004-2020, Code::Blocks Team <http://codeblocks.org>
+Copyright: 2004-2025, Code::Blocks Team <http://codeblocks.org>
 License: CC0-1.0
 
 Files: debian/*
@@ -48,6 +49,9 @@ Copyright: 2008, Thomas Porschberg <thomas@randspringer.de>
            2014, 2015, Google Inc.; contributed by Alexey Sokolov <sokolov@google.com>
            2015, Paul Norman <penorman@mac.com>
            2015, Moritz Klammler <moritz@klammler.eu>
+           2016, 2018, Krzesimir Nowak <qdlacz@gmail.com>
+           2019, Enji Cooper <yaneurabeya@gmail.com>
+           2020, Jason Merrill <jason@redhat.com>
 License: GPL-3+ with autoconf exception
 
 Files: src/include/*
@@ -62,7 +66,7 @@ Files: src/include/*
        src/src/notebookstyles.h
        src/tools/cb_share_config/app.h
        src/tools/cb_share_config/mainframe.h
-Copyright: 2004-2020, Code::Blocks Team <http://codeblocks.org>
+Copyright: 2004-2025, Code::Blocks Team <http://codeblocks.org>
 License: LGPL-3+
 
 Files: src/plugins/compilergcc/depslib/src/*
@@ -74,8 +78,6 @@ Files: ChangeLog.xsl
        src/base/tinyxml/*
        src/include/tinyxml/*
        src/include/scripting/include/*
-       src/include/scripting/sqstdlib/*
-       src/include/scripting/squirrel/*
        src/plugins/compilergcc/depslib/src/regexp.*
        src/plugins/contrib/help_plugin/zlib/*
        src/plugins/contrib/SpellChecker/mythes.*
@@ -91,15 +93,9 @@ Copyright: 2004-2007, Arthur de Jong
            2003 Kevin B. Hendricks, Stratford, Ontario, Canada and Contributors.
 License: BSD-3-clause
 
-Files: src/include/mozilla_chardet/*
-       src/sdk/mozilla_chardet/*
+Files: src/sdk/mozilla_chardet/*
 Copyright: 1998, Netscape Communications Corporation
 License: MPL-2.0
-
-Files: src/include/scripting/squirrel/sqtable.h
-Copyright: 2003-2011, Alberto Demichelis
-           1994-2002 Tecgraf, PUC-Rio
-License: BSD-3-clause and Expat
 
 Files: src/plugins/contrib/AutoVersioning/avSvnRevision.*
        src/plugins/contrib/BrowseTracker/*
@@ -117,7 +113,6 @@ Files: src/plugins/contrib/AutoVersioning/avSvnRevision.*
        src/plugins/contrib/Valgrind/*
        src/plugins/contrib/wxSmithContribItems/wxchart/wxschart.*
        src/plugins/contrib/wxSmithContribItems/wxflatnotebook/wxsFlatNotebook.*
-       src/plugins/contrib/wxSmithContribItems/wxthings/wxscustombutton.*
        src/plugins/contrib/wxSmithContribItems/wxSmithContribItems.*
        src/plugins/contrib/wxContribItems/wxSpeedButton/*
        src/plugins/contrib/wxSmithIExplore/*
@@ -144,7 +139,6 @@ Files: src/plugins/contrib/source_exporter/wxPdfDocument/*
        src/plugins/contrib/wxContribItems/wxled/*
        src/plugins/contrib/wxContribItems/wxmathplot/*
        src/plugins/contrib/wxContribItems/wxthings/*
-       src/plugins/contrib/wxContribItems/wxTreeList/src/treelistctrl.cpp
        src/plugins/contrib/wxSmithContribItems/wxthings/*
        src/plugins/contrib/wxSmithSTC/stedit/*
        src/plugins/contrib/wxSmithDemo/*
@@ -152,7 +146,6 @@ Files: src/plugins/contrib/source_exporter/wxPdfDocument/*
        src/plugins/contrib/wxSmithSTC/stc/stc.cpp
        src/plugins/contrib/wxSmithSTC/stc/ScintillaWX.*
        src/sdk/scrollingdialog.cpp
-       src/sdk/wxpropgrid/*
        src/sdk/wxscintilla/build/*
        src/sdk/wxscintilla/include/wx/wxscintilla.h
        src/sdk/wxscintilla/src/wxscintilla.cpp
@@ -202,10 +195,6 @@ Files: src/plugins/contrib/keybinder/cJSON.*
 Copyright: 2014 Eran Ifrah
            2009, Dave Gamble
 License: GPL-2+ and Expat
-
-Files: src/plugins/contrib/keybinder/configurationpanel.*
-Copyright: 2004-2020, Code::Blocks Team <http://codeblocks.org>
-License: LGPL-3+
 
 Files: src/plugins/contrib/SpellChecker/hunspell/*
 Copyright: 2002-2017 László Németh <nemethl@gyorsposta.hu>
@@ -272,7 +261,7 @@ Copyright: 2001, Tao Pang
 License: GPL-3+
 
 Files: src/sdk/xtra_res.cpp
-Copyright: 2004-2020, Code::Blocks Team <http://codeblocks.org>
+Copyright: 2004-2025, Code::Blocks Team <http://codeblocks.org>
            2000, Vaclav Slavik
 License: LGPL-3+ and wxWindows
 
@@ -407,8 +396,7 @@ License: GPL-2+
  GNU General Public License for more details.
  .
  You should have received a copy of the GNU General Public License along
- with this program; if not, write to the Free Software Foundation, Inc.,
- 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+ with this program. If not, see <https://www.gnu.org/licenses/>.
 Comment:
  on Debian systems, the complete text of the GNU General Public License
  version 2 or later can be found in `/usr/share/common-licenses/GPL-2'.
@@ -425,8 +413,7 @@ License: LGPL-2.1+
  Lesser General Public License for more details.
  .
  You should have received a copy of the GNU Lesser General Public
- License along with this library; if not, write to the Free Software
- Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301  USA
+ License along with this library. If not, see <https://www.gnu.org/licenses/>.
 Comment:
  on Debian systems, the complete text of the GNU Lesser General Public License
  version 2.1 or later can be found in `/usr/share/common-licenses/LGPL-2.1'.
@@ -1336,8 +1323,7 @@ License: wxWindows
  .
  You should have received a copy of the GNU Library General Public Licence
  along with this software, usually in a file named COPYING.LIB.  If not,
- write to the Free Software Foundation, Inc., 51 Franklin St, Fifth Floor,
- Boston, MA 02110-1301, USA.
+ see <https://www.gnu.org/licenses/>.
  .
  EXCEPTION NOTICE
  .

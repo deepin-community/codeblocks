@@ -7,7 +7,7 @@
  *
  * $Revision: 13024 $
  * $Id: manifest.xml 13024 2022-11-13 13:58:22Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/IncrementalSearch/manifest.xml $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/IncrementalSearch/manifest.xml $
  -->
 <CodeBlocks_plugin_manifest_file>
   <SdkVersion major="1"

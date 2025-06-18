@@ -4,7 +4,7 @@
  *
  * $Revision: 12701 $
  * $Id: sc_plugin.cpp 12701 2022-02-04 07:27:10Z ollydbg $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/scripting/bindings/sc_plugin.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/scripting/bindings/sc_plugin.cpp $
  */
 
 #include <sdk_precomp.h>

@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12068 $
-* $Id: wxsmenueditor.cpp 12068 2020-04-20 08:44:00Z bluehazzard $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/defitems/wxsmenueditor.cpp $
+* $Revision: 13547 $
+* $Id: wxsmenueditor.cpp 13547 2024-09-14 04:35:04Z mortenmacfly $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/defitems/wxsmenueditor.cpp $
 */
 
 #include "wxsmenueditor.h"
@@ -30,37 +30,40 @@
 #include <prep.h>
 
 //(*InternalHeaders(wxsMenuEditor)
+#include <wx/artprov.h>
+#include <wx/bitmap.h>
+#include <wx/image.h>
 #include <wx/intl.h>
 #include <wx/string.h>
 //*)
 
 //(*IdInit(wxsMenuEditor)
-const long wxsMenuEditor::ID_TREECTRL1 = wxNewId();
-const long wxsMenuEditor::ID_RADIOBUTTON1 = wxNewId();
-const long wxsMenuEditor::ID_RADIOBUTTON4 = wxNewId();
-const long wxsMenuEditor::ID_RADIOBUTTON2 = wxNewId();
-const long wxsMenuEditor::ID_RADIOBUTTON5 = wxNewId();
-const long wxsMenuEditor::ID_RADIOBUTTON3 = wxNewId();
-const long wxsMenuEditor::ID_STATICLINE1 = wxNewId();
-const long wxsMenuEditor::ID_STATICTEXT6 = wxNewId();
-const long wxsMenuEditor::ID_TEXTCTRL4 = wxNewId();
-const long wxsMenuEditor::ID_STATICTEXT1 = wxNewId();
-const long wxsMenuEditor::ID_TEXTCTRL1 = wxNewId();
-const long wxsMenuEditor::ID_STATICTEXT2 = wxNewId();
-const long wxsMenuEditor::ID_TEXTCTRL2 = wxNewId();
-const long wxsMenuEditor::ID_STATICTEXT3 = wxNewId();
-const long wxsMenuEditor::ID_TEXTCTRL3 = wxNewId();
-const long wxsMenuEditor::ID_STATICTEXT4 = wxNewId();
-const long wxsMenuEditor::ID_CHECKBOX1 = wxNewId();
-const long wxsMenuEditor::ID_STATICTEXT5 = wxNewId();
-const long wxsMenuEditor::ID_CHECKBOX2 = wxNewId();
-const long wxsMenuEditor::ID_STATICLINE2 = wxNewId();
-const long wxsMenuEditor::ID_BUTTON1 = wxNewId();
-const long wxsMenuEditor::ID_BUTTON2 = wxNewId();
-const long wxsMenuEditor::ID_BUTTON3 = wxNewId();
-const long wxsMenuEditor::ID_BUTTON4 = wxNewId();
-const long wxsMenuEditor::ID_BUTTON5 = wxNewId();
-const long wxsMenuEditor::ID_BUTTON6 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_TREECTRL1 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_RADIOBUTTON1 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_RADIOBUTTON4 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_RADIOBUTTON2 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_RADIOBUTTON5 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_RADIOBUTTON3 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_STATICLINE1 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_STATICTEXT6 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_TEXTCTRL4 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_STATICTEXT1 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_TEXTCTRL1 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_STATICTEXT2 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_TEXTCTRL2 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_STATICTEXT3 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_TEXTCTRL3 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_STATICTEXT4 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_CHECKBOX1 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_STATICTEXT5 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_CHECKBOX2 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_STATICLINE2 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_BUTTON1 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_BUTTON2 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_BUTTON3 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_BUTTON4 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_BUTTON5 = wxNewId();
+const wxWindowID wxsMenuEditor::ID_BUTTON6 = wxNewId();
 //*)
 
 wxsMenuEditor::wxsMenuEditor(wxWindow* parent,wxsMenuBar* MenuBar):
@@ -93,13 +96,13 @@ void wxsMenuEditor::CreateContent(wxWindow* parent)
 {
     wxWindowID id = wxID_ANY;
     //(*Initialize(wxsMenuEditor)
-    wxStaticBoxSizer* StaticBoxSizer2;
-    wxBoxSizer* BoxSizer2;
-    wxGridSizer* GridSizer1;
     wxBoxSizer* BoxSizer1;
-    wxStaticBoxSizer* StaticBoxSizer1;
-    wxFlexGridSizer* FlexGridSizer1;
+    wxBoxSizer* BoxSizer2;
     wxBoxSizer* BoxSizer3;
+    wxFlexGridSizer* FlexGridSizer1;
+    wxGridSizer* GridSizer1;
+    wxStaticBoxSizer* StaticBoxSizer1;
+    wxStaticBoxSizer* StaticBoxSizer2;
 
     Create(parent, id, wxDefaultPosition, wxDefaultSize, wxTAB_TRAVERSAL, _T("id"));
     BoxSizer1 = new wxBoxSizer(wxHORIZONTAL);
@@ -165,25 +168,24 @@ void wxsMenuEditor::CreateContent(wxWindow* parent)
     StaticLine2 = new wxStaticLine(this, ID_STATICLINE2, wxDefaultPosition, wxSize(10,-1), wxLI_HORIZONTAL, _T("ID_STATICLINE2"));
     StaticBoxSizer2->Add(StaticLine2, 0, wxALL|wxEXPAND, 4);
     BoxSizer2 = new wxBoxSizer(wxHORIZONTAL);
-    Button1 = new wxButton(this, ID_BUTTON1, _("<"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT, wxDefaultValidator, _T("ID_BUTTON1"));
-    BoxSizer2->Add(Button1, 1, wxLEFT|wxRIGHT|wxEXPAND, 2);
-    Button2 = new wxButton(this, ID_BUTTON2, _(">"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT, wxDefaultValidator, _T("ID_BUTTON2"));
-    BoxSizer2->Add(Button2, 1, wxLEFT|wxRIGHT|wxEXPAND, 2);
-    Button3 = new wxButton(this, ID_BUTTON3, _("^"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT, wxDefaultValidator, _T("ID_BUTTON3"));
-    BoxSizer2->Add(Button3, 1, wxLEFT|wxRIGHT|wxEXPAND, 2);
-    Button4 = new wxButton(this, ID_BUTTON4, _("v"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT, wxDefaultValidator, _T("ID_BUTTON4"));
-    BoxSizer2->Add(Button4, 1, wxLEFT|wxRIGHT|wxEXPAND, 2);
-    StaticBoxSizer2->Add(BoxSizer2, 0, wxALIGN_CENTER_HORIZONTAL, 4);
-    StaticBoxSizer2->Add(-1,-1,1, wxEXPAND, 5);
+    BitmapButton1 = new wxBitmapButton(this, ID_BUTTON1, wxArtProvider::GetBitmap(wxART_MAKE_ART_ID_FROM_STR(_T("wxART_GO_BACK")),wxART_BUTTON), wxDefaultPosition, wxDefaultSize, wxBU_AUTODRAW, wxDefaultValidator, _T("ID_BUTTON1"));
+    BoxSizer2->Add(BitmapButton1, 1, wxLEFT|wxRIGHT|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 2);
+    BitmapButton2 = new wxBitmapButton(this, ID_BUTTON2, wxArtProvider::GetBitmap(wxART_MAKE_ART_ID_FROM_STR(_T("wxART_GO_FORWARD")),wxART_BUTTON), wxDefaultPosition, wxDefaultSize, wxBU_AUTODRAW, wxDefaultValidator, _T("ID_BUTTON2"));
+    BoxSizer2->Add(BitmapButton2, 1, wxLEFT|wxRIGHT|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 2);
+    BitmapButton3 = new wxBitmapButton(this, ID_BUTTON3, wxArtProvider::GetBitmap(wxART_MAKE_ART_ID_FROM_STR(_T("wxART_GO_UP")),wxART_MENU), wxDefaultPosition, wxDefaultSize, wxBU_AUTODRAW, wxDefaultValidator, _T("ID_BUTTON3"));
+    BoxSizer2->Add(BitmapButton3, 1, wxLEFT|wxRIGHT|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 2);
+    BitmapButton4 = new wxBitmapButton(this, ID_BUTTON4, wxArtProvider::GetBitmap(wxART_MAKE_ART_ID_FROM_STR(_T("wxART_GO_DOWN")),wxART_BUTTON), wxDefaultPosition, wxDefaultSize, wxBU_AUTODRAW, wxDefaultValidator, _T("ID_BUTTON4"));
+    BoxSizer2->Add(BitmapButton4, 1, wxLEFT|wxRIGHT|wxALIGN_CENTER_HORIZONTAL|wxALIGN_CENTER_VERTICAL, 2);
+    StaticBoxSizer2->Add(BoxSizer2, 0, wxALL|wxALIGN_CENTER_HORIZONTAL, 2);
     BoxSizer3 = new wxBoxSizer(wxHORIZONTAL);
     Button5 = new wxButton(this, ID_BUTTON5, _("New"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT, wxDefaultValidator, _T("ID_BUTTON5"));
     BoxSizer3->Add(Button5, 1, wxRIGHT|wxEXPAND, 4);
     Button6 = new wxButton(this, ID_BUTTON6, _("Delete"), wxDefaultPosition, wxDefaultSize, wxBU_EXACTFIT, wxDefaultValidator, _T("ID_BUTTON6"));
     BoxSizer3->Add(Button6, 1, wxLEFT|wxEXPAND, 4);
-    StaticBoxSizer2->Add(BoxSizer3, 0, wxALIGN_CENTER_HORIZONTAL, 4);
+    StaticBoxSizer2->Add(BoxSizer3, 0, wxALL|wxALIGN_CENTER_HORIZONTAL, 2);
+    StaticBoxSizer2->Add(-1,-1,1, wxEXPAND, 5);
     BoxSizer1->Add(StaticBoxSizer2, 0, wxALL|wxEXPAND, 4);
     SetSizer(BoxSizer1);
-    BoxSizer1->Fit(this);
     BoxSizer1->SetSizeHints(this);
 
     Connect(ID_TREECTRL1,wxEVT_COMMAND_TREE_SEL_CHANGED,wxTreeEventHandler(wxsMenuEditor::OnContentSelectionChanged));

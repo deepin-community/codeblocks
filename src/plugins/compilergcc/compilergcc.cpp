@@ -2,9 +2,9 @@
  * This file is part of the Code::Blocks IDE and licensed under the GNU General Public License, version 3
  * http://www.gnu.org/licenses/gpl-3.0.html
  *
- * $Revision: 13003 $
- * $Id: compilergcc.cpp 13003 2022-11-08 08:50:45Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/compilergcc/compilergcc.cpp $
+ * $Revision: 13546 $
+ * $Id: compilergcc.cpp 13546 2024-09-10 10:45:26Z wh11204 $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/compilergcc/compilergcc.cpp $
  */
 
 #include <sdk.h>
@@ -63,6 +63,7 @@
 #include "compilerMSVC.h"
 #include "compilerMSVC8.h"
 #include "compilerMSVC10.h"
+#include "compilerMSVC17.h"
 #include "compilerOW.h"
 #include "compilerGNUARM.h"
 #include "compilerCYGWIN.h"
@@ -927,6 +928,7 @@ void CompilerGCC::DoRegisterCompilers()
         CompilerFactory::RegisterCompiler(new CompilerMSVC);
         CompilerFactory::RegisterCompiler(new CompilerMSVC8);
         CompilerFactory::RegisterCompiler(new CompilerMSVC10);
+        CompilerFactory::RegisterCompiler(new CompilerMSVC17);
         CompilerFactory::RegisterCompiler(new CompilerOW);
         CompilerFactory::RegisterCompiler(new CompilerCYGWIN);
         CompilerFactory::RegisterCompiler(new CompilerLCC);
@@ -984,34 +986,36 @@ void CompilerGCC::DoRegisterCompilers()
             Manager::Get()->GetLogManager()->Log(wxString::Format(_("Error: Invalid Code::Blocks compiler definition '%s'."), compilers[i]));
         else
         {
-            bool val = true;
-            wxString test;
-            if (!nonPlatComp && compiler.GetRoot()->GetAttribute(wxT("platform"), &test))
+            bool compatible_compiler = true;
+            wxString compiler_platform;
+            if (!nonPlatComp && compiler.GetRoot()->GetAttribute(wxT("platform"), &compiler_platform))
             {
-                if (test == wxT("windows"))
-                    val = platform::windows;
-                else if (test == wxT("macosx"))
-                    val = platform::macosx;
-                else if (test == wxT("linux"))
-                    val = platform::Linux;
-                else if (test == wxT("freebsd"))
-                    val = platform::freebsd;
-                else if (test == wxT("netbsd"))
-                    val = platform::netbsd;
-                else if (test == wxT("openbsd"))
-                    val = platform::openbsd;
-                else if (test == wxT("darwin"))
-                    val = platform::darwin;
-                else if (test == wxT("solaris"))
-                    val = platform::solaris;
-                else if (test == wxT("unix"))
-                    val = platform::Unix;
+                if (compiler_platform == wxT("windows"))
+                    compatible_compiler = platform::windows;
+                else if (compiler_platform == wxT("macosx"))
+                    compatible_compiler = platform::macosx;
+                else if (compiler_platform == wxT("linux"))
+                    compatible_compiler = platform::Linux;
+                else if (compiler_platform == wxT("freebsd"))
+                    compatible_compiler = platform::freebsd;
+                else if (compiler_platform == wxT("netbsd"))
+                    compatible_compiler = platform::netbsd;
+                else if (compiler_platform == wxT("openbsd"))
+                    compatible_compiler = platform::openbsd;
+                else if (compiler_platform == wxT("darwin"))
+                    compatible_compiler = platform::darwin;
+                else if (compiler_platform == wxT("solaris"))
+                    compatible_compiler = platform::solaris;
+                else if (compiler_platform == wxT("unix"))
+                    compatible_compiler = platform::Unix;
             }
-            if (val)
+            if (compatible_compiler)
+            {
                 CompilerFactory::RegisterCompiler(
-                                   new CompilerXML(compiler.GetRoot()->GetAttribute(wxT("name"), wxEmptyString),
-                                                   compiler.GetRoot()->GetAttribute(wxT("id"), wxEmptyString),
-                                                   compilers[i]));
+                  new CompilerXML(compiler.GetRoot()->GetAttribute(wxT("name"), wxEmptyString),
+                                  compiler.GetRoot()->GetAttribute(wxT("id"),   wxEmptyString),
+                                  compilers[i]));
+            }
         }
     }
 
@@ -1021,7 +1025,7 @@ void CompilerGCC::DoRegisterCompilers()
 
 const wxString& CompilerGCC::GetCurrentCompilerID()
 {
-    static wxString def = wxEmptyString;//_T("gcc");
+    static wxString def = wxEmptyString;
     return CompilerFactory::GetCompiler(m_CompilerId) ? m_CompilerId : def;
 }
 
@@ -1056,17 +1060,17 @@ void CompilerGCC::PrepareCompileFile(wxFileName& file)
         // make sure it is saved
         ed->Save();
         file.Assign(ed->GetFilename());
-    }
 
-    // Now activate the project this file belongs to
-    ProjectFile* pf = ed->GetProjectFile();
-    if (pf)
-    {
-        cbProject* CurProject = pf->GetParentProject();
-        if (CurProject)
+        // Now activate the project this file belongs to
+        ProjectFile* pf = ed->GetProjectFile();
+        if (pf)
         {
-            Manager::Get()->GetProjectManager()->SetProject(CurProject, true);
-            CheckProject();
+            cbProject* CurProject = pf->GetParentProject();
+            if (CurProject)
+            {
+                Manager::Get()->GetProjectManager()->SetProject(CurProject, true);
+                CheckProject();
+            }
         }
     }
 }
@@ -1909,6 +1913,42 @@ int CompilerGCC::RunSingleFile(const wxString& filename)
     return 0;
 }
 
+bool CompilerGCC::ExecutableExists(cbProject* prj)
+{
+    // A project is not mandatory to execute the file in the editor, but
+    // then at least one editor (not the "Start here" one) must be active
+    if (!prj)
+    {
+        EditorManager* edmgr = Manager::Get()->GetEditorManager();
+        EditorBase* currentEditor = edmgr->GetActiveEditor();
+        if (!currentEditor)
+            return false;
+
+        return (currentEditor != edmgr->GetEditor(_("Start here")));
+    }
+
+    // Get target name
+    const wxString activeTarget(prj->GetActiveBuildTarget());
+
+    // Is a virtual target?
+    if (prj->HasVirtualBuildTarget(activeTarget))
+        return true;
+
+    ProjectBuildTarget* pTarget = prj->GetBuildTarget(activeTarget);
+    if (!pTarget)
+        return false;
+
+    if (pTarget->GetTargetType() == ttCommandsOnly)
+        return true;
+
+    // Check if the output filename exists
+    wxString out = UnixFilename(pTarget->GetOutputFilename());
+    Manager::Get()->GetMacrosManager()->ReplaceEnvVars(out);
+    wxFileName file(out);
+    file.MakeAbsolute(prj->GetBasePath());
+    return file.FileExists();
+}
+
 int CompilerGCC::Run(const wxString& target)
 {
     if (!CheckProject())
@@ -2578,7 +2618,7 @@ void CompilerGCC::BuildStateManagement()
                     if (isEmpty)
                     {
                         cmds.Add(COMPILER_ERROR_LOG +
-                                 _("Make command for 'Build/Project target' is empty. Nothing will be built!"));
+                                 _("Make command for 'Build project/target' is empty. Nothing will be built!"));
                     }
 
                 }
@@ -3505,7 +3545,9 @@ void CompilerGCC::OnUpdateUI(wxUpdateUIEvent& event)
     cbProject* prj = projectManager->GetActiveProject();
     cbEditor* ed = Manager::Get()->GetEditorManager()->GetBuiltinActiveEditor();
 
-    if (id == idMenuCompile || id == idMenuCompileAndRun || id == idMenuRun)
+    if (id == idMenuRun)
+        event.Enable(ExecutableExists(prj));
+    else if (id == idMenuCompile || id == idMenuCompileAndRun)
         event.Enable(prj || ed);
     else if (id == idMenuBuildWorkspace || id == idMenuRebuild || id == idMenuRebuildWorkspace
         || id == idMenuClean || id == idMenuCleanWorkspace || id == idMenuSelectTarget

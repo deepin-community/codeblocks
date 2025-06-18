@@ -15,9 +15,9 @@
 * You should have received a copy of the GNU General Public License
 * along with wxSmith. If not, see <http://www.gnu.org/licenses/>.
 *
-* $Revision: 12316 $
-* $Id: wxsitemres.h 12316 2021-05-03 12:02:13Z fuscated $
-* $HeadURL: file:///svn/p/codeblocks/code/trunk/src/plugins/contrib/wxSmith/wxwidgets/wxsitemres.h $
+* $Revision: 13150 $
+* $Id: wxsitemres.h 13150 2023-01-14 11:37:46Z wh11204 $
+* $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/plugins/contrib/wxSmith/wxwidgets/wxsitemres.h $
 */
 
 #ifndef WXSITEMRES_H
@@ -109,7 +109,8 @@ class wxsItemRes: public wxWidgetsRes, public wxsItemResFunctions
 
         /** \brief Ctor for external resource
          *  \param FileName name of XRC file
-         *  \param Object Xml node with XRC resource
+         *  \param XrcElem Xml node with XRC resource
+         *  \param ResourceType name of resource type (f.ex. wxDialog)
          */
         wxsItemRes(const wxString& FileName,const TiXmlElement* XrcElem,const wxString& ResourceType);
 
@@ -132,6 +133,12 @@ class wxsItemRes: public wxWidgetsRes, public wxsItemResFunctions
 
         /** \brief Building data object for this resource */
         wxsItemResData* BuildResData(wxsItemEditor* Editor);
+
+        /** \brief Check if I18N is enabled */
+        bool IsI18N() const { return m_UseI18n; }
+
+        /** \brief Modify I18N */
+        void SetI18N(bool Value);
 
     protected:
 

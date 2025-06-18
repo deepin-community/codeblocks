@@ -268,6 +268,12 @@ function OnLeave_WxConf(fwd)
         WantPCH = Wizard.IsCheckboxChecked(_T("chkWxConfPCH"));
         Configuration = Wizard.GetTextControlValue(_T("txtWxConfConfig"));
 
+        if (WxVersion >= 3 && !IsUnicode)
+        {
+            Message(_("wxWidgets 3.3 and newer must use Unicode."), _("wxWidgets Project Wizard"), wxICON_WARNING | wxOK)
+            return false
+        }
+
         // Ask the user whether wizard shall add PCH support when empty Project is selected
         if (IsEmpty && WantPCH)
         {
@@ -302,7 +308,8 @@ function OnLeave_WxConf(fwd)
         local lib_unic_suffix;
         local lib_suffix;
         local lib = WxPath + _T("/lib/");
-        if (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")))
+        if (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")) ||
+            GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("clang*")))
         {
             lib = lib + _T("gcc_");
             lib_prefix = _T("lib");
@@ -326,7 +333,12 @@ function OnLeave_WxConf(fwd)
             lib_prefix = _T("");
             lib_suffix = _T(".lib");
         }
-
+        else  // unknown compiler, fill variables so they are not null
+        {
+            lib = lib + _T("unk_");
+            lib_prefix = _T("");
+            lib_suffix = _T(".lib");
+        }
 
         if (IsDLL)
             lib = lib + _T("dll");
@@ -491,7 +503,9 @@ function OnLeave_WxConfUnix(fwd)
         IsEmpty = Wizard.IsCheckboxChecked(_T("chkWxUnixEmpty")); // Checks option for Empty Project
         WantPCH = Wizard.IsCheckboxChecked(_T("chkWxUnixConfPCH"));
 
-        if (!GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")) && WantPCH)
+        if (!GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")) &&
+            !GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("clang*")) &&
+            WantPCH)
         {
             ShowWarning(_("Precompiled headers currently only work for GNU GCC.\n") +
                         _("They are disabled for all other compilers."));
@@ -623,7 +637,8 @@ function SetupProject(project)
         }
 
         // Now enable PCH
-        if (WantPCH && GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")))
+        if (WantPCH && (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")) ||
+                        GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("clang*"))))
         {
             local pchfile = project.GetFileByFilename(PCHFileName, true, true);
             if (!IsNull(pchfile))
@@ -659,7 +674,8 @@ function SetupProject(project)
             project.AddCompilerOption(_T("/D_WINDOWS"));
             project.AddLinkerOption(_T("/INCREMENTAL:NO"));
         }
-        else if (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")))
+        else if (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")) ||
+                 GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("clang*")))
         {
             project.AddCompilerOption(_T("-pipe"));
             project.AddCompilerOption(_T("-mthreads"));
@@ -751,11 +767,13 @@ function SetupProject(project)
                 project.AddLinkLib(LibPrefix + _T("ws2_32") + LibSuffix);
             else
                 project.AddLinkLib(LibPrefix + _T("wsock32") + LibSuffix);
+
             if (LibWxGL)
                 project.AddLinkLib(LibPrefix + _T("opengl32") + LibSuffix);
 
             // needed for wxWidgets 3.1 and newer
-            if (WxVersion >= 1 && GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")))
+            if (WxVersion >= 1 && (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*"))) ||
+                                   GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("clang*")))
             {
                 project.AddLinkLib(LibPrefix + _T("shlwapi") + LibSuffix);
                 project.AddLinkLib(LibPrefix + _T("version") + LibSuffix);
@@ -763,15 +781,20 @@ function SetupProject(project)
                 project.AddLinkLib(LibPrefix + _T("uxtheme") + LibSuffix);
                 if (LibWxSTC)
                     project.AddLinkLib(LibPrefix + _T("imm32") + LibSuffix);
+                
+                if (WxVersion >= 3) // needed for wxWidgets 3.3 and newer
+                {
+                    project.AddLinkLib(LibPrefix + _T("gdiplus") + LibSuffix);
+                    project.AddLinkLib(LibPrefix + _T("msimg32") + LibSuffix);
+                }
             }
-
-
         }
     }
 
 
     // enable PCH
-    if (WantPCH && GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")))
+    if (WantPCH && (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*"))) ||
+                    GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("clang*")))
     {
         local pchfile = project.GetFileByFilename(PCHFileName, true, true);
         if (!IsNull(pchfile))
@@ -922,7 +945,8 @@ function SetupTarget(target, is_debug)
         OptimizationsOn(target, Wizard.GetCompilerID());
 
     target.SetOptionRelation(ortLinkerOptions, orPrependToParentOptions);
-    if (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")))
+    if (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")) ||
+        GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("clang*")))
         is_debug = ChkWxDebug && is_debug;
 
     if (!is_debug || IsPartialDebug)
@@ -984,7 +1008,9 @@ function SetupTarget(target, is_debug)
         {
             target.AddCompilerOption(_T("/D__WXDEBUG__")); // For Debug Build
         }
-        else if (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")) && is_debug && !IsPartialDebug)
+        else if (is_debug && !IsPartialDebug &&
+                (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")) ||
+                 GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("clang*"))))
         {
             target.AddCompilerOption(_T("-D__WXDEBUG__"));
         }
@@ -1228,7 +1254,8 @@ function OnLeave_WxAddLib(fwd)
 {
     if (fwd)
     {
-        if (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")))
+        if (GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("gcc*")) ||
+            GetCompilerFactory().CompilerInheritsFrom(Wizard.GetCompilerID(), _T("clang*")))
         {
             local tempLibArray = GetArrayFromString(Wizard.GetListboxStringSelections(_T("lstWxLibs")), _T(";"), false);
 

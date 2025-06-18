@@ -4,7 +4,7 @@
  *
  * $Revision: 12579 $
  * $Id: sc_globals.cpp 12579 2021-12-14 09:27:57Z wh11204 $
- * $HeadURL: file:///svn/p/codeblocks/code/trunk/src/sdk/scripting/bindings/sc_globals.cpp $
+ * $HeadURL: https://svn.code.sf.net/p/codeblocks/code/branches/release-25.03/src/sdk/scripting/bindings/sc_globals.cpp $
  */
 
 #include <sdk_precomp.h>
